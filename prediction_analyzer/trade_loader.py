@@ -55,16 +55,29 @@ def load_trades(file_path: str) -> List[Trade]:
                 market_title = t.get("market", "Unknown")
                 market_slug = t.get("market_slug", "unknown")
 
+            # Convert from micro-units (USDC has 6 decimals)
+            # If data comes from API (has collateralAmount), values are in micro-units
+            if "collateralAmount" in t:
+                # API data - convert from micro-units to regular units
+                raw_cost = float(t.get("collateralAmount", 0)) / 1_000_000
+                raw_pnl = float(t.get("pnl", 0)) / 1_000_000
+                raw_shares = float(t.get("outcomeTokenAmount", 0)) / 1_000_000
+            else:
+                # File data - already in regular units
+                raw_cost = float(t.get("cost", 0))
+                raw_pnl = float(t.get("pnl", 0))
+                raw_shares = float(t.get("shares", 0))
+
             trade = Trade(
                 market=market_title,
                 market_slug=market_slug,
                 timestamp=pd.to_datetime(t.get("timestamp", t.get("blockTimestamp", 0)), unit='s'),
                 price=float(t.get("price", 0)),
-                shares=float(t.get("shares", t.get("outcomeTokenAmount", 0))),
-                cost=float(t.get("cost", t.get("collateralAmount", 0))),
+                shares=raw_shares,
+                cost=raw_cost,
                 type=t.get("type", t.get("strategy", "Buy")),
                 side=t.get("side", "YES" if t.get("outcomeIndex", 0) == 0 else "NO"),
-                pnl=float(t.get("pnl", 0)),
+                pnl=raw_pnl,
                 tx_hash=t.get("tx_hash", t.get("transactionHash"))
             )
             trades.append(trade)
