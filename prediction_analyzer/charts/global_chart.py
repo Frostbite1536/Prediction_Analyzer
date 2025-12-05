@@ -19,9 +19,8 @@ def generate_global_dashboard(trades_by_market: Dict[str, List[Trade]]):
 
     fig = go.Figure()
 
-    total_cumulative = []
-    all_times = []
-    total_trades = 0
+    # Collect all trades from all markets for accurate total calculation
+    all_trades = []
 
     for market_name, trades in trades_by_market.items():
         if not trades:
@@ -50,27 +49,27 @@ def generate_global_dashboard(trades_by_market: Dict[str, List[Trade]]):
             hovertemplate=f'{market_name}<br>Time: %{{x}}<br>PnL: $%{{y:.2f}}<extra></extra>'
         ))
 
-        # Accumulate for total line
-        all_times.extend(times)
-        total_cumulative.extend(cumulative)
-        total_trades += len(trades)
+        # Collect all trades for total portfolio calculation
+        all_trades.extend(sorted_trades)
 
     # Add total cumulative PnL line
-    if all_times:
-        # Sort by time for total line
-        combined = sorted(zip(all_times, total_cumulative))
-        sorted_times, sorted_cum = zip(*combined)
+    if all_trades:
+        # Sort all trades by timestamp across all markets
+        all_trades_sorted = sorted(all_trades, key=lambda t: t.timestamp)
 
-        # Calculate true cumulative across all markets
-        true_cumulative = []
+        # Calculate true cumulative PnL across all markets
+        total_times = []
+        total_cumulative = []
         cum = 0
-        for val in sorted_cum:
-            cum = val  # This is simplified; for accurate results, need proper aggregation
-            true_cumulative.append(cum)
+
+        for trade in all_trades_sorted:
+            cum += trade.pnl
+            total_times.append(trade.timestamp)
+            total_cumulative.append(cum)
 
         fig.add_trace(go.Scatter(
-            x=sorted_times,
-            y=true_cumulative,
+            x=total_times,
+            y=total_cumulative,
             mode='lines',
             name='Total Portfolio',
             line=dict(color='black', width=4, dash='dash'),

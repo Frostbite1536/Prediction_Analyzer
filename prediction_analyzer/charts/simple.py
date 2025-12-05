@@ -42,13 +42,24 @@ def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcom
     # Calculate final PnL if resolved
     final_pnl = 0
     if resolved_outcome:
-        final_shares_yes = sum(t.shares if t.side == "YES" else -t.shares
-                              for t in sorted_trades
-                              if t.type in ["Buy", "Market Buy", "Limit Buy"])
-        final_shares_no = sum(t.shares if t.side == "NO" else -t.shares
-                             for t in sorted_trades
-                             if t.type in ["Buy", "Market Buy", "Limit Buy"])
+        # Calculate net shares for each side considering both Buy and Sell trades
+        final_shares_yes = 0
+        final_shares_no = 0
 
+        for t in sorted_trades:
+            if t.type in ["Buy", "Market Buy", "Limit Buy"]:
+                if t.side == "YES":
+                    final_shares_yes += t.shares
+                else:  # NO
+                    final_shares_no += t.shares
+            else:  # Sell trades
+                if t.side == "YES":
+                    final_shares_yes -= t.shares
+                else:  # NO
+                    final_shares_no -= t.shares
+
+        # Final value depends on which side resolved
+        # Each winning share is worth $1
         final_value = final_shares_yes if resolved_outcome == "YES" else final_shares_no
         final_pnl = final_value - net_exposure
 

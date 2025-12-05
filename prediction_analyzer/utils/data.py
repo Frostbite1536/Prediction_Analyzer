@@ -69,6 +69,6 @@ def fetch_market_details(market_slug: str):
         resp = requests.get(url, timeout=10)
         if resp.status_code == 200:
             return resp.json()
-    except:
+    except Exception:
         pass
     return None
