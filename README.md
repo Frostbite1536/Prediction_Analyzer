@@ -26,6 +26,32 @@ A complete modular analysis tool for prediction market traders. Analyze past tra
 
 ## 📦 Installation
 
+### Option 1: Run Without Installation (Quickest)
+
+If you want to try the package without installing it:
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Run directly using the run script
+python run.py --help
+
+# Example: Analyze trades
+python run.py --file your_trades.json
+```
+
+**Windows Users:**
+```powershell
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the analyzer
+python run.py --file your_trades.json
+```
+
+### Option 2: Full Installation
+
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/prediction_analyzer.git
@@ -38,57 +64,67 @@ pip install .
 pip install -e .
 ```
 
+After installation, you can use the `prediction-analyzer` command directly:
+```bash
+prediction-analyzer --file your_trades.json
+```
+
 ## 🎯 Quick Start
 
 ### Interactive Mode (Novice-Friendly)
 ```bash
-# Start the interactive analyzer
+# Without installation
+python run.py --file your_trades.json
+
+# Or with installation
 prediction-analyzer --file your_trades.json
 ```
 
 ### Command-Line Mode (Pro Users)
 ```bash
 # Global PnL summary
-prediction-analyzer --file trades.json --global
+python run.py --file trades.json --global
 
 # Analyze specific market with pro chart
-prediction-analyzer --file trades.json --market "ETH-USD" --chart pro
+python run.py --file trades.json --market "ETH-USD" --chart pro
 
 # Multi-market dashboard
-prediction-analyzer --file trades.json --dashboard
+python run.py --file trades.json --dashboard
 
 # Filter and export
-prediction-analyzer --file trades.json \
+python run.py --file trades.json \
     --start-date 2024-01-01 \
     --end-date 2024-12-31 \
     --type Buy \
     --export filtered_trades.xlsx
 ```
 
+**Note:** Replace `python run.py` with `prediction-analyzer` if you installed the package.
+
 ### Fetch Live Data
 ```bash
 # Fetch trades from API (first time)
-prediction-analyzer --fetch --key "0xYOURPRIVATEKEY"
+python run.py --fetch --key "0xYOURPRIVATEKEY"
 
 # After fetching, use local file
-prediction-analyzer --file limitless_trades.json
+python run.py --file limitless_trades.json
 ```
 
 ## 📊 Usage Examples
 
 ### Example 1: Quick Market Analysis
 ```bash
-prediction-analyzer --file trades.json --market "BTC-USD" --chart simple
+python run.py --file trades.json --market "BTC-USD" --chart simple
 ```
 
 ### Example 2: Professional Dashboard
 ```bash
-prediction-analyzer --file trades.json --dashboard
+python run.py --file trades.json --dashboard
 ```
 
 ### Example 3: Filtered Export
 ```bash
-prediction-analyzer --file trades.json \
+python run.py --file trades.json \
     --start-date 2024-06-01 \
     --min-pnl 10 \
     --export profitable_trades.csv
@@ -96,7 +132,7 @@ prediction-analyzer --file trades.json \
 
 ### Example 4: Generate Full Report
 ```bash
-prediction-analyzer --file trades.json --report
+python run.py --file trades.json --report
 ```
 
 ## 🛠️ Python API
@@ -197,6 +233,42 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🔧 Troubleshooting
+
+### "ModuleNotFoundError: No module named 'setuptools'"
+Don't use `python setup.py` directly. Instead, use one of these methods:
+```bash
+# Method 1: Run without installation
+pip install -r requirements.txt
+python run.py --file your_trades.json
+
+# Method 2: Install with pip (handles setuptools automatically)
+pip install .
+```
+
+### "ImportError: attempted relative import with no known parent package"
+Don't run files from inside the `prediction_analyzer/` directory. Instead, use:
+```bash
+# From the project root directory
+python run.py --file your_trades.json
+```
+
+### Missing Dependencies
+If you get import errors for pandas, numpy, etc.:
+```bash
+pip install -r requirements.txt
+```
+
+### Windows Path Issues
+On Windows, use forward slashes or escape backslashes in file paths:
+```powershell
+# Good
+python run.py --file "C:/Users/YourName/trades.json"
+
+# Also good
+python run.py --file "C:\\Users\\YourName\\trades.json"
+```
 
 ## 🙏 Acknowledgments
 
