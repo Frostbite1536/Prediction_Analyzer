@@ -5,6 +5,7 @@ A complete modular analysis tool for prediction market traders. Analyze past tra
 ## 🚀 Features
 
 ### For Everyone
+- **NEW: Graphical User Interface (GUI)** - Easy-to-use desktop application
 - Load trade history from JSON, CSV, or Excel
 - Calculate global and market-specific PnL
 - Filter trades by date, type, and PnL thresholds
@@ -61,7 +62,26 @@ prediction-analyzer --file your_trades.json
 
 ## 🎯 Quick Start
 
-### Interactive Mode (Novice-Friendly)
+### GUI Mode (Easiest - NEW!)
+The easiest way to use Prediction Analyzer is through the graphical interface:
+
+```bash
+# Windows: Just double-click run_gui.bat
+# Or run from command line:
+python run_gui.py
+```
+
+The GUI provides:
+- Point-and-click file loading
+- Visual trade statistics and summaries
+- Easy market selection and analysis
+- Interactive filters with form controls
+- One-click chart generation
+- Simple export functionality
+
+**Perfect for users who prefer a visual interface over command-line!**
+
+### Interactive CLI Mode (Terminal-Friendly)
 ```bash
 # Without installation
 python run.py --file your_trades.json
@@ -101,6 +121,20 @@ python run.py --file limitless_trades.json
 ```
 
 ## 📊 Usage Examples
+
+### Example 0: Using the GUI
+```bash
+# Launch the GUI
+python run_gui.py
+
+# Then use the interface to:
+# 1. Click "Load Trades File" to select your data file
+# 2. View the "Global Summary" tab for overall statistics
+# 3. Go to "Market Analysis" tab to analyze specific markets
+# 4. Use "Filters" tab to refine your data
+# 5. Generate charts with one click
+# 6. Export data via File menu or quick action buttons
+```
 
 ### Example 1: Quick Market Analysis
 ```bash
@@ -198,6 +232,13 @@ prediction_analyzer/
 │   └── export.py            # Export utilities
 └── core/                    # Core modules
     └── interactive.py       # Interactive CLI menu
+
+Root directory:
+├── run.py                   # CLI launcher
+├── run_gui.py               # GUI launcher
+├── run_gui.bat              # Windows GUI launcher
+├── gui.py                   # GUI application
+└── requirements.txt         # Dependencies
 ```
 
 ## 🧪 Testing
@@ -265,6 +306,19 @@ python run.py --file "C:/Users/YourName/trades.json"
 
 # Also good
 python run.py --file "C:\\Users\\YourName\\trades.json"
+```
+
+### GUI Not Launching (Linux)
+If the GUI doesn't launch on Linux, you may need to install tkinter:
+```bash
+# Ubuntu/Debian
+sudo apt-get install python3-tk
+
+# Fedora
+sudo dnf install python3-tkinter
+
+# Arch Linux
+sudo pacman -S tk
 ```
 
 ## 🙏 Acknowledgments
