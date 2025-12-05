@@ -75,12 +75,20 @@ def load_trades(file_path: str) -> List[Trade]:
 
     return trades
 
-def save_trades(trades: List[Trade], file_path: str):
+def save_trades(trades: List[Union[Trade, dict]], file_path: str):
     """Save trades to JSON file"""
-    trades_dict = [vars(t) for t in trades]
+    # Handle both Trade objects and raw dictionaries
+    trades_dict = []
+    for t in trades:
+        if isinstance(t, dict):
+            trades_dict.append(t)
+        else:
+            # It's a Trade object, convert using vars()
+            trades_dict.append(vars(t))
+
     # Convert datetime to string for JSON serialization
     for t in trades_dict:
-        if isinstance(t['timestamp'], datetime):
+        if 'timestamp' in t and isinstance(t['timestamp'], datetime):
             t['timestamp'] = t['timestamp'].isoformat()
 
     with open(file_path, 'w', encoding='utf-8') as f:
