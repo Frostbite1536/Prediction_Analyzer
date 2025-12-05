@@ -23,6 +23,8 @@ from prediction_analyzer.charts.pro import generate_pro_chart
 from prediction_analyzer.charts.enhanced import generate_enhanced_chart
 from prediction_analyzer.charts.global_chart import generate_global_dashboard
 from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel
+from prediction_analyzer.utils.auth import get_signing_message, authenticate
+from prediction_analyzer.utils.data import fetch_trade_history
 
 
 class PredictionAnalyzerGUI:
@@ -65,7 +67,8 @@ class PredictionAnalyzerGUI:
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Load Trades...", command=self.load_file)
+        file_menu.add_command(label="Load Trades from File...", command=self.load_file)
+        file_menu.add_command(label="Load Trades from API...", command=self.load_from_api)
         file_menu.add_separator()
         file_menu.add_command(label="Export to CSV...", command=lambda: self.export_data('csv'))
         file_menu.add_command(label="Export to Excel...", command=lambda: self.export_data('excel'))
@@ -135,35 +138,47 @@ class PredictionAnalyzerGUI:
         control_frame = ttk.LabelFrame(parent, text="Quick Actions", padding="10")
         control_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
+        # Private key input section
+        ttk.Label(control_frame, text="Private Key:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        self.private_key_entry = ttk.Entry(control_frame, width=40, show="*")
+        self.private_key_entry.grid(row=0, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=2)
+
+        ttk.Button(
+            control_frame,
+            text="Load from API",
+            command=self.load_from_api
+        ).grid(row=0, column=3, padx=5, pady=2)
+
+        # Action buttons row
         ttk.Button(
             control_frame,
             text="Load Trades File",
             command=self.load_file
-        ).grid(row=0, column=0, padx=5)
+        ).grid(row=1, column=0, padx=5, pady=2)
 
         ttk.Button(
             control_frame,
             text="Global Summary",
             command=self.show_global_summary
-        ).grid(row=0, column=1, padx=5)
+        ).grid(row=1, column=1, padx=5, pady=2)
 
         ttk.Button(
             control_frame,
             text="Generate Dashboard",
             command=self.generate_dashboard
-        ).grid(row=0, column=2, padx=5)
+        ).grid(row=1, column=2, padx=5, pady=2)
 
         ttk.Button(
             control_frame,
             text="Export CSV",
             command=lambda: self.export_data('csv')
-        ).grid(row=0, column=3, padx=5)
+        ).grid(row=1, column=3, padx=5, pady=2)
 
         ttk.Button(
             control_frame,
             text="Export Excel",
             command=lambda: self.export_data('excel')
-        ).grid(row=0, column=4, padx=5)
+        ).grid(row=1, column=4, padx=5, pady=2)
 
     def create_summary_tab(self):
         """Create global summary tab"""
@@ -399,6 +414,85 @@ class PredictionAnalyzerGUI:
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")
+
+    def load_from_api(self):
+        """Load trades from API using private key"""
+        private_key = self.private_key_entry.get().strip()
+
+        if not private_key:
+            messagebox.showwarning("Missing Private Key", "Please enter your private key.")
+            return
+
+        try:
+            # Show progress
+            self.status_label.config(text="Authenticating...")
+            self.root.update()
+
+            # Get signing message
+            signing_message = get_signing_message()
+            if not signing_message:
+                messagebox.showerror("Error", "Failed to get signing message from API")
+                self.status_label.config(text="Authentication failed")
+                return
+
+            # Authenticate
+            session_cookie, address = authenticate(private_key, signing_message)
+            if not session_cookie:
+                messagebox.showerror("Error", "Authentication failed. Please check your private key.")
+                self.status_label.config(text="Authentication failed")
+                return
+
+            # Update status
+            self.status_label.config(text=f"Authenticated as {address[:10]}... Fetching trades...")
+            self.root.update()
+
+            # Fetch trade history
+            raw_trades = fetch_trade_history(session_cookie)
+
+            if not raw_trades:
+                messagebox.showinfo("No Trades", "No trades found for this account.")
+                self.status_label.config(text=f"Authenticated as {address[:10]}... (0 trades)")
+                return
+
+            # Convert raw trades to Trade objects
+            from prediction_analyzer.trade_loader import load_trades
+            import json
+            import tempfile
+
+            # Save raw trades to temporary file and load them using existing loader
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
+                json.dump(raw_trades, tmp)
+                tmp_path = tmp.name
+
+            try:
+                self.all_trades = load_trades(tmp_path)
+                self.filtered_trades = self.all_trades.copy()
+                self.current_file_path = None  # Mark as API-loaded
+
+                # Update status
+                self.status_label.config(
+                    text=f"Loaded from API: {address[:10]}... ({len(self.all_trades)} trades)"
+                )
+
+                # Update displays
+                self.update_markets_list()
+                self.update_summary_display()
+
+                messagebox.showinfo(
+                    "Success",
+                    f"Successfully loaded {len(self.all_trades)} trades from API\nAddress: {address}"
+                )
+            finally:
+                # Clean up temp file
+                import os
+                try:
+                    os.unlink(tmp_path)
+                except:
+                    pass
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load trades from API:\n{str(e)}")
+            self.status_label.config(text="Failed to load from API")
 
     def update_markets_list(self):
         """Update the markets listbox"""
