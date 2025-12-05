@@ -15,13 +15,13 @@ package_dir = Path(__file__).parent
 sys.path.insert(0, str(package_dir))
 
 from prediction_analyzer.trade_loader import load_trades, Trade
-from prediction_analyzer.trade_filter import filter_trades_by_market_slug, get_unique_markets
+from prediction_analyzer.trade_filter import filter_trades_by_market_slug, get_unique_markets, group_trades_by_market
 from prediction_analyzer.filters import filter_by_date, filter_by_trade_type, filter_by_pnl
 from prediction_analyzer.pnl import calculate_global_pnl_summary, calculate_market_pnl_summary
 from prediction_analyzer.charts.simple import generate_simple_chart
 from prediction_analyzer.charts.pro import generate_pro_chart
 from prediction_analyzer.charts.enhanced import generate_enhanced_chart
-from prediction_analyzer.charts.global_chart import generate_dashboard
+from prediction_analyzer.charts.global_chart import generate_global_dashboard
 from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel
 
 
@@ -544,7 +544,9 @@ class PredictionAnalyzerGUI:
             return
 
         try:
-            generate_dashboard(self.filtered_trades)
+            # Group trades by market for the dashboard
+            trades_by_market = group_trades_by_market(self.filtered_trades)
+            generate_global_dashboard(trades_by_market)
             messagebox.showinfo("Success", "Dashboard generated successfully!")
 
         except Exception as e:
