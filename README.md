@@ -26,41 +26,31 @@ A complete modular analysis tool for prediction market traders. Analyze past tra
 
 ## 📦 Installation
 
-### Option 1: Run Without Installation (Quickest)
+**📖 For detailed installation instructions, see [INSTALL.md](INSTALL.md)**
 
-If you want to try the package without installing it:
+### Quick Start (3 Easy Steps)
 
+#### Windows Users (Easiest):
+1. Download/clone this repository
+2. Double-click `install.bat` (or run it from command prompt)
+3. Run `python run.py`
+
+#### All Platforms:
 ```bash
 # 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Run directly using the run script
+# 2. Run the analyzer
 python run.py --help
-
-# Example: Analyze trades
-python run.py --file your_trades.json
 ```
 
-**Windows Users:**
-```powershell
-# Install dependencies
-pip install -r requirements.txt
+The `run.py` script will automatically check for missing dependencies and guide you if anything is missing!
 
-# Run the analyzer
-python run.py --file your_trades.json
-```
+### Full Installation (Optional)
 
-### Option 2: Full Installation
+If you want to install as a package and use `prediction-analyzer` command anywhere:
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/prediction_analyzer.git
-cd prediction_analyzer
-
-# Install the package
-pip install .
-
-# Or install in development mode
 pip install -e .
 ```
 
@@ -236,28 +226,35 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🔧 Troubleshooting
 
-### "ModuleNotFoundError: No module named 'setuptools'"
-Don't use `python setup.py` directly. Instead, use one of these methods:
-```bash
-# Method 1: Run without installation
-pip install -r requirements.txt
-python run.py --file your_trades.json
+**📖 For complete troubleshooting guide, see [INSTALL.md](INSTALL.md)**
 
-# Method 2: Install with pip (handles setuptools automatically)
-pip install .
+### Missing Dependencies (pandas, numpy, etc.)
+The `run.py` script will now detect missing dependencies and show you exactly what's missing!
+
+**Quick Fix:**
+```bash
+# Windows: Double-click install.bat or run:
+install.bat
+
+# All platforms:
+pip install -r requirements.txt
+```
+
+### "ModuleNotFoundError: No module named 'setuptools'"
+Don't use `python setup.py` directly. Instead:
+```bash
+# Windows users - easiest method:
+install.bat
+
+# All platforms:
+pip install -r requirements.txt
 ```
 
 ### "ImportError: attempted relative import with no known parent package"
-Don't run files from inside the `prediction_analyzer/` directory. Instead, use:
+Don't run files from inside the `prediction_analyzer/` directory. Always use:
 ```bash
-# From the project root directory
+# From the project root directory:
 python run.py --file your_trades.json
-```
-
-### Missing Dependencies
-If you get import errors for pandas, numpy, etc.:
-```bash
-pip install -r requirements.txt
 ```
 
 ### Windows Path Issues
