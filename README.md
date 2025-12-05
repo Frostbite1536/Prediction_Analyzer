@@ -321,23 +321,3 @@ sudo dnf install python3-tkinter
 sudo pacman -S tk
 ```
 
-## 🙏 Acknowledgments
-
-- Built for prediction market traders
-- Supports Limitless Exchange and similar platforms
-- Inspired by the need for better trade analytics
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/yourusername/prediction_analyzer/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/prediction_analyzer/discussions)
-- **Email**: you@example.com
-
-## 🗺️ Roadmap
-
-- [ ] Support for more prediction market platforms
-- [ ] Machine learning insights
-- [ ] Mobile app version
-- [ ] Real-time trade tracking
-- [ ] Social features (share analyses)
-- [ ] Advanced risk metrics
