@@ -1,0 +1,28 @@
+[
+  {
+    "market": {
+      "title": "Will Bitcoin reach $100k by end of 2024?",
+      "slug": "btc-100k-2024"
+    },
+    "timestamp": 1704067200,
+    "strategy": "Buy",
+    "outcomeIndex": 0,
+    "outcomeTokenAmount": 100,
+    "collateralAmount": 50,
+    "pnl": 0,
+    "blockTimestamp": 1704067200
+  },
+  {
+    "market": {
+      "title": "Will Bitcoin reach $100k by end of 2024?",
+      "slug": "btc-100k-2024"
+    },
+    "timestamp": 1704153600,
+    "strategy": "Sell",
+    "outcomeIndex": 0,
+    "outcomeTokenAmount": 50,
+    "collateralAmount": 30,
+    "pnl": 5,
+    "blockTimestamp": 1704153600
+  }
+]
