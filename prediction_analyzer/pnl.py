@@ -56,7 +56,13 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
             "total_volume": 0.0,
             "total_pnl": 0.0,
             "win_rate": 0.0,
-            "avg_pnl_per_trade": 0.0
+            "avg_pnl_per_trade": 0.0,
+            "winning_trades": 0,
+            "losing_trades": 0,
+            "total_invested": 0.0,
+            "total_returned": 0.0,
+            "roi": 0.0,
+            "avg_pnl": 0.0
         }
 
     df = pd.DataFrame([vars(t) for t in trades])
@@ -66,14 +72,27 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
     winning_trades = len(df[df["pnl"] > 0])
     total_trades = len(df)
 
+    # Calculate total invested and returned
+    buy_trades = df[df["type"].isin(["Buy", "Market Buy", "Limit Buy"])]
+    sell_trades = df[df["type"].isin(["Sell", "Market Sell", "Limit Sell"])]
+    total_invested = buy_trades["cost"].sum() if len(buy_trades) > 0 else 0.0
+    total_returned = sell_trades["cost"].sum() if len(sell_trades) > 0 else 0.0
+
+    # Calculate ROI
+    roi = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
+
     return {
         "total_trades": total_trades,
         "total_volume": total_volume,
         "total_pnl": total_pnl,
         "win_rate": (winning_trades / total_trades * 100) if total_trades > 0 else 0,
         "avg_pnl_per_trade": total_pnl / total_trades if total_trades > 0 else 0,
+        "avg_pnl": total_pnl / total_trades if total_trades > 0 else 0,
         "winning_trades": winning_trades,
-        "losing_trades": total_trades - winning_trades
+        "losing_trades": total_trades - winning_trades,
+        "total_invested": total_invested,
+        "total_returned": total_returned,
+        "roi": roi
     }
 
 def calculate_market_pnl(trades: List[Trade]) -> Dict[str, Dict]:
@@ -100,3 +119,65 @@ def calculate_market_pnl(trades: List[Trade]) -> Dict[str, Dict]:
         market_stats[slug]["trade_count"] += 1
 
     return market_stats
+
+def calculate_market_pnl_summary(trades: List[Trade]) -> Dict:
+    """
+    Calculate detailed PnL summary for a specific market's trades
+
+    Args:
+        trades: List of Trade objects for a specific market
+
+    Returns:
+        Dictionary with market summary statistics
+    """
+    if not trades:
+        return {
+            "market_title": "Unknown Market",
+            "total_trades": 0,
+            "total_pnl": 0.0,
+            "avg_pnl": 0.0,
+            "winning_trades": 0,
+            "losing_trades": 0,
+            "win_rate": 0.0,
+            "total_invested": 0.0,
+            "total_returned": 0.0,
+            "roi": 0.0,
+            "market_outcome": None
+        }
+
+    # Get market title from first trade
+    market_title = trades[0].market
+
+    df = pd.DataFrame([vars(t) for t in trades])
+
+    total_pnl = df["pnl"].sum()
+    winning_trades = len(df[df["pnl"] > 0])
+    total_trades = len(df)
+
+    # Calculate total invested and returned
+    buy_trades = df[df["type"].isin(["Buy", "Market Buy", "Limit Buy"])]
+    sell_trades = df[df["type"].isin(["Sell", "Market Sell", "Limit Sell"])]
+    total_invested = buy_trades["cost"].sum() if len(buy_trades) > 0 else 0.0
+    total_returned = sell_trades["cost"].sum() if len(sell_trades) > 0 else 0.0
+
+    # Calculate ROI
+    roi = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
+
+    # Try to infer market outcome if available
+    market_outcome = None
+    if hasattr(trades[0], 'outcome') and trades[0].outcome:
+        market_outcome = trades[0].outcome
+
+    return {
+        "market_title": market_title,
+        "total_trades": total_trades,
+        "total_pnl": total_pnl,
+        "avg_pnl": total_pnl / total_trades if total_trades > 0 else 0,
+        "winning_trades": winning_trades,
+        "losing_trades": total_trades - winning_trades,
+        "win_rate": (winning_trades / total_trades * 100) if total_trades > 0 else 0,
+        "total_invested": total_invested,
+        "total_returned": total_returned,
+        "roi": roi,
+        "market_outcome": market_outcome
+    }
