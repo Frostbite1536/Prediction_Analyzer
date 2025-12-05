@@ -51,3 +51,9 @@ htmlcov/
 # *.json
 # *.csv
 # *.xlsx
+
+# Generated chart outputs
+chart_*.png
+pro_chart_*.html
+enhanced_chart_*.html
+global_dashboard.html

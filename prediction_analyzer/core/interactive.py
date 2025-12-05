@@ -10,6 +10,7 @@ from ..reporting.report_text import print_global_summary, generate_text_report
 from ..reporting.report_data import export_to_csv, export_to_excel
 from ..charts.simple import generate_simple_chart
 from ..charts.pro import generate_pro_chart
+from ..charts.enhanced import generate_enhanced_chart
 
 def interactive_menu(trades: List[Trade]):
     """
@@ -110,13 +111,16 @@ def analyze_market_menu(trades: List[Trade]):
         print("\n📊 SELECT CHART TYPE")
         print("1. Simple Chart (Quick View)")
         print("2. Professional Chart (Interactive)")
+        print("3. Enhanced Chart (Battlefield View)")
 
-        chart_choice = input("\nSelect chart type (1 or 2): ").strip()
+        chart_choice = input("\nSelect chart type (1, 2, or 3): ").strip()
 
         if chart_choice == '1':
             generate_simple_chart(filtered_trades, selected_name)
         elif chart_choice == '2':
             generate_pro_chart(filtered_trades, selected_name)
+        elif chart_choice == '3':
+            generate_enhanced_chart(filtered_trades, selected_name)
         else:
             print("❌ Invalid choice.")
 

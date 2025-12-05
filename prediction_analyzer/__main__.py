@@ -13,6 +13,7 @@ from .core.interactive import interactive_menu
 from .reporting.report_text import print_global_summary, generate_text_report
 from .charts.simple import generate_simple_chart
 from .charts.pro import generate_pro_chart
+from .charts.enhanced import generate_enhanced_chart
 from .charts.global_chart import generate_global_dashboard
 from .trade_filter import filter_trades_by_market_slug, get_unique_markets
 from .filters import filter_by_date, filter_by_trade_type, filter_by_pnl
@@ -33,6 +34,7 @@ Examples:
 
   # Analyze specific market
   python -m prediction_analyzer --file trades.json --market "ETH-USD" --chart pro
+  python -m prediction_analyzer --file trades.json --market "ETH-USD" --chart enhanced
 
   # Fetch trades from API
   python -m prediction_analyzer --fetch --key "0xYOURPRIVATEKEY"
@@ -52,8 +54,8 @@ Examples:
     analysis_group = parser.add_argument_group('Analysis')
     analysis_group.add_argument('--market', '-m', type=str, help='Analyze specific market (slug or name)')
     analysis_group.add_argument('--global', dest='global_view', action='store_true', help='Show global PnL summary')
-    analysis_group.add_argument('--chart', '-c', choices=['simple', 'pro'], default='simple',
-                                help='Chart type (default: simple)')
+    analysis_group.add_argument('--chart', '-c', choices=['simple', 'pro', 'enhanced'], default='simple',
+                                help='Chart type: simple, pro, or enhanced (default: simple)')
     analysis_group.add_argument('--dashboard', action='store_true', help='Generate multi-market dashboard')
 
     # Filter options
@@ -100,7 +102,6 @@ Examples:
         save_trades(raw_trades, DEFAULT_TRADE_FILE)
 
         # Convert to Trade objects
-        from .trade_loader import load_trades
         trades = load_trades(DEFAULT_TRADE_FILE)
 
     elif args.file:
@@ -181,8 +182,12 @@ Examples:
 
         if args.chart == 'simple':
             generate_simple_chart(market_trades, market_name)
-        else:
+        elif args.chart == 'pro':
             generate_pro_chart(market_trades, market_name)
+        elif args.chart == 'enhanced':
+            generate_enhanced_chart(market_trades, market_name)
+        else:
+            generate_simple_chart(market_trades, market_name)
 
     # Interactive mode (if no other actions specified)
     if not any([args.global_view, args.report, args.export, args.dashboard, args.market]) and not args.no_interactive:
