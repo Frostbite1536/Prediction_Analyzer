@@ -5,7 +5,7 @@ Enhanced chart generation with battlefield visualization
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from typing import List
-from ..trade_loader import Trade
+from ..trade_loader import Trade, _sanitize_filename
 
 
 def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None):
@@ -293,8 +293,9 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
 
-    # Save as interactive HTML
-    filename = f"enhanced_chart_{market_name[:30].replace(' ', '_')}.html"
+    # Save as interactive HTML with sanitized filename
+    safe_market_name = _sanitize_filename(market_name, max_length=30)
+    filename = f"enhanced_chart_{safe_market_name}.html"
     fig.write_html(filename)
     print(f"✅ Enhanced battlefield chart saved: {filename}")
     print("   📊 Top Panel: Implied probability with trade triangles (size = bet amount)")

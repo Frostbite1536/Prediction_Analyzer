@@ -2,9 +2,40 @@
 """
 Advanced filtering functions for trades
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 from .trade_loader import Trade
+
+
+def _normalize_datetime(dt) -> datetime:
+    """
+    Normalize a datetime value to a naive datetime for consistent comparison.
+    Handles both timezone-aware and naive datetimes, and numeric timestamps.
+
+    Args:
+        dt: datetime object, pandas Timestamp, or numeric timestamp
+
+    Returns:
+        Naive datetime object
+    """
+    if dt is None:
+        return None
+
+    # Handle numeric timestamps (Unix epoch)
+    if isinstance(dt, (int, float)):
+        # Use UTC to avoid local timezone issues
+        return datetime.utcfromtimestamp(dt)
+
+    # Handle pandas Timestamp
+    if hasattr(dt, 'to_pydatetime'):
+        dt = dt.to_pydatetime()
+
+    # Handle timezone-aware datetime - convert to naive (assume UTC)
+    if isinstance(dt, datetime) and dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+
+    return dt
+
 
 def filter_by_date(trades: List[Trade], start: Optional[str] = None, end: Optional[str] = None) -> List[Trade]:
     """
@@ -21,17 +52,31 @@ def filter_by_date(trades: List[Trade], start: Optional[str] = None, end: Option
     if not start and not end:
         return trades
 
-    if isinstance(start, str):
-        start = datetime.strptime(start, "%Y-%m-%d")
-    if isinstance(end, str):
-        end = datetime.strptime(end, "%Y-%m-%d")
+    # Parse start/end as naive datetimes (midnight on those days)
+    start_dt = None
+    end_dt = None
+
+    if isinstance(start, str) and start:
+        start_dt = datetime.strptime(start, "%Y-%m-%d")
+    elif isinstance(start, datetime):
+        start_dt = _normalize_datetime(start)
+
+    if isinstance(end, str) and end:
+        # End date should include the entire day (up to midnight next day)
+        end_dt = datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+    elif isinstance(end, datetime):
+        end_dt = _normalize_datetime(end)
 
     filtered = []
     for t in trades:
-        ts = t.timestamp if isinstance(t.timestamp, datetime) else datetime.fromtimestamp(t.timestamp)
-        if start and ts < start:
+        # Normalize trade timestamp for comparison
+        ts = _normalize_datetime(t.timestamp)
+        if ts is None:
             continue
-        if end and ts > end:
+
+        if start_dt and ts < start_dt:
+            continue
+        if end_dt and ts > end_dt:
             continue
         filtered.append(t)
     return filtered
