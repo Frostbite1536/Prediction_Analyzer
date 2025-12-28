@@ -5,8 +5,8 @@ Simple chart generation for novice users
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from typing import List
-from ..trade_loader import Trade
-from ..config import STYLES
+from ..trade_loader import Trade, _sanitize_filename
+from ..config import get_trade_style
 
 def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None):
     """
@@ -78,8 +78,7 @@ def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcom
 
     # Add trade markers
     for t in sorted_trades:
-        key = (t.type, t.side)
-        color, marker, _ = STYLES.get(key, ('gray', 'o', ''))
+        color, marker, _ = get_trade_style(t.type, t.side)
         size = min(max(t.cost * 2, 20), 500)
         ax1.scatter(t.timestamp, t.price, s=size, c=color, marker=marker,
                    alpha=0.8, edgecolors='black', linewidths=0.5)
@@ -103,8 +102,9 @@ def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcom
 
     plt.tight_layout()
 
-    # Save chart
-    filename = f"chart_{market_name[:30].replace(' ', '_')}.png"
+    # Save chart with sanitized filename
+    safe_market_name = _sanitize_filename(market_name, max_length=30)
+    filename = f"chart_{safe_market_name}.png"
     plt.savefig(filename, dpi=150, bbox_inches='tight')
     print(f"✅ Chart saved: {filename}")
     plt.show()

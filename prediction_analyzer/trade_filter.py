@@ -45,16 +45,25 @@ def filter_trades_by_market_slug(trades: List[Trade], market_slug: str) -> List[
 
 def deduplicate_trades(trades: List[Trade]) -> List[Trade]:
     """
-    Remove exact duplicate trades based on unique identifiers
+    Remove exact duplicate trades based on unique identifiers.
+
+    Uses both market name and slug in the identifier to prevent
+    false positives when market_slug defaults to "unknown".
     """
     seen = set()
     unique_trades = []
 
     for t in trades:
+        # Format timestamp consistently
+        ts_str = t.timestamp.isoformat() if hasattr(t.timestamp, 'isoformat') else str(t.timestamp)
+
         # Create identifier from key fields
+        # Include BOTH market name and slug to prevent false duplicates
+        # when slug is "unknown" (default) for different markets
         identifier = (
-            t.market_slug,
-            t.timestamp.isoformat() if hasattr(t.timestamp, 'isoformat') else str(t.timestamp),
+            t.market,       # Include market name
+            t.market_slug,  # Include slug
+            ts_str,
             t.price,
             t.shares,
             t.type,

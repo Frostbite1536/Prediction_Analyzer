@@ -70,6 +70,8 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
     total_volume = df["cost"].sum()
     total_pnl = df["pnl"].sum()
     winning_trades = len(df[df["pnl"] > 0])
+    losing_trades = len(df[df["pnl"] < 0])
+    breakeven_trades = len(df[df["pnl"] == 0])
     total_trades = len(df)
 
     # Calculate total invested and returned
@@ -81,15 +83,20 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
     # Calculate ROI
     roi = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
 
+    # Win rate excludes breakeven trades from the denominator for accuracy
+    trades_with_outcome = winning_trades + losing_trades
+    win_rate = (winning_trades / trades_with_outcome * 100) if trades_with_outcome > 0 else 0.0
+
     return {
         "total_trades": total_trades,
         "total_volume": total_volume,
         "total_pnl": total_pnl,
-        "win_rate": (winning_trades / total_trades * 100) if total_trades > 0 else 0,
+        "win_rate": win_rate,
         "avg_pnl_per_trade": total_pnl / total_trades if total_trades > 0 else 0,
         "avg_pnl": total_pnl / total_trades if total_trades > 0 else 0,
         "winning_trades": winning_trades,
-        "losing_trades": total_trades - winning_trades,
+        "losing_trades": losing_trades,
+        "breakeven_trades": breakeven_trades,
         "total_invested": total_invested,
         "total_returned": total_returned,
         "roi": roi
@@ -152,6 +159,8 @@ def calculate_market_pnl_summary(trades: List[Trade]) -> Dict:
 
     total_pnl = df["pnl"].sum()
     winning_trades = len(df[df["pnl"] > 0])
+    losing_trades = len(df[df["pnl"] < 0])
+    breakeven_trades = len(df[df["pnl"] == 0])
     total_trades = len(df)
 
     # Calculate total invested and returned
@@ -162,6 +171,10 @@ def calculate_market_pnl_summary(trades: List[Trade]) -> Dict:
 
     # Calculate ROI
     roi = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
+
+    # Win rate excludes breakeven trades from the denominator for accuracy
+    trades_with_outcome = winning_trades + losing_trades
+    win_rate = (winning_trades / trades_with_outcome * 100) if trades_with_outcome > 0 else 0.0
 
     # Try to infer market outcome if available
     market_outcome = None
@@ -174,8 +187,9 @@ def calculate_market_pnl_summary(trades: List[Trade]) -> Dict:
         "total_pnl": total_pnl,
         "avg_pnl": total_pnl / total_trades if total_trades > 0 else 0,
         "winning_trades": winning_trades,
-        "losing_trades": total_trades - winning_trades,
-        "win_rate": (winning_trades / total_trades * 100) if total_trades > 0 else 0,
+        "losing_trades": losing_trades,
+        "breakeven_trades": breakeven_trades,
+        "win_rate": win_rate,
         "total_invested": total_invested,
         "total_returned": total_returned,
         "roi": roi,
