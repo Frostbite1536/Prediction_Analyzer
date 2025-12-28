@@ -39,6 +39,7 @@ class PredictionAnalyzerGUI:
         self.all_trades: List[Trade] = []
         self.filtered_trades: List[Trade] = []
         self.current_file_path: Optional[str] = None
+        self.market_slugs: List[str] = []  # Initialize to prevent AttributeError
 
         # Configure style
         self.setup_style()
@@ -52,12 +53,17 @@ class PredictionAnalyzerGUI:
         style = ttk.Style()
         style.theme_use('clam')
 
-        # Configure colors
-        style.configure('Title.TLabel', font=('Arial', 16, 'bold'))
-        style.configure('Subtitle.TLabel', font=('Arial', 12, 'bold'))
-        style.configure('Info.TLabel', font=('Arial', 10))
-        style.configure('Success.TLabel', foreground='green', font=('Arial', 10, 'bold'))
-        style.configure('Error.TLabel', foreground='red', font=('Arial', 10, 'bold'))
+        # Use cross-platform font family (works on Windows, macOS, Linux)
+        # 'TkDefaultFont' is always available, fallback chain for explicit fonts
+        self.default_font = ('DejaVu Sans', 'Helvetica', 'Arial', 'TkDefaultFont')
+        self.mono_font = ('DejaVu Sans Mono', 'Consolas', 'Courier', 'TkFixedFont')
+
+        # Configure colors with cross-platform fonts
+        style.configure('Title.TLabel', font=(self.default_font[0], 16, 'bold'))
+        style.configure('Subtitle.TLabel', font=(self.default_font[0], 12, 'bold'))
+        style.configure('Info.TLabel', font=(self.default_font[0], 10))
+        style.configure('Success.TLabel', foreground='green', font=(self.default_font[0], 10, 'bold'))
+        style.configure('Error.TLabel', foreground='red', font=(self.default_font[0], 10, 'bold'))
 
     def create_menu_bar(self):
         """Create application menu bar"""
@@ -202,7 +208,7 @@ class PredictionAnalyzerGUI:
             summary_frame,
             width=80,
             height=20,
-            font=('Courier', 10)
+            font=(self.mono_font[0], 10)
         )
         self.summary_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
@@ -232,7 +238,7 @@ class PredictionAnalyzerGUI:
             listbox_frame,
             yscrollcommand=scrollbar.set,
             height=15,
-            font=('Arial', 10)
+            font=(self.default_font[0], 10)
         )
         self.market_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.market_listbox.yview)
@@ -276,7 +282,7 @@ class PredictionAnalyzerGUI:
             markets_frame,
             width=80,
             height=10,
-            font=('Courier', 10)
+            font=(self.mono_font[0], 10)
         )
         self.market_details_text.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
 
@@ -292,10 +298,16 @@ class PredictionAnalyzerGUI:
         ttk.Label(date_frame, text="Start Date (YYYY-MM-DD):").grid(row=0, column=0, sticky=tk.W)
         self.start_date_entry = ttk.Entry(date_frame, width=20)
         self.start_date_entry.grid(row=0, column=1, padx=5, pady=2)
+        # Bind Enter key to apply filters
+        self.start_date_entry.bind('<Return>', lambda e: self.apply_filters())
 
         ttk.Label(date_frame, text="End Date (YYYY-MM-DD):").grid(row=1, column=0, sticky=tk.W)
         self.end_date_entry = ttk.Entry(date_frame, width=20)
         self.end_date_entry.grid(row=1, column=1, padx=5, pady=2)
+        self.end_date_entry.bind('<Return>', lambda e: self.apply_filters())
+
+        # Format hint label
+        ttk.Label(date_frame, text="(e.g., 2024-01-15)", style='Info.TLabel').grid(row=0, column=2, sticky=tk.W, padx=5)
 
         # Trade type filters
         type_frame = ttk.LabelFrame(filters_frame, text="Trade Type", padding="10")
@@ -314,10 +326,15 @@ class PredictionAnalyzerGUI:
         ttk.Label(pnl_frame, text="Minimum PnL ($):").grid(row=0, column=0, sticky=tk.W)
         self.min_pnl_entry = ttk.Entry(pnl_frame, width=20)
         self.min_pnl_entry.grid(row=0, column=1, padx=5, pady=2)
+        self.min_pnl_entry.bind('<Return>', lambda e: self.apply_filters())
 
         ttk.Label(pnl_frame, text="Maximum PnL ($):").grid(row=1, column=0, sticky=tk.W)
         self.max_pnl_entry = ttk.Entry(pnl_frame, width=20)
         self.max_pnl_entry.grid(row=1, column=1, padx=5, pady=2)
+        self.max_pnl_entry.bind('<Return>', lambda e: self.apply_filters())
+
+        # Format hint label
+        ttk.Label(pnl_frame, text="(e.g., -100.50, 500)", style='Info.TLabel').grid(row=0, column=2, sticky=tk.W, padx=5)
 
         # Filter buttons
         button_frame = ttk.Frame(filters_frame)
@@ -495,19 +512,42 @@ class PredictionAnalyzerGUI:
             self.status_label.config(text="Failed to load from API")
 
     def update_markets_list(self):
-        """Update the markets listbox"""
+        """Update the markets listbox while preserving selection if possible"""
+        # Remember current selection before clearing
+        current_selection = self.market_listbox.curselection()
+        selected_slug = None
+        if current_selection and self.market_slugs:
+            idx = current_selection[0]
+            if idx < len(self.market_slugs):
+                selected_slug = self.market_slugs[idx]
+
         self.market_listbox.delete(0, tk.END)
 
         if not self.filtered_trades:
+            self.market_slugs = []
             return
 
         markets = get_unique_markets(self.filtered_trades)
         self.market_slugs = sorted(markets.keys())
 
-        for slug in self.market_slugs:
+        new_selection_idx = None
+        for i, slug in enumerate(self.market_slugs):
             title = markets[slug]
-            display_text = f"{title[:70]}"
+            # Truncate with "..." indicator if title is too long
+            if len(title) > 67:
+                display_text = f"{title[:67]}..."
+            else:
+                display_text = title
             self.market_listbox.insert(tk.END, display_text)
+
+            # Check if this was the previously selected market
+            if slug == selected_slug:
+                new_selection_idx = i
+
+        # Restore selection if the market still exists in filtered list
+        if new_selection_idx is not None:
+            self.market_listbox.selection_set(new_selection_idx)
+            self.market_listbox.see(new_selection_idx)
 
     def update_summary_display(self):
         """Update the global summary display"""
@@ -646,20 +686,107 @@ class PredictionAnalyzerGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate dashboard:\n{str(e)}")
 
+    def _validate_date_format(self, date_str: str) -> bool:
+        """Validate date string is in YYYY-MM-DD format"""
+        if not date_str:
+            return True  # Empty is valid (no filter)
+        try:
+            datetime.strptime(date_str, "%Y-%m-%d")
+            return True
+        except ValueError:
+            return False
+
+    def _validate_numeric(self, value_str: str) -> bool:
+        """Validate string can be converted to float"""
+        if not value_str:
+            return True  # Empty is valid (no filter)
+        try:
+            float(value_str)
+            return True
+        except ValueError:
+            return False
+
     def apply_filters(self):
-        """Apply filters to trades"""
+        """Apply filters to trades with input validation"""
         if not self.all_trades:
             messagebox.showwarning("No Data", "Please load a trades file first.")
             return
+
+        # Validate date formats
+        start_date = self.start_date_entry.get().strip()
+        end_date = self.end_date_entry.get().strip()
+
+        if start_date and not self._validate_date_format(start_date):
+            messagebox.showerror(
+                "Invalid Date Format",
+                f"Start date '{start_date}' is not valid.\n\n"
+                "Please use YYYY-MM-DD format (e.g., 2024-01-15)."
+            )
+            self.start_date_entry.focus_set()
+            return
+
+        if end_date and not self._validate_date_format(end_date):
+            messagebox.showerror(
+                "Invalid Date Format",
+                f"End date '{end_date}' is not valid.\n\n"
+                "Please use YYYY-MM-DD format (e.g., 2024-01-15)."
+            )
+            self.end_date_entry.focus_set()
+            return
+
+        # Validate date range (start should be before or equal to end)
+        if start_date and end_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            if start_dt > end_dt:
+                messagebox.showerror(
+                    "Invalid Date Range",
+                    f"Start date ({start_date}) is after end date ({end_date}).\n\n"
+                    "Please ensure start date is before or equal to end date."
+                )
+                self.start_date_entry.focus_set()
+                return
+
+        # Validate PnL values
+        min_pnl_str = self.min_pnl_entry.get().strip()
+        max_pnl_str = self.max_pnl_entry.get().strip()
+
+        if min_pnl_str and not self._validate_numeric(min_pnl_str):
+            messagebox.showerror(
+                "Invalid PnL Value",
+                f"Minimum PnL '{min_pnl_str}' is not a valid number.\n\n"
+                "Please enter a numeric value (e.g., -100.50 or 500)."
+            )
+            self.min_pnl_entry.focus_set()
+            return
+
+        if max_pnl_str and not self._validate_numeric(max_pnl_str):
+            messagebox.showerror(
+                "Invalid PnL Value",
+                f"Maximum PnL '{max_pnl_str}' is not a valid number.\n\n"
+                "Please enter a numeric value (e.g., -100.50 or 500)."
+            )
+            self.max_pnl_entry.focus_set()
+            return
+
+        # Validate PnL range
+        if min_pnl_str and max_pnl_str:
+            min_pnl_val = float(min_pnl_str)
+            max_pnl_val = float(max_pnl_str)
+            if min_pnl_val > max_pnl_val:
+                messagebox.showerror(
+                    "Invalid PnL Range",
+                    f"Minimum PnL (${min_pnl_val:.2f}) is greater than maximum PnL (${max_pnl_val:.2f}).\n\n"
+                    "Please ensure minimum is less than or equal to maximum."
+                )
+                self.min_pnl_entry.focus_set()
+                return
 
         try:
             filtered = self.all_trades.copy()
             filters_applied = []
 
             # Date filters
-            start_date = self.start_date_entry.get().strip()
-            end_date = self.end_date_entry.get().strip()
-
             if start_date or end_date:
                 filtered = filter_by_date(
                     filtered,
@@ -675,14 +802,15 @@ class PredictionAnalyzerGUI:
             if self.sell_var.get():
                 trade_types.append("Sell")
 
-            if trade_types and len(trade_types) < 2:
+            # Handle case where neither checkbox is checked (show no trades)
+            if not trade_types:
+                filtered = []
+                filters_applied.append("Type: None (no trades match)")
+            elif len(trade_types) < 2:
                 filtered = filter_by_trade_type(filtered, trade_types)
                 filters_applied.append(f"Type: {', '.join(trade_types)}")
 
             # PnL filters
-            min_pnl_str = self.min_pnl_entry.get().strip()
-            max_pnl_str = self.max_pnl_entry.get().strip()
-
             min_pnl = float(min_pnl_str) if min_pnl_str else None
             max_pnl = float(max_pnl_str) if max_pnl_str else None
 
@@ -725,17 +853,32 @@ class PredictionAnalyzerGUI:
         self.buy_var.set(True)
         self.sell_var.set(True)
 
-        # Reset filtered trades
-        self.filtered_trades = self.all_trades.copy()
+        # Reset filtered trades only if we have data
+        if self.all_trades:
+            self.filtered_trades = self.all_trades.copy()
 
-        # Update displays
-        self.update_markets_list()
-        self.update_summary_display()
+            # Update displays
+            self.update_markets_list()
+            self.update_summary_display()
 
-        # Update status
-        self.filter_status_label.config(text="Filters cleared")
+            # Update status
+            self.filter_status_label.config(text="Filters cleared")
+            messagebox.showinfo("Filters Cleared", "All filters have been removed.")
+        else:
+            # No data loaded, just reset the filter status
+            self.filter_status_label.config(text="No filters applied")
+            messagebox.showinfo("Filters Cleared", "Filter fields have been reset.")
 
-        messagebox.showinfo("Filters Cleared", "All filters have been removed.")
+    def _generate_export_filename(self, extension: str) -> str:
+        """Generate a default filename for export based on source and timestamp"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if self.current_file_path:
+            # Base name from loaded file
+            base_name = Path(self.current_file_path).stem
+            return f"{base_name}_export_{timestamp}.{extension}"
+        else:
+            # API data or no source
+            return f"trades_export_{timestamp}.{extension}"
 
     def export_data(self, format_type):
         """Export data to CSV or Excel"""
@@ -744,28 +887,32 @@ class PredictionAnalyzerGUI:
             return
 
         if format_type == 'csv':
+            default_filename = self._generate_export_filename("csv")
             file_path = filedialog.asksaveasfilename(
                 title="Export to CSV",
                 defaultextension=".csv",
+                initialfile=default_filename,
                 filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
             )
             if file_path:
                 try:
                     export_to_csv(self.filtered_trades, file_path)
-                    messagebox.showinfo("Success", f"Exported to {file_path}")
+                    messagebox.showinfo("Success", f"Exported {len(self.filtered_trades)} trades to:\n{file_path}")
                 except Exception as e:
                     messagebox.showerror("Error", f"Export failed:\n{str(e)}")
 
         elif format_type == 'excel':
+            default_filename = self._generate_export_filename("xlsx")
             file_path = filedialog.asksaveasfilename(
                 title="Export to Excel",
                 defaultextension=".xlsx",
+                initialfile=default_filename,
                 filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
             )
             if file_path:
                 try:
                     export_to_excel(self.filtered_trades, file_path)
-                    messagebox.showinfo("Success", f"Exported to {file_path}")
+                    messagebox.showinfo("Success", f"Exported {len(self.filtered_trades)} trades to:\n{file_path}")
                 except Exception as e:
                     messagebox.showerror("Error", f"Export failed:\n{str(e)}")
 
