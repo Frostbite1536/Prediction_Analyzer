@@ -57,3 +57,10 @@ chart_*.png
 pro_chart_*.html
 enhanced_chart_*.html
 global_dashboard.html
+
+# SQLite database
+*.db
+data/*.db
+
+# Environment files
+.env
