@@ -4,10 +4,14 @@ Professional/advanced chart generation with Plotly
 """
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 from ..trade_loader import Trade, _sanitize_filename
 
-def generate_pro_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None):
+# Default output directory: charts_output/ under project root
+_DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "charts_output"
+
+def generate_pro_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None, output_dir: Optional[str] = None):
     """
     Generate an interactive professional chart using Plotly
 
@@ -141,11 +145,13 @@ def generate_pro_chart(trades: List[Trade], market_name: str, resolved_outcome: 
     fig.update_yaxes(title_text="Exposure ($)", row=3, col=1)
     fig.update_xaxes(title_text="Time", row=3, col=1)
 
-    # Save as interactive HTML with sanitized filename
+    # Save as interactive HTML with sanitized filename to output directory
+    out = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR
+    out.mkdir(parents=True, exist_ok=True)
     safe_market_name = _sanitize_filename(market_name, max_length=30)
-    filename = f"pro_chart_{safe_market_name}.html"
-    fig.write_html(filename)
-    print(f"✅ Interactive chart saved: {filename}")
+    filepath = out / f"pro_chart_{safe_market_name}.html"
+    fig.write_html(str(filepath))
+    print(f"✅ Interactive chart saved: {filepath}")
     print("   Open this file in a web browser to interact with the chart.")
 
     # Also show in default browser

@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 from typing import List, Optional
 from datetime import datetime
+import threading
 
 # Add the package directory to Python path
 package_dir = Path(__file__).parent
@@ -434,7 +435,7 @@ class PredictionAnalyzerGUI:
             messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")
 
     def load_from_api(self):
-        """Load trades from API using API key"""
+        """Load trades from API using API key (runs in background thread)"""
         api_key = get_api_key(self.api_key_entry.get().strip())
 
         if not api_key:
@@ -446,25 +447,41 @@ class PredictionAnalyzerGUI:
             )
             return
 
+        # Disable buttons while fetching
+        self.status_label.config(text="Fetching trades from API...")
+        self._set_api_controls_enabled(False)
+
+        def _fetch_worker():
+            """Background thread for API fetch"""
+            try:
+                raw_trades = fetch_trade_history(api_key)
+                # Schedule result handling on main thread
+                self.root.after(0, lambda: self._on_api_fetch_complete(raw_trades))
+            except Exception as e:
+                self.root.after(0, lambda: self._on_api_fetch_error(str(e)))
+
+        thread = threading.Thread(target=_fetch_worker, daemon=True)
+        thread.start()
+
+    def _set_api_controls_enabled(self, enabled: bool):
+        """Enable or disable API-related controls during fetch"""
+        state = "normal" if enabled else "disabled"
+        self.api_key_entry.config(state=state)
+
+    def _on_api_fetch_complete(self, raw_trades):
+        """Handle successful API fetch (called on main thread)"""
+        self._set_api_controls_enabled(True)
+
+        if not raw_trades:
+            messagebox.showinfo("No Trades", "No trades found for this account.")
+            self.status_label.config(text="No trades found")
+            return
+
         try:
-            # Show progress
-            self.status_label.config(text="Fetching trades...")
-            self.root.update()
-
-            # Fetch trade history
-            raw_trades = fetch_trade_history(api_key)
-
-            if not raw_trades:
-                messagebox.showinfo("No Trades", "No trades found for this account.")
-                self.status_label.config(text="No trades found")
-                return
-
-            # Convert raw trades to Trade objects
             from prediction_analyzer.trade_loader import load_trades
             import json
             import tempfile
 
-            # Save raw trades to temporary file and load them using existing loader
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
                 json.dump(raw_trades, tmp)
                 tmp_path = tmp.name
@@ -472,14 +489,12 @@ class PredictionAnalyzerGUI:
             try:
                 self.all_trades = load_trades(tmp_path)
                 self.filtered_trades = self.all_trades.copy()
-                self.current_file_path = None  # Mark as API-loaded
+                self.current_file_path = None
 
-                # Update status
                 self.status_label.config(
                     text=f"Loaded from API ({len(self.all_trades)} trades)"
                 )
 
-                # Update displays
                 self.update_markets_list()
                 self.update_summary_display()
 
@@ -488,7 +503,6 @@ class PredictionAnalyzerGUI:
                     f"Successfully loaded {len(self.all_trades)} trades from API"
                 )
             finally:
-                # Clean up temp file
                 import os
                 try:
                     os.unlink(tmp_path)
@@ -496,8 +510,14 @@ class PredictionAnalyzerGUI:
                     pass
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to load trades from API:\n{str(e)}")
-            self.status_label.config(text="Failed to load from API")
+            messagebox.showerror("Error", f"Failed to process trades:\n{str(e)}")
+            self.status_label.config(text="Failed to process API data")
+
+    def _on_api_fetch_error(self, error_msg: str):
+        """Handle API fetch error (called on main thread)"""
+        self._set_api_controls_enabled(True)
+        messagebox.showerror("Error", f"Failed to load trades from API:\n{error_msg}")
+        self.status_label.config(text="Failed to load from API")
 
     def update_markets_list(self):
         """Update the markets listbox while preserving selection if possible"""

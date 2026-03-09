@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite:///./data/prediction_analyzer.db"
 
-    # CORS
-    ALLOWED_ORIGINS: str = "*"
+    # CORS - comma-separated origins, e.g. "http://localhost:3000,https://myapp.com"
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8080"
 
     # App info
     APP_NAME: str = "Prediction Analyzer API"

@@ -3,10 +3,14 @@
 Global multi-market dashboard
 """
 import plotly.graph_objects as go
-from typing import Dict, List
+from pathlib import Path
+from typing import Dict, List, Optional
 from ..trade_loader import Trade
 
-def generate_global_dashboard(trades_by_market: Dict[str, List[Trade]]):
+# Default output directory: charts_output/ under project root
+_DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "charts_output"
+
+def generate_global_dashboard(trades_by_market: Dict[str, List[Trade]], output_dir: Optional[str] = None):
     """
     Generate a global PnL dashboard across multiple markets
 
@@ -92,8 +96,10 @@ def generate_global_dashboard(trades_by_market: Dict[str, List[Trade]]):
         )
     )
 
-    # Save and display
-    filename = "global_dashboard.html"
-    fig.write_html(filename)
-    print(f"✅ Global dashboard saved: {filename}")
+    # Save and display to output directory
+    out = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR
+    out.mkdir(parents=True, exist_ok=True)
+    filepath = out / "global_dashboard.html"
+    fig.write_html(str(filepath))
+    print(f"✅ Global dashboard saved: {filepath}")
     fig.show()
