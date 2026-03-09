@@ -15,7 +15,6 @@ def check_dependencies():
         'plotly',
         'openpyxl',
         'requests',
-        'eth_account',
         'tkinter'
     ]
 

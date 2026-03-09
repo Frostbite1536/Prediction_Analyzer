@@ -21,8 +21,7 @@ setup(
         "matplotlib>=3.7.0",
         "plotly>=5.20.0",
         "openpyxl>=3.1.0",
-        "requests>=2.28.0",
-        "eth-account>=0.8.0"
+        "requests>=2.28.0"
     ],
     extras_require={
         "dev": [

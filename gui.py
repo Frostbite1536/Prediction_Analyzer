@@ -23,7 +23,7 @@ from prediction_analyzer.charts.pro import generate_pro_chart
 from prediction_analyzer.charts.enhanced import generate_enhanced_chart
 from prediction_analyzer.charts.global_chart import generate_global_dashboard
 from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel
-from prediction_analyzer.utils.auth import get_signing_message, authenticate
+from prediction_analyzer.utils.auth import get_api_key
 from prediction_analyzer.utils.data import fetch_trade_history
 
 
@@ -144,10 +144,10 @@ class PredictionAnalyzerGUI:
         control_frame = ttk.LabelFrame(parent, text="Quick Actions", padding="10")
         control_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-        # Private key input section
-        ttk.Label(control_frame, text="Private Key:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
-        self.private_key_entry = ttk.Entry(control_frame, width=40, show="*")
-        self.private_key_entry.grid(row=0, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=2)
+        # API key input section
+        ttk.Label(control_frame, text="API Key:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        self.api_key_entry = ttk.Entry(control_frame, width=40, show="*")
+        self.api_key_entry.grid(row=0, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=2)
 
         ttk.Button(
             control_frame,
@@ -433,42 +433,29 @@ class PredictionAnalyzerGUI:
             messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")
 
     def load_from_api(self):
-        """Load trades from API using private key"""
-        private_key = self.private_key_entry.get().strip()
+        """Load trades from API using API key"""
+        api_key = get_api_key(self.api_key_entry.get().strip())
 
-        if not private_key:
-            messagebox.showwarning("Missing Private Key", "Please enter your private key.")
+        if not api_key:
+            messagebox.showwarning(
+                "Missing API Key",
+                "Please enter your Limitless API key (lmts_...).\n\n"
+                "You can also set the LIMITLESS_API_KEY environment variable.\n\n"
+                "Generate a key at: limitless.exchange -> profile -> Api keys"
+            )
             return
 
         try:
             # Show progress
-            self.status_label.config(text="Authenticating...")
-            self.root.update()
-
-            # Get signing message
-            signing_message = get_signing_message()
-            if not signing_message:
-                messagebox.showerror("Error", "Failed to get signing message from API")
-                self.status_label.config(text="Authentication failed")
-                return
-
-            # Authenticate
-            session_cookie, address = authenticate(private_key, signing_message)
-            if not session_cookie:
-                messagebox.showerror("Error", "Authentication failed. Please check your private key.")
-                self.status_label.config(text="Authentication failed")
-                return
-
-            # Update status
-            self.status_label.config(text=f"Authenticated as {address[:10]}... Fetching trades...")
+            self.status_label.config(text="Fetching trades...")
             self.root.update()
 
             # Fetch trade history
-            raw_trades = fetch_trade_history(session_cookie)
+            raw_trades = fetch_trade_history(api_key)
 
             if not raw_trades:
                 messagebox.showinfo("No Trades", "No trades found for this account.")
-                self.status_label.config(text=f"Authenticated as {address[:10]}... (0 trades)")
+                self.status_label.config(text="No trades found")
                 return
 
             # Convert raw trades to Trade objects
@@ -488,7 +475,7 @@ class PredictionAnalyzerGUI:
 
                 # Update status
                 self.status_label.config(
-                    text=f"Loaded from API: {address[:10]}... ({len(self.all_trades)} trades)"
+                    text=f"Loaded from API ({len(self.all_trades)} trades)"
                 )
 
                 # Update displays
@@ -497,7 +484,7 @@ class PredictionAnalyzerGUI:
 
                 messagebox.showinfo(
                     "Success",
-                    f"Successfully loaded {len(self.all_trades)} trades from API\nAddress: {address}"
+                    f"Successfully loaded {len(self.all_trades)} trades from API"
                 )
             finally:
                 # Clean up temp file

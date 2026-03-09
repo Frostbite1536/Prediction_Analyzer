@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from .trade_loader import load_trades, save_trades
-from .utils.auth import get_signing_message, authenticate
+from .utils.auth import get_api_key
 from .utils.data import fetch_trade_history
 from .core.interactive import interactive_menu
 from .reporting.report_text import print_global_summary, generate_text_report
@@ -36,8 +36,8 @@ Examples:
   python -m prediction_analyzer --file trades.json --market "ETH-USD" --chart pro
   python -m prediction_analyzer --file trades.json --market "ETH-USD" --chart enhanced
 
-  # Fetch trades from API
-  python -m prediction_analyzer --fetch --key "0xYOURPRIVATEKEY"
+  # Fetch trades from API (or set LIMITLESS_API_KEY env var)
+  python -m prediction_analyzer --fetch --key "lmts_YOUR_API_KEY"
 
   # Filter and export
   python -m prediction_analyzer --file trades.json --start-date 2024-01-01 --export trades.csv
@@ -48,7 +48,7 @@ Examples:
     data_group = parser.add_argument_group('Data Source')
     data_group.add_argument('--file', '-f', type=str, help='Path to trades JSON/CSV/XLSX file')
     data_group.add_argument('--fetch', action='store_true', help='Fetch live trades from API')
-    data_group.add_argument('--key', '-k', type=str, help='Private key for API authentication')
+    data_group.add_argument('--key', '-k', type=str, help='Limitless API key (lmts_...) or set LIMITLESS_API_KEY env var')
 
     # Analysis options
     analysis_group = parser.add_argument_group('Analysis')
@@ -81,24 +81,14 @@ Examples:
 
     if args.fetch:
         # Fetch from API
-        if not args.key:
-            print("❌ --key required for fetching trades from API")
+        api_key = get_api_key(args.key)
+        if not api_key:
+            print("❌ API key required. Pass --key lmts_... or set LIMITLESS_API_KEY env var")
             sys.exit(1)
 
-        print("🔐 Authenticating...")
-        signing_message = get_signing_message()
-        if not signing_message:
-            print("❌ Failed to get signing message")
-            sys.exit(1)
+        print("🔐 Fetching trades with API key...")
 
-        cookie, address = authenticate(args.key, signing_message)
-        if not cookie:
-            print("❌ Authentication failed")
-            sys.exit(1)
-
-        print(f"✅ Authenticated as {address}")
-
-        raw_trades = fetch_trade_history(cookie)
+        raw_trades = fetch_trade_history(api_key)
         save_trades(raw_trades, DEFAULT_TRADE_FILE)
 
         # Convert to Trade objects
@@ -118,7 +108,7 @@ Examples:
 
     else:
         print("❌ No trade data available.")
-        print("   Use --file to load from a file, or --fetch with --key to download from API")
+        print("   Use --file to load from a file, or --fetch with --key (or LIMITLESS_API_KEY) to download from API")
         parser.print_help()
         sys.exit(1)
 

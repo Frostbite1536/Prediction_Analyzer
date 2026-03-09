@@ -15,8 +15,7 @@ def check_dependencies():
         'matplotlib',
         'plotly',
         'openpyxl',
-        'requests',
-        'eth_account'
+        'requests'
     ]
 
     missing_packages = []
