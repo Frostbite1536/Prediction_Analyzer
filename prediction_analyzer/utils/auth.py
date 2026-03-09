@@ -7,9 +7,10 @@ API keys can be generated at limitless.exchange -> profile -> Api keys.
 Keys use the format: lmts_...
 """
 import os
+from typing import Optional
 
 
-def get_api_key(api_key: str | None = None) -> str | None:
+def get_api_key(api_key: Optional[str] = None) -> Optional[str]:
     """
     Resolve an API key from the provided argument or environment variable.
 

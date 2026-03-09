@@ -137,8 +137,7 @@ The following packages will be installed:
 - **matplotlib** - Data visualization
 - **plotly** - Interactive visualizations
 - **openpyxl** - Excel file support
-- **requests** - HTTP library
-- **eth-account** - Ethereum account utilities
+- **requests** - HTTP library for API communication
 
 ## Getting Help
 

@@ -25,6 +25,7 @@ from prediction_analyzer.charts.global_chart import generate_global_dashboard
 from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel
 from prediction_analyzer.utils.auth import get_api_key
 from prediction_analyzer.utils.data import fetch_trade_history
+from prediction_analyzer.metrics import calculate_advanced_metrics
 
 
 class PredictionAnalyzerGUI:
@@ -491,7 +492,7 @@ class PredictionAnalyzerGUI:
                 import os
                 try:
                     os.unlink(tmp_path)
-                except:
+                except OSError:
                     pass
 
         except Exception as e:
@@ -560,6 +561,22 @@ class PredictionAnalyzerGUI:
             output.append(f"\nTotal Invested: ${summary['total_invested']:.2f}")
             output.append(f"Total Returned: ${summary['total_returned']:.2f}")
             output.append(f"ROI: {summary['roi']:.2f}%")
+
+            # Advanced metrics
+            metrics = calculate_advanced_metrics(self.filtered_trades)
+            output.append("\n" + "=" * 60)
+            output.append("ADVANCED METRICS")
+            output.append("=" * 60)
+            output.append(f"\nSharpe Ratio: {metrics['sharpe_ratio']:.4f}")
+            output.append(f"Sortino Ratio: {metrics['sortino_ratio']:.4f}")
+            output.append(f"Profit Factor: {metrics['profit_factor']:.2f}")
+            output.append(f"Expectancy: ${metrics['expectancy']:.4f}")
+            output.append(f"\nMax Drawdown: ${metrics['max_drawdown']:.2f} ({metrics['max_drawdown_pct']:.1f}%)")
+            output.append(f"Max DD Duration: {metrics['max_drawdown_duration_trades']} trades")
+            output.append(f"\nAvg Win: ${metrics['avg_win']:.2f}  |  Avg Loss: ${metrics['avg_loss']:.2f}")
+            output.append(f"Largest Win: ${metrics['largest_win']:.2f}  |  Largest Loss: ${metrics['largest_loss']:.2f}")
+            output.append(f"Max Win Streak: {metrics['max_win_streak']}  |  Max Loss Streak: {metrics['max_loss_streak']}")
+
             output.append("\n" + "=" * 60)
 
             self.summary_text.insert(tk.END, "\n".join(output))

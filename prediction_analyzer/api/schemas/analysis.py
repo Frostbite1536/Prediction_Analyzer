@@ -42,10 +42,12 @@ class MarketSummaryResponse(BaseModel):
     avg_pnl: float
     winning_trades: int
     losing_trades: int
+    breakeven_trades: int = 0
     win_rate: float
     total_invested: float
     total_returned: float
     roi: float
+    market_outcome: Optional[str] = None
 
 
 class MarketBreakdownItem(BaseModel):

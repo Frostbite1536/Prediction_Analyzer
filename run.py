@@ -4,7 +4,6 @@ Standalone runner for Prediction Analyzer
 This script allows you to run the package without installing it
 """
 import sys
-import subprocess
 from pathlib import Path
 
 def check_dependencies():

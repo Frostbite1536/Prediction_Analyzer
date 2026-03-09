@@ -2,7 +2,7 @@
 """
 Authentication endpoints - signup, login
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -93,8 +93,8 @@ async def login(
 
 @router.post("/login/json", response_model=Token)
 async def login_json(
-    email: str,
-    password: str,
+    email: str = Body(...),
+    password: str = Body(...),
     db: Session = Depends(get_db)
 ):
     """

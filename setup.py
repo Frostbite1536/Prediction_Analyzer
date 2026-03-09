@@ -24,6 +24,18 @@ setup(
         "requests>=2.28.0"
     ],
     extras_require={
+        "api": [
+            "fastapi>=0.109.0",
+            "uvicorn[standard]>=0.27.0",
+            "python-multipart>=0.0.6",
+            "sqlalchemy>=2.0.0",
+            "PyJWT>=2.8.0",
+            "passlib>=1.7.4",
+            "argon2-cffi>=23.1.0",
+            "pydantic>=2.5.0",
+            "pydantic-settings>=2.1.0",
+            "email-validator>=2.1.0",
+        ],
         "dev": [
             "pytest>=7.0.0",
             "pytest-cov>=4.0.0",

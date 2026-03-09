@@ -11,6 +11,7 @@ from .utils.auth import get_api_key
 from .utils.data import fetch_trade_history
 from .core.interactive import interactive_menu
 from .reporting.report_text import print_global_summary, generate_text_report
+from .metrics import calculate_advanced_metrics, format_metrics_report
 from .charts.simple import generate_simple_chart
 from .charts.pro import generate_pro_chart
 from .charts.enhanced import generate_enhanced_chart
@@ -57,6 +58,7 @@ Examples:
     analysis_group.add_argument('--chart', '-c', choices=['simple', 'pro', 'enhanced'], default='simple',
                                 help='Chart type: simple, pro, or enhanced (default: simple)')
     analysis_group.add_argument('--dashboard', action='store_true', help='Generate multi-market dashboard')
+    analysis_group.add_argument('--metrics', action='store_true', help='Show advanced trading metrics (Sharpe, drawdown, streaks)')
 
     # Filter options
     filter_group = parser.add_argument_group('Filters')
@@ -140,6 +142,10 @@ Examples:
     if args.global_view:
         print_global_summary(trades)
 
+    if args.metrics:
+        adv = calculate_advanced_metrics(trades)
+        print(format_metrics_report(adv))
+
     if args.report:
         generate_text_report(trades)
 
@@ -180,7 +186,7 @@ Examples:
             generate_simple_chart(market_trades, market_name)
 
     # Interactive mode (if no other actions specified)
-    if not any([args.global_view, args.report, args.export, args.dashboard, args.market]) and not args.no_interactive:
+    if not any([args.global_view, args.metrics, args.report, args.export, args.dashboard, args.market]) and not args.no_interactive:
         interactive_menu(trades)
 
 if __name__ == "__main__":

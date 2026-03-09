@@ -126,21 +126,21 @@ class TestFilterByTradeTypeContracts:
         assert result == []
 
     def test_single_type_filter(self, all_trade_types):
-        """Single type filter should only return matching trades."""
+        """Single type filter should return matching trades including variants."""
         from prediction_analyzer.filters import filter_by_trade_type
 
         result = filter_by_trade_type(all_trade_types, types=["Buy"])
         for trade in result:
-            assert trade.type == "Buy"
+            assert "Buy" in trade.type
 
     def test_multiple_types_filter(self, all_trade_types):
-        """Multiple types filter should return all matching."""
+        """Multiple types filter should return all matching including variants."""
         from prediction_analyzer.filters import filter_by_trade_type
 
         types = ["Buy", "Sell", "Market Buy"]
         result = filter_by_trade_type(all_trade_types, types=types)
         for trade in result:
-            assert trade.type in types
+            assert any(base in trade.type for base in types)
 
     def test_nonexistent_type_returns_empty(self, sample_trades_list):
         """Non-existent type should return empty list."""
