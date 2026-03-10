@@ -118,15 +118,22 @@ class ManifoldProvider(MarketProvider):
         """
         market_meta = kwargs.get("market_meta", {})
         amount = float(raw.get("amount", 0))
+        shares = abs(float(raw.get("shares", 0)))
+        # Derive actual fill price from amount/shares (not probAfter which is
+        # the post-trade market probability, not the price paid per share)
+        if shares > 0:
+            fill_price = abs(amount) / shares
+        else:
+            fill_price = float(raw.get("probAfter", 0))
 
         return Trade(
             market=market_meta.get("question", "Unknown"),
             market_slug=market_meta.get("slug", raw.get("contractId", "unknown")),
             timestamp=_parse_timestamp(raw.get("createdTime", 0)),
-            price=float(raw.get("probAfter", 0)),
-            shares=abs(float(raw.get("shares", 0))),
+            price=fill_price,
+            shares=shares,
             cost=abs(amount),
-            type="Buy" if amount > 0 else "Sell",
+            type="Buy" if amount > 0 else ("Sell" if amount < 0 else "Buy"),
             side=(raw.get("outcome") or "YES").upper(),
             pnl=0.0,  # Must compute client-side
             tx_hash=raw.get("id"),

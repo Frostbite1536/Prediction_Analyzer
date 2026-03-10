@@ -275,8 +275,8 @@ def save_trades(trades: List[Union[Trade, dict]], file_path: str):
         if isinstance(t, dict):
             trades_dict.append(t)
         else:
-            # It's a Trade object, convert using vars()
-            trades_dict.append(vars(t))
+            # It's a Trade object, convert using to_dict() for NaN/Inf sanitization
+            trades_dict.append(t.to_dict())
 
     # Convert datetime to string for JSON serialization
     for t in trades_dict:

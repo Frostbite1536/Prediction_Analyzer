@@ -28,11 +28,10 @@ def infer_resolved_side_from_trades(trades: List[Trade], threshold: float = PRIC
     if side not in {"YES", "NO"}:
         return None, latest
 
-    threshold_cents = threshold * 100
-
-    # If price is very high, assume the side being traded resolved YES
-    # If price is very low, assume the opposite side resolved YES
-    if price >= threshold_cents:
+    # If price is very high (>= threshold), assume the side being traded resolved YES
+    # If price is very low (< threshold), assume the opposite side resolved YES
+    # Prices are stored as decimals (0.0-1.0), threshold default is 0.5
+    if price >= threshold:
         inferred = side
     else:
         inferred = "NO" if side == "YES" else "YES"

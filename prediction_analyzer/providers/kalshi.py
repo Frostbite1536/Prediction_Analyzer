@@ -172,19 +172,20 @@ class KalshiProvider(MarketProvider):
 
     @staticmethod
     def _apply_position_pnl(trades: List[Trade], pnl_map: Dict[str, float]):
-        """Distribute realized PnL from positions across sell trades."""
+        """Distribute realized PnL from positions across sell trades,
+        weighted proportionally by share count (not evenly)."""
         from collections import defaultdict
 
-        sell_counts: Dict[str, int] = defaultdict(int)
+        sell_shares: Dict[str, float] = defaultdict(float)
         for t in trades:
             if t.type.lower() == "sell" and t.market_slug in pnl_map:
-                sell_counts[t.market_slug] += 1
+                sell_shares[t.market_slug] += t.shares
 
         for t in trades:
             if t.type.lower() == "sell" and t.market_slug in pnl_map:
-                count = sell_counts[t.market_slug]
-                if count > 0:
-                    t.pnl = pnl_map[t.market_slug] / count
+                total = sell_shares[t.market_slug]
+                if total > 0:
+                    t.pnl = pnl_map[t.market_slug] * (t.shares / total)
 
     def normalize_trade(self, raw: dict, **kwargs) -> Trade:
         """Convert Kalshi fill to Trade object.
@@ -227,6 +228,12 @@ class KalshiProvider(MarketProvider):
         except (ValueError, TypeError):
             fee = 0.0
 
+        action = (raw.get("action") or "buy").title()
+        is_sell = action.lower() in ("sell", "market sell", "limit sell")
+        # For buys, cost = price*count + fee (total outlay)
+        # For sells, cost = price*count - fee (net proceeds)
+        cost = (price * count) - fee if is_sell else (price * count) + fee
+
         return Trade(
             market=raw.get("ticker") or raw.get("market_ticker") or "Unknown",
             market_slug=raw.get("ticker") or raw.get("market_ticker") or "unknown",
@@ -235,8 +242,8 @@ class KalshiProvider(MarketProvider):
             ),
             price=price,
             shares=count,
-            cost=(price * count) + fee,
-            type=(raw.get("action") or "buy").title(),
+            cost=cost,
+            type=action,
             side=side_str,
             pnl=0.0,  # Filled in later from positions endpoint
             tx_hash=raw.get("fill_id") or raw.get("order_id"),

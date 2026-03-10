@@ -45,6 +45,13 @@ def calculate_pnl(trades: List[Trade]) -> pd.DataFrame:
 
 def _summarize_trades(trades: List[Trade]) -> Dict:
     """Compute summary stats for a list of trades (single currency group)."""
+    if not trades:
+        return {
+            "total_trades": 0, "total_volume": 0.0, "total_pnl": 0.0,
+            "win_rate": 0.0, "avg_pnl_per_trade": 0.0, "avg_pnl": 0.0,
+            "winning_trades": 0, "losing_trades": 0, "breakeven_trades": 0,
+            "total_invested": 0.0, "total_returned": 0.0, "roi": 0.0,
+        }
     df = pd.DataFrame([vars(t) for t in trades])
 
     total_volume = df["cost"].sum()

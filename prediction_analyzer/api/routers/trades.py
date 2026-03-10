@@ -169,9 +169,13 @@ async def export_trades_csv(
     df.to_csv(buffer, index=False)
     buffer.seek(0)
 
-    filename = f"trades_{current_user.username}"
+    # Sanitize filename components to prevent path traversal
+    import re
+    safe_user = re.sub(r'[^\w\-.]', '_', current_user.username)
+    filename = f"trades_{safe_user}"
     if market_slug:
-        filename += f"_{market_slug}"
+        safe_slug = re.sub(r'[^\w\-.]', '_', market_slug)
+        filename += f"_{safe_slug}"
     filename += ".csv"
 
     return StreamingResponse(

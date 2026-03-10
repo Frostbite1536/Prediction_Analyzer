@@ -64,6 +64,8 @@ def detect_provider_from_key(api_key: str) -> str:
     Returns:
         Provider name string: "limitless", "polymarket", "kalshi", or "manifold".
     """
+    if not api_key:
+        return "limitless"
     if api_key.startswith("lmts_"):
         return "limitless"
     elif api_key.startswith("0x"):

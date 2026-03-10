@@ -4,7 +4,7 @@ FIFO PnL computation for providers that don't supply per-trade PnL
 (Kalshi, Manifold, Polymarket).
 """
 from typing import List, Dict
-from collections import defaultdict
+from collections import defaultdict, deque
 
 from ..trade_loader import Trade
 
@@ -21,12 +21,14 @@ def compute_realized_pnl(trades: List[Trade]) -> List[Trade]:
     Returns:
         Same list with pnl field updated on sell trades.
     """
-    # Skip if all trades already have PnL
-    if all(t.pnl != 0.0 for t in trades):
+    # Skip if there are no sell trades needing PnL computation.
+    # We cannot use `all(t.pnl != 0.0)` because legitimate zero-PnL
+    # trades (breakeven) would incorrectly trigger a full recalc.
+    if not trades:
         return trades
 
-    # Group buys by (market_slug, side, source): list of [price, remaining_shares]
-    buy_queues: Dict[tuple, list] = defaultdict(list)
+    # Group buys by (market_slug, side, source): deque of [price, remaining_shares]
+    buy_queues: Dict[tuple, deque] = defaultdict(deque)
 
     sorted_trades = sorted(trades, key=lambda t: t.timestamp)
 
@@ -37,8 +39,9 @@ def compute_realized_pnl(trades: List[Trade]) -> List[Trade]:
 
         if is_buy:
             buy_queues[key].append([trade.price, trade.shares])
-        elif is_sell and trade.pnl == 0.0:
-            # FIFO match against buy queue
+        elif is_sell:
+            # Always consume the buy queue to keep FIFO state correct,
+            # even when trade already has a PnL value from the provider.
             remaining = trade.shares
             total_buy_cost = 0.0
             queue = buy_queues[key]
@@ -50,10 +53,12 @@ def compute_realized_pnl(trades: List[Trade]) -> List[Trade]:
                 remaining -= matched
                 queue[0][1] -= matched
                 if queue[0][1] <= 1e-10:
-                    queue.pop(0)
+                    queue.popleft()
 
-            matched_shares = trade.shares - remaining
-            sell_revenue = matched_shares * trade.price
-            trade.pnl = sell_revenue - total_buy_cost
+            # Only set PnL if trade doesn't already have one from the provider
+            if trade.pnl == 0.0:
+                matched_shares = trade.shares - remaining
+                sell_revenue = matched_shares * trade.price
+                trade.pnl = sell_revenue - total_buy_cost
 
     return trades

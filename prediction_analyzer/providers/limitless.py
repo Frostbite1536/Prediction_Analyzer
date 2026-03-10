@@ -89,6 +89,9 @@ class LimitlessProvider(MarketProvider):
             shares = float(raw.get("shares") or 0)
 
         trade_type = raw.get("type") or raw.get("strategy") or "Buy"
+        # Normalize underscore-separated types (e.g. "market_buy" -> "Market Buy")
+        if "_" in trade_type:
+            trade_type = trade_type.replace("_", " ").title()
 
         side = raw.get("side")
         if not side:
@@ -98,13 +101,18 @@ class LimitlessProvider(MarketProvider):
             else:
                 side = "YES"
 
+        # Derive price from cost/shares when not explicitly provided
+        raw_price = float(raw.get("price") or 0)
+        if raw_price == 0 and shares > 0 and cost > 0:
+            raw_price = cost / shares
+
         return Trade(
             market=market_title,
             market_slug=market_slug,
             timestamp=_parse_timestamp(
                 raw.get("timestamp") or raw.get("blockTimestamp") or 0
             ),
-            price=float(raw.get("price") or 0),
+            price=raw_price,
             shares=shares,
             cost=cost,
             type=trade_type,

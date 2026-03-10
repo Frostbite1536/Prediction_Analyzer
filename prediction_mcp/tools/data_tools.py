@@ -207,7 +207,10 @@ async def _handle_fetch_trades(arguments: dict):
         from prediction_analyzer.providers.pnl_calculator import compute_realized_pnl
         trades = compute_realized_pnl(trades)
 
-    session.trades.extend(trades)
+    # Deduplicate by tx_hash to prevent inflation on repeated fetches
+    existing_hashes = {t.tx_hash for t in session.trades if t.tx_hash}
+    new_trades = [t for t in trades if not t.tx_hash or t.tx_hash not in existing_hashes]
+    session.trades.extend(new_trades)
     session.filtered_trades = list(session.trades)
     session.active_filters.clear()
     if provider.name not in session.sources:
