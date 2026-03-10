@@ -9,18 +9,18 @@ from typing import Optional, List
 
 class TradeBase(BaseModel):
     """Base trade schema with common fields"""
-    market: str
-    market_slug: str
+    market: str = Field(..., min_length=1, max_length=500)
+    market_slug: str = Field(..., min_length=1, max_length=255)
     timestamp: datetime
-    price: float = 0.0
-    shares: float = 0.0
-    cost: float = 0.0
-    type: str  # Buy, Sell, etc.
-    side: str  # YES or NO
-    pnl: float = 0.0
-    tx_hash: Optional[str] = None
-    source: str = "limitless"  # "limitless", "polymarket", "kalshi", "manifold"
-    currency: str = "USD"  # "USD", "USDC", "MANA"
+    price: float = Field(0.0, ge=0.0, le=1_000_000.0)
+    shares: float = Field(0.0, ge=0.0, le=1_000_000_000.0)
+    cost: float = Field(0.0, ge=0.0, le=1_000_000_000.0)
+    type: str = Field(..., min_length=1, max_length=50)  # Buy, Sell, etc.
+    side: str = Field(..., min_length=1, max_length=10)  # YES or NO
+    pnl: float = Field(0.0, ge=-1_000_000_000.0, le=1_000_000_000.0)
+    tx_hash: Optional[str] = Field(None, max_length=100)
+    source: str = Field("limitless", max_length=50)  # "limitless", "polymarket", "kalshi", "manifold"
+    currency: str = Field("USD", max_length=10)  # "USD", "USDC", "MANA"
 
 
 class TradeCreate(TradeBase):

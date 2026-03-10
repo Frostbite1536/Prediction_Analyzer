@@ -15,6 +15,11 @@ from .exceptions import TradeLoadError
 
 logger = logging.getLogger(__name__)
 
+# Sentinel cap for infinite values — used throughout the codebase to replace
+# float('inf') with a finite number safe for JSON serialization and display.
+INF_CAP = 999999.99
+
+
 def sanitize_numeric(value: float) -> float:
     """
     Guard against NaN/Infinity in numeric values for JSON serialization.
@@ -29,7 +34,7 @@ def sanitize_numeric(value: float) -> float:
         if math.isnan(value):
             return 0.0
         if math.isinf(value):
-            return 999999.99 if value > 0 else -999999.99
+            return INF_CAP if value > 0 else -INF_CAP
     return value
 
 
@@ -225,14 +230,15 @@ def load_trades(file_path: str) -> List[Trade]:
             if not market_slug:
                 market_slug = "unknown"
 
-            # Convert from micro-units (USDC has 6 decimals)
+            # Convert from micro-units (USDC uses 6 decimal places)
             # If data comes from API (has collateralAmount), values are in micro-units
+            USDC_DECIMALS = 1_000_000
             has_pnl = "pnl" in t and t["pnl"] is not None
             if "collateralAmount" in t:
                 # API data - convert from micro-units to regular units
-                raw_cost = float(t.get("collateralAmount") or 0) / 1_000_000
-                raw_pnl = float(t.get("pnl") or 0) / 1_000_000
-                raw_shares = float(t.get("outcomeTokenAmount") or 0) / 1_000_000
+                raw_cost = float(t.get("collateralAmount") or 0) / USDC_DECIMALS
+                raw_pnl = float(t.get("pnl") or 0) / USDC_DECIMALS
+                raw_shares = float(t.get("outcomeTokenAmount") or 0) / USDC_DECIMALS
             else:
                 # File data - already in regular units
                 raw_cost = float(t.get("cost") or 0)

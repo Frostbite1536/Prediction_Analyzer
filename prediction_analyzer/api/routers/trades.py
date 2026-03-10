@@ -98,7 +98,9 @@ async def upload_trades(
 
 
 @router.get("/providers")
-async def list_providers():
+async def list_providers(
+    current_user: User = Depends(get_current_user),
+):
     """List all available prediction market providers."""
     from prediction_analyzer.config import PROVIDER_CONFIGS
     return [

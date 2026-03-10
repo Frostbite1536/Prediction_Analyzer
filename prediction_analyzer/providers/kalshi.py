@@ -96,6 +96,14 @@ class KalshiProvider(MarketProvider):
     def fetch_trades(self, api_key: str, page_limit: int = 100) -> List[Trade]:
         """Fetch user's fill history from Kalshi."""
         self._load_credentials(api_key)
+        try:
+            return self._fetch_trades_inner(page_limit, api_key)
+        finally:
+            # Clear private key from memory after use
+            self._private_key = None
+            self._api_key_id = None
+
+    def _fetch_trades_inner(self, page_limit: int, api_key: str) -> List[Trade]:
         all_trades: List[Trade] = []
         cursor: Optional[str] = None
         limit = min(page_limit, 1000)
@@ -242,29 +250,36 @@ class KalshiProvider(MarketProvider):
             fixed = raw.get("no_price_fixed")
             legacy = raw.get("no_price")
 
+        fill_id = raw.get("fill_id") or raw.get("order_id") or "?"
+
         if fixed is not None and str(fixed).strip():
             try:
                 price = float(fixed)
             except (ValueError, TypeError):
-                # Corrupted _fixed field — fall through to legacy
+                logger.warning("Kalshi fill %s: bad %s_price_fixed=%r, falling back to legacy",
+                               fill_id, side_str.lower(), fixed)
                 fixed = None
 
         if fixed is None or not str(fixed).strip():
             try:
                 price = float(legacy or 0) / 100.0
             except (ValueError, TypeError):
+                logger.warning("Kalshi fill %s: bad legacy price=%r, defaulting to 0",
+                               fill_id, legacy)
                 price = 0.0
 
         count_str = raw.get("count_fp", str(raw.get("count", 0)))
         try:
             count = float(count_str)
         except (ValueError, TypeError):
+            logger.warning("Kalshi fill %s: bad count=%r, defaulting to 0", fill_id, count_str)
             count = 0.0
 
         fee_str = raw.get("fee_cost", "0")
         try:
             fee = float(fee_str)
         except (ValueError, TypeError):
+            logger.warning("Kalshi fill %s: bad fee_cost=%r, defaulting to 0", fill_id, fee_str)
             fee = 0.0
 
         action = (raw.get("action") or "buy").title()

@@ -2,6 +2,7 @@
 """
 PnL calculation and analysis functions
 """
+from decimal import Decimal
 from typing import List, Dict
 import pandas as pd
 import numpy as np
@@ -28,8 +29,13 @@ def calculate_pnl(trades: List[Trade]) -> pd.DataFrame:
     # Calculate individual trade PnL
     df["trade_pnl"] = df["pnl"]
 
-    # Calculate cumulative PnL
-    df["cumulative_pnl"] = df["trade_pnl"].cumsum()
+    # Calculate cumulative PnL using Decimal accumulation to avoid float drift
+    cumulative = []
+    running = Decimal("0")
+    for pnl_val in df["trade_pnl"]:
+        running += Decimal(str(pnl_val))
+        cumulative.append(float(running))
+    df["cumulative_pnl"] = cumulative
 
     # Calculate exposure (net shares held)
     df["exposure"] = 0.0

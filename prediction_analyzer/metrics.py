@@ -12,7 +12,7 @@ Provides risk-adjusted metrics beyond basic PnL:
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 import numpy as np
-from .trade_loader import Trade
+from .trade_loader import Trade, INF_CAP
 
 
 def calculate_advanced_metrics(trades: List[Trade]) -> Dict:
@@ -75,9 +75,9 @@ def _basic_stats(pnls: List[float]) -> Dict:
     total_losses = abs(sum(losses))
 
     profit_factor = (total_wins / total_losses) if total_losses > 0 else float('inf') if total_wins > 0 else 0.0
-    # Cap inf for serialization
+    # Cap inf for serialization (uses shared INF_CAP constant)
     if profit_factor == float('inf'):
-        profit_factor = 999.99
+        profit_factor = INF_CAP
 
     # Expectancy: average PnL per trade
     expectancy = float(np.mean(pnls)) if pnls else 0.0

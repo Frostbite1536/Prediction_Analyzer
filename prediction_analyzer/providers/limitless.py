@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.limitless.exchange"
 
+# USDC uses 6 decimal places; on-chain amounts are in micro-units.
+USDC_DECIMALS = 1_000_000
+
 
 class LimitlessProvider(MarketProvider):
     name = "limitless"
@@ -81,9 +84,9 @@ class LimitlessProvider(MarketProvider):
         # Convert from micro-units (USDC 6 decimals) if API format
         has_pnl = "pnl" in raw and raw["pnl"] is not None
         if "collateralAmount" in raw:
-            cost = float(raw.get("collateralAmount") or 0) / 1_000_000
-            pnl = float(raw.get("pnl") or 0) / 1_000_000
-            shares = float(raw.get("outcomeTokenAmount") or 0) / 1_000_000
+            cost = float(raw.get("collateralAmount") or 0) / USDC_DECIMALS
+            pnl = float(raw.get("pnl") or 0) / USDC_DECIMALS
+            shares = float(raw.get("outcomeTokenAmount") or 0) / USDC_DECIMALS
         else:
             cost = float(raw.get("cost") or 0)
             pnl = float(raw.get("pnl") or 0)

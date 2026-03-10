@@ -41,7 +41,7 @@ class PolymarketProvider(MarketProvider):
         limit = min(page_limit, 500)
         offset = 0
 
-        logger.info("Downloading Polymarket trade history for %s...", api_key[:10])
+        logger.info("Downloading Polymarket trade history...")
 
         while True:
             params: Dict[str, Any] = {

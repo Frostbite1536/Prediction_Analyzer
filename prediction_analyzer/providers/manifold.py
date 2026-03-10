@@ -31,7 +31,14 @@ class ManifoldProvider(MarketProvider):
         headers = {"Authorization": f"Key {raw_key}"}
         resp = requests.get(f"{BASE_URL}/v0/me", headers=headers, timeout=10)
         resp.raise_for_status()
-        return resp.json()["id"]
+        data = resp.json()
+        user_id = data.get("id")
+        if not user_id:
+            raise ValueError(
+                "Manifold /v0/me response missing 'id' field. "
+                "Verify your API key is valid."
+            )
+        return user_id
 
     def _fetch_market_metadata(self, contract_ids: List[str]) -> Dict[str, dict]:
         """Batch-fetch market metadata for contractIds (bets lack question/slug)."""

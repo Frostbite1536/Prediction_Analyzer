@@ -72,8 +72,14 @@ class TradeService:
         if suffix not in [".json", ".csv", ".xlsx"]:
             raise ValueError(f"Unsupported file type: {suffix}")
 
-        # Read file content
-        content = await file.read()
+        # Read file content with size limit (10 MB) to prevent OOM
+        MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+        content = await file.read(MAX_UPLOAD_BYTES + 1)
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise ValueError(
+                f"File too large (>{MAX_UPLOAD_BYTES // (1024 * 1024)} MB). "
+                "Please split into smaller files."
+            )
 
         # Calculate file hash for deduplication
         file_hash = hashlib.sha256(content).hexdigest()
