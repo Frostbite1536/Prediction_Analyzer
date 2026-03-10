@@ -2,17 +2,21 @@
 """
 Enhanced chart generation with battlefield visualization
 """
+import logging
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pathlib import Path
 from typing import List, Optional
 from ..trade_loader import Trade, _sanitize_filename
+from ..exceptions import NoTradesError
+
+logger = logging.getLogger(__name__)
 
 # Default output directory: charts_output/ under project root
 _DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "charts_output"
 
 
-def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None, output_dir: Optional[str] = None):
+def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None, output_dir: Optional[str] = None, show: bool = True):
     """
     Generate an enhanced battlefield chart using Plotly
 
@@ -38,8 +42,7 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
         resolved_outcome: "YES" or "NO" if market is resolved
     """
     if not trades:
-        print("⚠️ No trades to chart.")
-        return
+        raise NoTradesError("No trades to chart.")
 
     # Sort trades by timestamp
     sorted_trades = sorted(trades, key=lambda t: t.timestamp)
@@ -303,11 +306,8 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
     safe_market_name = _sanitize_filename(market_name, max_length=30)
     filepath = out / f"enhanced_chart_{safe_market_name}.html"
     fig.write_html(str(filepath))
-    print(f"✅ Enhanced battlefield chart saved: {filepath}")
-    print("   📊 Top Panel: Implied probability with trade triangles (size = bet amount)")
-    print("   💰 Middle Panel: Mark-to-market P&L (green = profit, red = loss)")
-    print("   ⚖️  Bottom Panel: Net share position (positive = YES, negative = NO)")
-    print("   🌐 Open this file in a web browser to interact with the chart.")
+    logger.info("Enhanced battlefield chart saved: %s", filepath)
 
-    # Show in default browser
-    fig.show()
+    if show:
+        fig.show()
+    return str(filepath)

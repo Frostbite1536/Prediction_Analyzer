@@ -42,10 +42,15 @@ setup(
             "black>=22.0.0",
             "flake8>=5.0.0"
         ],
+        "mcp": [
+            "mcp>=1.0.0",
+            "pydantic>=2.5.0",
+        ],
     },
     entry_points={
         "console_scripts": [
             "prediction-analyzer=prediction_analyzer.__main__:main",
+            "prediction-mcp=prediction_mcp.server:main",
         ],
     },
     classifiers=[

@@ -140,7 +140,7 @@ Examples:
 
     # Execute commands
     if args.global_view:
-        print_global_summary(trades)
+        print_global_summary(trades, stream=sys.stdout)
 
     if args.metrics:
         adv = calculate_advanced_metrics(trades)

@@ -2,6 +2,7 @@
 """
 Interactive CLI menu for novice users
 """
+import sys
 from typing import List
 from ..trade_loader import Trade
 from ..trade_filter import filter_trades_by_market_slug, get_unique_markets
@@ -42,7 +43,7 @@ def interactive_menu(trades: List[Trade]):
 
         elif choice == '1':
             # Global summary
-            print_global_summary(trades)
+            print_global_summary(trades, stream=sys.stdout)
             input("\nPress Enter to continue...")
 
         elif choice == '2':

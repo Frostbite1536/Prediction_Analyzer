@@ -2,10 +2,13 @@
 """
 Data fetching utilities for Limitless Exchange API.
 """
+import logging
 import requests
 from typing import List
 from ..config import API_BASE_URL
 from .auth import get_auth_headers
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_trade_history(api_key: str, page_limit: int = 100) -> List[dict]:
@@ -23,7 +26,7 @@ def fetch_trade_history(api_key: str, page_limit: int = 100) -> List[dict]:
     page = 1
     headers = get_auth_headers(api_key)
 
-    print("Downloading trade history...")
+    logger.info("Downloading trade history...")
 
     while True:
         params = {"page": page, "limit": page_limit}
@@ -38,7 +41,7 @@ def fetch_trade_history(api_key: str, page_limit: int = 100) -> List[dict]:
             resp.raise_for_status()
             data = resp.json()
         except requests.RequestException as exc:
-            print(f"Error fetching page {page}: {exc}")
+            logger.error("Error fetching page %d: %s", page, exc)
             break
 
         trades = data.get("data", [])
@@ -46,14 +49,14 @@ def fetch_trade_history(api_key: str, page_limit: int = 100) -> List[dict]:
             break
 
         all_trades.extend(trades)
-        print(f"   Downloaded page {page} ({len(all_trades)} trades so far)")
+        logger.info("Downloaded page %d (%d trades so far)", page, len(all_trades))
 
         total_count = data.get("totalCount", 0)
         if len(all_trades) >= total_count:
             break
         page += 1
 
-    print(f"Downloaded {len(all_trades)} total trades")
+    logger.info("Downloaded %d total trades", len(all_trades))
     return all_trades
 
 

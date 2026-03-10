@@ -2,8 +2,13 @@
 """
 Export utility functions
 """
+import logging
 import matplotlib.pyplot as plt
 from typing import Any
+
+from ..exceptions import ExportError
+
+logger = logging.getLogger(__name__)
 
 def export_chart(fig: Any, path: str):
     """
@@ -17,18 +22,19 @@ def export_chart(fig: Any, path: str):
         # Check if it's a matplotlib figure
         if isinstance(fig, plt.Figure):
             fig.savefig(path, dpi=150, bbox_inches='tight')
-            print(f"✅ Chart exported to: {path}")
+            logger.info("Chart exported to: %s", path)
         # Check if it's a plotly figure
         elif hasattr(fig, 'write_html'):
             fig.write_html(path)
-            print(f"✅ Interactive chart exported to: {path}")
+            logger.info("Interactive chart exported to: %s", path)
         elif hasattr(fig, 'write_image'):
             fig.write_image(path)
-            print(f"✅ Chart exported to: {path}")
+            logger.info("Chart exported to: %s", path)
         else:
-            print(f"❌ Unsupported figure type for export")
-            return False
+            raise ExportError(f"Unsupported figure type for export: {type(fig).__name__}")
         return True
+    except ExportError:
+        raise
     except Exception as e:
-        print(f"❌ Error exporting chart: {e}")
-        return False
+        logger.error("Error exporting chart: %s", e)
+        raise ExportError(f"Error exporting chart to {path}: {e}") from e

@@ -3,11 +3,35 @@
 Trade loading functionality - supports JSON, CSV, XLSX
 """
 import json
+import logging
 import pandas as pd
-from dataclasses import dataclass
-from typing import List, Union, Optional
+from dataclasses import dataclass, asdict
+from typing import List, Union, Optional, Dict, Any
 from datetime import datetime, timezone
+import math
 import re
+
+from .exceptions import TradeLoadError
+
+logger = logging.getLogger(__name__)
+
+def sanitize_numeric(value: float) -> float:
+    """
+    Guard against NaN/Infinity in numeric values for JSON serialization.
+
+    Args:
+        value: A float that may be NaN or Infinity
+
+    Returns:
+        A safe float value (0.0 for NaN, capped for Infinity)
+    """
+    if isinstance(value, float):
+        if math.isnan(value):
+            return 0.0
+        if math.isinf(value):
+            return 999999.99 if value > 0 else -999999.99
+    return value
+
 
 @dataclass
 class Trade:
@@ -22,6 +46,21 @@ class Trade:
     side: str  # "YES" or "NO"
     pnl: float = 0.0
     tx_hash: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to a JSON-serializable dictionary."""
+        return {
+            "market": self.market,
+            "market_slug": self.market_slug,
+            "timestamp": self.timestamp.isoformat() if hasattr(self.timestamp, "isoformat") else str(self.timestamp),
+            "price": sanitize_numeric(self.price),
+            "shares": sanitize_numeric(self.shares),
+            "cost": sanitize_numeric(self.cost),
+            "type": self.type,
+            "side": self.side,
+            "pnl": sanitize_numeric(self.pnl),
+            "tx_hash": self.tx_hash,
+        }
 
 
 def _parse_timestamp(value) -> datetime:
@@ -69,8 +108,8 @@ def _parse_timestamp(value) -> datetime:
             numeric_value = float(value)
             # If it's a large number, assume milliseconds
             if numeric_value > 1e12:
-                return datetime.utcfromtimestamp(numeric_value / 1000)
-            return datetime.utcfromtimestamp(numeric_value)
+                return datetime.fromtimestamp(numeric_value / 1000, tz=timezone.utc).replace(tzinfo=None)
+            return datetime.fromtimestamp(numeric_value, tz=timezone.utc).replace(tzinfo=None)
         except ValueError:
             pass
 
@@ -78,8 +117,8 @@ def _parse_timestamp(value) -> datetime:
     if isinstance(value, (int, float)):
         # If it's a very large number, assume milliseconds
         if value > 1e12:
-            return datetime.utcfromtimestamp(value / 1000)
-        return datetime.utcfromtimestamp(value)
+            return datetime.fromtimestamp(value / 1000, tz=timezone.utc).replace(tzinfo=None)
+        return datetime.fromtimestamp(value, tz=timezone.utc).replace(tzinfo=None)
 
     # Fallback: try pandas parsing
     try:
@@ -207,8 +246,8 @@ def load_trades(file_path: str) -> List[Trade]:
             trades.append(trade)
 
     except Exception as e:
-        print(f"Error loading trades: {e}")
-        return []
+        logger.error("Error loading trades: %s", e)
+        raise TradeLoadError(f"Failed to load trades from {file_path}: {e}") from e
 
     return trades
 
