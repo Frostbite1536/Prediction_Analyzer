@@ -7,23 +7,15 @@
 
 ## Critical Bugs
 
-### 1. Limitless Provider: Breakeven PnL Sentinel Bug
-**File**: `prediction_analyzer/providers/limitless.py:121`
+### 1. ~~Limitless Provider: Breakeven PnL Sentinel Bug~~ — ALREADY FIXED
+**File**: `prediction_analyzer/providers/limitless.py:82,122`
 
-```python
-pnl_is_set=pnl != 0.0  # BUG: breakeven trades (pnl=0.0) marked as "unset"
-```
+The code correctly uses `has_pnl = "pnl" in raw and raw["pnl"] is not None` and `pnl_is_set=has_pnl`. No action needed.
 
-A legitimate breakeven trade with `pnl=0.0` is marked `pnl_is_set=False`, causing `pnl_calculator.py` to overwrite it with a FIFO-computed value. The FIFO result may differ from the provider's actual value.
+### 2. ~~Kalshi `_apply_position_pnl` Never Sets `pnl_is_set`~~ — ALREADY FIXED
+**File**: `prediction_analyzer/providers/kalshi.py:202`
 
-**Fix**: Track whether the provider returned a PnL value independently of the value itself. Use a separate boolean or check for `None` instead of checking `!= 0.0`.
-
-### 2. Kalshi `_apply_position_pnl` Never Sets `pnl_is_set`
-**File**: `prediction_analyzer/providers/kalshi.py:201`
-
-The Kalshi provider fetches position-level PnL and distributes it across sell trades, but never sets `t.pnl_is_set = True`. When `pnl_calculator.compute_realized_pnl` runs later, it sees `pnl_is_set=False` and overwrites the position-derived PnL with a FIFO estimate, making the entire enrichment step wasted work.
-
-**Fix**: Set `t.pnl_is_set = True` after assigning PnL in `_apply_position_pnl`.
+The code already sets `t.pnl_is_set = True` after distributing position PnL. No action needed.
 
 ---
 

@@ -77,11 +77,7 @@ def export_to_json(trades: List[Trade], filename: str = "trades_export.json"):
         raise NoTradesError("No trades to export.")
 
     try:
-        trades_dict = [vars(t) for t in trades]
-        # Convert datetime to string
-        for t in trades_dict:
-            if hasattr(t['timestamp'], 'isoformat'):
-                t['timestamp'] = t['timestamp'].isoformat()
+        trades_dict = [t.to_dict() for t in trades]
 
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(trades_dict, f, indent=2)

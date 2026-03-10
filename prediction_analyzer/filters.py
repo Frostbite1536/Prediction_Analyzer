@@ -66,8 +66,7 @@ def filter_by_date(trades: List[Trade], start: Optional[str] = None, end: Option
         # End date should include the entire day (use strict less-than midnight next day)
         end_dt = datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)
     elif isinstance(end, datetime):
-        # Add 1 day for consistency with string behavior (entire day inclusive)
-        end_dt = _normalize_datetime(end) + timedelta(days=1)
+        end_dt = _normalize_datetime(end)
 
     filtered = []
     for t in trades:

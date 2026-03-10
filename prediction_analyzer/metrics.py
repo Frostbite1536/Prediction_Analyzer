@@ -143,7 +143,7 @@ def _risk_adjusted_metrics(pnls: List[float]) -> Dict:
 
     # Sortino ratio — downside deviation from target (0)
     downside_diffs = np.minimum(arr, 0.0)
-    downside_std = np.sqrt(np.mean(downside_diffs ** 2)) if len(arr) > 0 else 0.0
+    downside_std = np.sqrt(np.sum(downside_diffs ** 2) / (len(arr) - 1)) if len(arr) > 1 else 0.0
     sortino = (mean_return / downside_std) if downside_std > 0 else 0.0
 
     return {

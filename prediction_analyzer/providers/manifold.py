@@ -134,7 +134,7 @@ class ManifoldProvider(MarketProvider):
             price=fill_price,
             shares=shares,
             cost=abs(amount),
-            type="Buy" if amount > 0 else ("Sell" if amount < 0 else "Buy"),
+            type="Buy" if amount >= 0 else "Sell",
             side=(raw.get("outcome") or "YES").upper(),
             pnl=0.0,  # Must compute client-side
             pnl_is_set=False,

@@ -12,7 +12,7 @@ def infer_resolved_side_from_trades(trades: List[Trade], threshold: float = PRIC
 
     Args:
         trades: List of trades for a market
-        threshold: Price threshold for determining resolution (default 0.5 = 50 cents)
+        threshold: Price threshold for determining resolution (default 0.85 = 85 cents)
 
     Returns:
         Tuple of (inferred_side, latest_trade)
