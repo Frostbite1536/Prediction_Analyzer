@@ -3,9 +3,40 @@
 Configuration constants for the prediction analyzer
 """
 
-# API Configuration
+# API Configuration (legacy — kept for backward compat)
 API_BASE_URL = "https://api.limitless.exchange"
 DEFAULT_TRADE_FILE = "limitless_trades.json"
+
+# Multi-market provider configuration
+PROVIDER_CONFIGS = {
+    "limitless": {
+        "base_url": "https://api.limitless.exchange",
+        "api_key_prefix": "lmts_",
+        "currency": "USDC",
+        "display_name": "Limitless Exchange",
+    },
+    "polymarket": {
+        "data_url": "https://data-api.polymarket.com",
+        "gamma_url": "https://gamma-api.polymarket.com",
+        "clob_url": "https://clob.polymarket.com",
+        "api_key_prefix": "0x",
+        "currency": "USDC",
+        "display_name": "Polymarket",
+    },
+    "kalshi": {
+        "base_url": "https://api.elections.kalshi.com",
+        "demo_url": "https://demo-api.kalshi.co",
+        "api_key_prefix": "kalshi_",
+        "currency": "USD",
+        "display_name": "Kalshi",
+    },
+    "manifold": {
+        "base_url": "https://api.manifold.markets",
+        "api_key_prefix": "manifold_",
+        "currency": "MANA",
+        "display_name": "Manifold Markets",
+    },
+}
 
 # Chart Styling - includes all trade type variants
 STYLES = {
@@ -50,4 +81,4 @@ def get_trade_style(trade_type: str, side: str) -> tuple:
 
 
 # Analysis Parameters
-PRICE_RESOLUTION_THRESHOLD = 0.5
+PRICE_RESOLUTION_THRESHOLD = 0.85

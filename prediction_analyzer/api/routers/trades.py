@@ -29,6 +29,7 @@ async def list_trades(
     limit: int = Query(100, le=1000, ge=1),
     offset: int = Query(0, ge=0),
     market_slug: Optional[str] = None,
+    source: Optional[str] = Query(None, description="Filter by provider: limitless, polymarket, kalshi, manifold"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -38,13 +39,15 @@ async def list_trades(
     - **limit**: Maximum number of trades to return (max 1000)
     - **offset**: Number of trades to skip
     - **market_slug**: Optional filter by market
+    - **source**: Optional filter by provider (limitless, polymarket, kalshi, manifold)
     """
     trades, total = trade_service.get_user_trades(
         db,
         user_id=current_user.id,
         limit=limit,
         offset=offset,
-        market_slug=market_slug
+        market_slug=market_slug,
+        source=source,
     )
 
     return TradeListResponse(
@@ -90,6 +93,20 @@ async def upload_trades(
         trade_count=trade_count,
         message=f"Successfully imported {trade_count} trades"
     )
+
+
+@router.get("/providers")
+async def list_providers():
+    """List all available prediction market providers."""
+    from prediction_analyzer.config import PROVIDER_CONFIGS
+    return [
+        {
+            "name": name,
+            "display_name": cfg["display_name"],
+            "currency": cfg["currency"],
+        }
+        for name, cfg in PROVIDER_CONFIGS.items()
+    ]
 
 
 @router.get("/markets", response_model=list[MarketInfo])
@@ -140,7 +157,9 @@ async def export_trades_csv(
             "type": t.type,
             "side": t.side,
             "pnl": t.pnl,
-            "tx_hash": t.tx_hash
+            "tx_hash": t.tx_hash,
+            "source": getattr(t, "source", "limitless"),
+            "currency": getattr(t, "currency", "USD"),
         }
         for t in trades
     ])
@@ -150,9 +169,13 @@ async def export_trades_csv(
     df.to_csv(buffer, index=False)
     buffer.seek(0)
 
-    filename = f"trades_{current_user.username}"
+    # Sanitize filename components to prevent path traversal
+    import re
+    safe_user = re.sub(r'[^\w\-.]', '_', current_user.username)
+    filename = f"trades_{safe_user}"
     if market_slug:
-        filename += f"_{market_slug}"
+        safe_slug = re.sub(r'[^\w\-.]', '_', market_slug)
+        filename += f"_{safe_slug}"
     filename += ".csv"
 
     return StreamingResponse(
@@ -197,7 +220,9 @@ async def export_trades_json(
             "type": t.type,
             "side": t.side,
             "pnl": t.pnl,
-            "tx_hash": t.tx_hash
+            "tx_hash": t.tx_hash,
+            "source": getattr(t, "source", "limitless"),
+            "currency": getattr(t, "currency", "USD"),
         }
         for t in trades
     ]

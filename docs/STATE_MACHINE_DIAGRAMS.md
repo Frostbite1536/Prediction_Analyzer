@@ -5,14 +5,17 @@ This document provides comprehensive state machine diagrams for all stateful com
 ## Table of Contents
 
 1. [GUI Application State Machine](#1-gui-application-state-machine)
-2. [Authentication Flow State Machine](#2-authentication-flow-state-machine)
-3. [Data Fetching/Pagination State Machine](#3-data-fetchingpagination-state-machine)
-4. [Filter Pipeline State Machine](#4-filter-pipeline-state-machine)
-5. [PnL Calculation State Machine](#5-pnl-calculation-state-machine)
-6. [Interactive CLI State Machine](#6-interactive-cli-state-machine)
-7. [Chart Generation State Machine](#7-chart-generation-state-machine)
-8. [Market Resolution Inference State Machine](#8-market-resolution-inference-state-machine)
-9. [Export State Machine](#9-export-state-machine)
+2. [Provider Selection State Machine](#2-provider-selection-state-machine)
+3. [Authentication Flow State Machine](#3-authentication-flow-state-machine)
+4. [Data Fetching/Pagination State Machine](#4-data-fetchingpagination-state-machine)
+5. [Filter Pipeline State Machine](#5-filter-pipeline-state-machine)
+6. [PnL Calculation State Machine](#6-pnl-calculation-state-machine)
+7. [Interactive CLI State Machine](#7-interactive-cli-state-machine)
+8. [Chart Generation State Machine](#8-chart-generation-state-machine)
+9. [Market Resolution Inference State Machine](#9-market-resolution-inference-state-machine)
+10. [Export State Machine](#10-export-state-machine)
+11. [MCP Session State Machine](#11-mcp-session-state-machine)
+12. [FIFO PnL Calculator State Machine](#12-fifo-pnl-calculator-state-machine)
 
 ---
 
@@ -20,26 +23,29 @@ This document provides comprehensive state machine diagrams for all stateful com
 
 **File:** `gui.py`
 
-The main GUI application manages the overall application state including data loading, filtering, and display.
+The main GUI application manages the overall application state including provider selection, data loading, filtering, and display.
 
 ```mermaid
 stateDiagram-v2
     [*] --> NoDataLoaded: Application Start
 
+    NoDataLoaded --> ProviderSelected: Select provider dropdown
     NoDataLoaded --> FileLoading: load_file()
-    NoDataLoaded --> APIFetching: load_from_api()
 
-    FileLoading --> DataLoaded: File parsed successfully
+    ProviderSelected --> APIFetching: load_from_api()
+    ProviderSelected --> FileLoading: load_file()
+
+    FileLoading --> DataLoaded: File parsed (auto-detect provider format)
     FileLoading --> NoDataLoaded: Parse error
 
-    APIFetching --> DataLoaded: Trades fetched (X-API-Key auth)
-    APIFetching --> NoDataLoaded: Fetch error or missing API key
+    APIFetching --> DataLoaded: Trades fetched (provider-specific auth)
+    APIFetching --> NoDataLoaded: Fetch error or missing credentials
 
     DataLoaded --> FiltersApplied: apply_filters()
     DataLoaded --> ChartGenerating: generate_chart()
     DataLoaded --> Exporting: export_data()
-    DataLoaded --> FileLoading: load_file()
-    DataLoaded --> APIFetching: load_from_api()
+    DataLoaded --> FileLoading: load_file() (add more data)
+    DataLoaded --> APIFetching: load_from_api() (add from another provider)
 
     FiltersApplied --> DataLoaded: clear_filters()
     FiltersApplied --> FiltersApplied: apply_filters()
@@ -57,99 +63,205 @@ stateDiagram-v2
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `all_trades` | `List[Trade]` | Complete trade dataset |
+| `all_trades` | `List[Trade]` | Complete trade dataset (may span providers) |
 | `filtered_trades` | `List[Trade]` | Currently filtered subset |
 | `current_file_path` | `Optional[str]` | Source file path (None for API) |
 | `market_slugs` | `List[str]` | Available markets from filtered data |
+| `provider_var` | `StringVar` | Selected provider (auto/limitless/polymarket/kalshi/manifold) |
 | `buy_var` | `BooleanVar` | Buy filter checkbox state |
 | `sell_var` | `BooleanVar` | Sell filter checkbox state |
 
 ---
 
-## 2. Authentication Flow State Machine
+## 2. Provider Selection State Machine
+
+**Files:** `prediction_analyzer/providers/base.py`, `prediction_analyzer/utils/auth.py`
+
+Handles provider resolution from API key format, explicit selection, or file auto-detection.
+
+```mermaid
+stateDiagram-v2
+    [*] --> ResolvingProvider: User provides key or file
+
+    ResolvingProvider --> CheckExplicit: --provider flag set?
+
+    CheckExplicit --> ProviderKnown: Explicit provider given (not "auto")
+    CheckExplicit --> AutoDetecting: Provider is "auto"
+
+    AutoDetecting --> CheckKeyPrefix: Has API key?
+    AutoDetecting --> CheckFileFormat: Has file?
+
+    CheckKeyPrefix --> Limitless: Starts with "lmts_"
+    CheckKeyPrefix --> Polymarket: Starts with "0x"
+    CheckKeyPrefix --> Kalshi: Starts with "kalshi_"
+    CheckKeyPrefix --> Manifold: Starts with "manifold_"
+    CheckKeyPrefix --> FallbackLimitless: Unknown prefix
+
+    CheckFileFormat --> SampleRecords: Read first 5 records
+    SampleRecords --> DetectFields: Check field signatures
+
+    DetectFields --> Polymarket: Has "asset", "side" in ["BUY","SELL"]
+    DetectFields --> Kalshi: Has "ticker", "action"
+    DetectFields --> Manifold: Has "contractId", "probBefore"
+    DetectFields --> Limitless: Has "collateralAmount" or "outcomeIndex"
+    DetectFields --> FallbackLimitless: No match
+
+    Limitless --> ProviderKnown
+    Polymarket --> ProviderKnown
+    Kalshi --> ProviderKnown
+    Manifold --> ProviderKnown
+    FallbackLimitless --> ProviderKnown
+
+    ProviderKnown --> [*]: Return MarketProvider instance
+```
+
+### Provider Registry
+
+| Provider | Key Prefix | Detection Fields | Currency |
+|----------|-----------|-----------------|----------|
+| Limitless | `lmts_` | `collateralAmount`, `outcomeIndex` | USDC |
+| Polymarket | `0x` | `asset`, `side` in BUY/SELL | USDC |
+| Kalshi | `kalshi_` | `ticker`, `action` | USD |
+| Manifold | `manifold_` | `contractId`, `probBefore` | MANA |
+
+---
+
+## 3. Authentication Flow State Machine
 
 **File:** `prediction_analyzer/utils/auth.py`
 
-Handles API authentication using Limitless API keys (`X-API-Key` header).
+Handles multi-provider API key resolution.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ResolvingKey: get_api_key()
+    [*] --> ResolvingKey: get_api_key(provider=...)
 
     ResolvingKey --> CheckArgument: Check explicit argument
 
-    CheckArgument --> KeyResolved: Argument provided (lmts_...)
+    CheckArgument --> KeyResolved: Argument provided
     CheckArgument --> CheckEnvVar: No argument
 
-    CheckEnvVar --> KeyResolved: LIMITLESS_API_KEY set
-    CheckEnvVar --> NoKey: Env var not set
+    CheckEnvVar --> LimitlessEnv: provider == "limitless" → LIMITLESS_API_KEY
+    CheckEnvVar --> PolymarketEnv: provider == "polymarket" → POLYMARKET_WALLET
+    CheckEnvVar --> KalshiEnv: provider == "kalshi" → KALSHI_API_KEY_ID
+    CheckEnvVar --> ManifoldEnv: provider == "manifold" → MANIFOLD_API_KEY
 
-    KeyResolved --> HeadersReady: get_auth_headers()
+    LimitlessEnv --> KeyResolved: Env var set
+    LimitlessEnv --> NoKey: Env var not set
+    PolymarketEnv --> KeyResolved: Env var set
+    PolymarketEnv --> NoKey: Env var not set
+    KalshiEnv --> KeyResolved: Env var set
+    KalshiEnv --> NoKey: Env var not set
+    ManifoldEnv --> KeyResolved: Env var set
+    ManifoldEnv --> NoKey: Env var not set
+
+    KeyResolved --> ProviderAuth: Route to provider-specific auth
     NoKey --> AuthError: Prompt user for key
 
-    HeadersReady --> [*]: Return {"X-API-Key": key}
+    ProviderAuth --> LimitlessHeaders: X-API-Key header
+    ProviderAuth --> PolymarketQuery: Wallet as query param
+    ProviderAuth --> KalshiSigning: RSA-PSS per-request signing
+    ProviderAuth --> ManifoldHeaders: Authorization: Key ... header
+
+    LimitlessHeaders --> [*]
+    PolymarketQuery --> [*]
+    KalshiSigning --> [*]
+    ManifoldHeaders --> [*]
     AuthError --> [*]: Return None
 ```
 
-### Authentication State Outputs
+### Authentication Methods by Provider
 
-| State | Output |
-|-------|--------|
-| `KeyResolved` | API key string (`lmts_...`) |
-| `HeadersReady` | `{"X-API-Key": "lmts_..."}` dict |
-| `NoKey` | `None` |
+| Provider | Auth Method | Header/Param |
+|----------|------------|--------------|
+| Limitless | API key | `X-API-Key: lmts_...` |
+| Polymarket | None (public) | `?maker_address=0x...` query param |
+| Kalshi | RSA-PSS | Per-request signed `Authorization` header |
+| Manifold | API key | `Authorization: Key manifold_...` |
 
 ---
 
-## 3. Data Fetching/Pagination State Machine
+## 4. Data Fetching/Pagination State Machine
 
-**File:** `prediction_analyzer/utils/data.py`
+**Files:** `prediction_analyzer/providers/*.py`
 
-Manages paginated API data fetching with accumulation.
+Each provider has its own pagination strategy.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle
+    [*] --> SelectProvider: fetch_trades()
 
-    Idle --> FetchingPage1: fetch_trade_history()
+    SelectProvider --> LimitlessPagination: Limitless
+    SelectProvider --> PolymarketPagination: Polymarket
+    SelectProvider --> KalshiPagination: Kalshi
+    SelectProvider --> ManifoldPagination: Manifold
 
-    FetchingPage1 --> ProcessingPage: Response received
-    FetchingPage1 --> FetchError: Network error
+    state "Limitless (Page-based)" as LimitlessPagination {
+        [*] --> FetchPage
+        FetchPage --> AccumulateTrades: Response received
+        AccumulateTrades --> FetchPage: trades < totalCount (page++)
+        AccumulateTrades --> [*]: All fetched or empty
+    }
 
-    ProcessingPage --> CheckingMore: Trades accumulated
+    state "Polymarket (Timestamp Window)" as PolymarketPagination {
+        [*] --> FetchWindow
+        FetchWindow --> NarrowWindow: Response received
+        NarrowWindow --> FetchWindow: More trades (end = oldest timestamp)
+        NarrowWindow --> [*]: Empty response
+    }
 
-    CheckingMore --> FetchingNextPage: len(all_trades) < totalCount
-    CheckingMore --> Complete: len(all_trades) >= totalCount
-    CheckingMore --> Complete: Empty response
+    state "Kalshi (Cursor-based)" as KalshiPagination {
+        [*] --> FetchCursor
+        FetchCursor --> NextCursor: Response with cursor
+        NextCursor --> FetchCursor: Has next cursor
+        NextCursor --> [*]: No cursor (done)
+    }
 
-    FetchingNextPage --> ProcessingPage: Response received
-    FetchingNextPage --> Complete: Network error (partial data)
+    state "Manifold (Before-cursor)" as ManifoldPagination {
+        [*] --> FetchBets
+        FetchBets --> BatchMarkets: Bets received
+        BatchMarkets --> FetchBets: before = last bet ID
+        BatchMarkets --> [*]: Empty response
+    }
 
-    Complete --> [*]: Return all_trades
-    FetchError --> [*]: Return empty list
+    LimitlessPagination --> ApplyPnL
+    PolymarketPagination --> ApplyPnL
+    KalshiPagination --> ApplyPnL
+    ManifoldPagination --> ApplyPnL
+
+    ApplyPnL --> [*]: Return List[Trade]
 ```
 
-### Pagination State Variables
+### Pagination Parameters
 
-| Variable | Type | Description |
-|----------|------|-------------|
-| `all_trades` | `List[dict]` | Accumulating trades |
-| `page` | `int` | Current page number |
-| `total_count` | `int` | Total available from API |
+| Provider | Strategy | Param | Notes |
+|----------|---------|-------|-------|
+| Limitless | Page number | `page=N` | Uses totalCount to know when done |
+| Polymarket | Timestamp window | `end=timestamp` | Narrows end to oldest seen |
+| Kalshi | Cursor | `cursor=token` | Server returns next cursor |
+| Manifold | Before ID | `before=betId` | Uses last bet ID as cursor |
 
 ---
 
-## 4. Filter Pipeline State Machine
+## 5. Filter Pipeline State Machine
 
-**File:** `prediction_analyzer/filters.py`
+**File:** `prediction_analyzer/filters.py`, `prediction_analyzer/trade_filter.py`
 
-Sequential filter application with validation.
+Sequential filter application with validation. Now includes source filtering.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Unfiltered: Input trades
 
+    Unfiltered --> SourceFiltering: Source filter requested
     Unfiltered --> ValidatingDateInputs: Date filter requested
+    Unfiltered --> TypeFiltering: Type filter requested
+    Unfiltered --> PnLFiltering: PnL filter requested
+
+    SourceFiltering --> SourceFiltered: filter_trades_by_source()
+
+    SourceFiltered --> ValidatingDateInputs: Date filter requested
+    SourceFiltered --> Complete: No more filters
 
     ValidatingDateInputs --> DateFiltering: Valid format
     ValidatingDateInputs --> ValidationError: Invalid format
@@ -165,9 +277,6 @@ stateDiagram-v2
     TypeFiltered --> PnLFiltering: PnL filter requested
     TypeFiltered --> Complete: No more filters
 
-    ValidatingPnLInputs --> PnLFiltering: Valid numeric
-    ValidatingPnLInputs --> ValidationError: Invalid format
-
     PnLFiltering --> PnLFiltered: Apply filter_by_pnl()
 
     PnLFiltered --> Complete: All filters applied
@@ -182,30 +291,38 @@ stateDiagram-v2
 ```
 Input State: List[Trade]
     │
-    ├── filter_by_date(start, end)     → List[Trade]
+    ├── filter_trades_by_source(source)  → List[Trade]
     │
-    ├── filter_by_trade_type(types)    → List[Trade]
+    ├── filter_by_date(start, end)       → List[Trade]
     │
-    ├── filter_by_side(sides)          → List[Trade]
+    ├── filter_by_trade_type(types)      → List[Trade]
     │
-    └── filter_by_pnl(min, max)        → List[Trade]
+    ├── filter_by_side(sides)            → List[Trade]
+    │
+    └── filter_by_pnl(min, max)          → List[Trade]
 
 Output State: List[Trade] (subset)
 ```
 
 ---
 
-## 5. PnL Calculation State Machine
+## 6. PnL Calculation State Machine
 
 **File:** `prediction_analyzer/pnl.py`
 
-Cumulative PnL calculation with running totals.
+Cumulative PnL calculation with running totals and optional per-source breakdown.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Initialize: calculate_pnl(trades)
+    [*] --> Initialize: calculate_global_pnl_summary(trades)
 
-    Initialize --> SortTrades: Set cumulative = 0
+    Initialize --> CheckSources: Determine unique sources
+
+    CheckSources --> SingleSource: One source
+    CheckSources --> MultiSource: Multiple sources
+
+    SingleSource --> SortTrades: Standard calculation
+    MultiSource --> SortTrades: Standard calculation + by_source breakdown
 
     SortTrades --> ProcessingTrade: Sort by timestamp
 
@@ -218,29 +335,12 @@ stateDiagram-v2
     UpdatingExposure --> ProcessingTrade: More trades
     UpdatingExposure --> Summarizing: No more trades
 
-    Summarizing --> Complete: Calculate final metrics
+    Summarizing --> AddSourceBreakdown: Multiple sources detected
+    Summarizing --> Complete: Single source
+
+    AddSourceBreakdown --> Complete: Add by_source dict
 
     Complete --> [*]: Return summary dict
-```
-
-### PnL State Accumulation
-
-```mermaid
-stateDiagram-v2
-    direction LR
-
-    state "Trade Processing Loop" as loop {
-        [*] --> ReadTrade
-        ReadTrade --> IsBuy: Check type
-        ReadTrade --> IsSell: Check type
-
-        IsBuy --> UpdateExposure: exposure += cost
-        IsSell --> UpdateExposure: exposure -= cost
-
-        UpdateExposure --> UpdateShares: Update position
-        UpdateShares --> UpdatePnL: Calculate P&L
-        UpdatePnL --> [*]: Next trade
-    }
 ```
 
 ### Summary State Output
@@ -252,10 +352,11 @@ stateDiagram-v2
 | `losing_trades` | Count where pnl < 0 |
 | `win_rate` | winning / total * 100 |
 | `roi` | total_pnl / total_invested * 100 |
+| `by_source` | Per-provider breakdown (when multi-source) |
 
 ---
 
-## 6. Interactive CLI State Machine
+## 7. Interactive CLI State Machine
 
 **File:** `prediction_analyzer/core/interactive.py`
 
@@ -303,29 +404,9 @@ stateDiagram-v2
     WaitingForEnter3 --> MainMenu: Enter pressed
 ```
 
-### Menu State Hierarchy
-
-```
-MainMenu
-├── [1] GlobalSummary → Display → Return
-├── [2] MarketSelection
-│   └── FilterMenu
-│       ├── [1] DateFilter → Apply → Return to FilterMenu
-│       ├── [2] TypeFilter → Apply → Return to FilterMenu
-│       ├── [3] PnLFilter → Apply → Return to FilterMenu
-│       ├── [4] ClearFilters → Return to FilterMenu
-│       └── [5] Done → ChartSelection → Generate → Return to Main
-├── [3] ExportMenu
-│   ├── [1] CSV Export → Write → Return
-│   ├── [2] Excel Export → Write → Return
-│   └── [3] Back → Return to Main
-├── [4] FullReport → Generate → Return
-└── [Q] Quit → Exit
-```
-
 ---
 
-## 7. Chart Generation State Machine
+## 8. Chart Generation State Machine
 
 **Files:** `prediction_analyzer/charts/*.py`
 
@@ -374,7 +455,7 @@ stateDiagram-v2
 
 ---
 
-## 8. Market Resolution Inference State Machine
+## 9. Market Resolution Inference State Machine
 
 **File:** `prediction_analyzer/inference.py`
 
@@ -388,7 +469,7 @@ stateDiagram-v2
 
     FindingLatestTrade --> CheckingPrice: Get last trade
 
-    CheckingPrice --> InferYES: price >= 0.50 (50¢)
+    CheckingPrice --> InferYES: price >= 0.50 (50c)
     CheckingPrice --> InferOpposite: price < 0.50
 
     InferYES --> Resolved: Return "YES"
@@ -403,25 +484,13 @@ stateDiagram-v2
     Resolved --> [*]: Return (inferred_side, latest_trade)
 ```
 
-### Inference Logic
-
-```
-IF latest_price >= $0.50:
-    inferred_outcome = "YES"  # High price = market resolved YES
-ELSE:
-    IF latest_side == "YES":
-        inferred_outcome = "NO"   # Bought YES cheap = market went NO
-    ELSE:
-        inferred_outcome = "YES"  # Bought NO cheap = market went YES
-```
-
 ---
 
-## 9. Export State Machine
+## 10. Export State Machine
 
 **File:** `prediction_analyzer/reporting/report_data.py`
 
-File export workflow with format selection.
+File export workflow with format selection. Export now includes source and currency fields.
 
 ```mermaid
 stateDiagram-v2
@@ -437,10 +506,10 @@ stateDiagram-v2
     PreparingData --> WritingCSV: CSV format
     PreparingData --> WritingExcel: Excel format
 
-    WritingCSV --> Success: File written
+    WritingCSV --> Success: File written (includes source/currency columns)
     WritingCSV --> ExportError: IO error
 
-    WritingExcel --> Success: File written
+    WritingExcel --> Success: File written (includes source/currency columns)
     WritingExcel --> ExportError: IO error
 
     Success --> ShowingConfirmation: Display path
@@ -453,19 +522,123 @@ stateDiagram-v2
 
 ---
 
+## 11. MCP Session State Machine
+
+**File:** `prediction_mcp/state.py`, `prediction_mcp/persistence.py`
+
+Multi-source session state with optional SQLite persistence.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Empty: Server starts
+
+    Empty --> RestoreCheck: persistence enabled?
+    RestoreCheck --> Restored: DB has trades → restore()
+    RestoreCheck --> Empty: No DB or empty
+
+    Restored --> Ready: trades + sources loaded
+    Empty --> Ready: Waiting for tool calls
+
+    Ready --> Loading: load_trades / fetch_trades
+
+    Loading --> MultiSource: Trades from new provider added
+    Loading --> SingleSource: Trades from same provider replaced
+
+    MultiSource --> Ready: session.sources updated
+    SingleSource --> Ready: session.sources unchanged
+
+    Ready --> Filtering: filter_trades tool
+    Filtering --> Ready: filtered_trades updated
+
+    Ready --> Analyzing: analysis/chart/export tool
+    Analyzing --> Ready: Results returned
+
+    Ready --> Persisting: State-modifying tool completes
+    Persisting --> Ready: session_store.save()
+
+    Ready --> Cleared: session.clear()
+    Cleared --> Ready: Reset to empty
+```
+
+### MCP Session State Variables
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `trades` | `List[Trade]` | All loaded trades (may span providers) |
+| `filtered_trades` | `List[Trade]` | Currently filtered subset |
+| `active_filters` | `Dict[str, Any]` | Applied filter parameters |
+| `sources` | `List[str]` | Active provider sources (e.g. ["limitless", "polymarket"]) |
+
+### Persistence Schema
+
+| Table | Key Columns | Notes |
+|-------|-------------|-------|
+| `trades` | market, timestamp, price, shares, cost, type, side, pnl, source, currency | Full trade data |
+| `session_meta` | key, value | Stores sources list and active_filters as JSON |
+
+---
+
+## 12. FIFO PnL Calculator State Machine
+
+**File:** `prediction_analyzer/providers/pnl_calculator.py`
+
+FIFO matching of buy/sell pairs for providers without native PnL (Polymarket, Manifold).
+
+```mermaid
+stateDiagram-v2
+    [*] --> GroupTrades: compute_realized_pnl(trades)
+
+    GroupTrades --> ProcessGroup: Group by (market_slug, side, source)
+
+    state "Per-Group Processing" as ProcessGroup {
+        [*] --> SortByTime: Sort group by timestamp
+
+        SortByTime --> ReadTrade: Get next trade
+
+        ReadTrade --> IsBuy: trade.type contains "Buy"
+        ReadTrade --> IsSell: trade.type contains "Sell"
+
+        IsBuy --> PushQueue: Add to buy_queue (price, shares)
+        PushQueue --> ReadTrade: More trades
+        PushQueue --> [*]: No more trades
+
+        IsSell --> MatchFIFO: Pop from buy_queue front
+
+        MatchFIFO --> CalculatePnL: matched_shares * (sell_price - buy_price)
+        CalculatePnL --> UpdateTrade: trade.pnl = realized_pnl (only if pnl == 0.0)
+        UpdateTrade --> ReadTrade: More trades
+        UpdateTrade --> [*]: No more trades
+    }
+
+    ProcessGroup --> [*]: Return updated trades
+```
+
+### FIFO Matching Rules
+
+- Trades grouped by `(market_slug, side, source)` key
+- Within each group, sorted by timestamp
+- Buy trades pushed to FIFO queue
+- Sell trades matched against oldest buys first
+- PnL only assigned to trades with `pnl == 0.0` (preserves existing PnL)
+
+---
+
 ## Component State Summary
 
 | Component | State Type | Persistence | Side Effects |
 |-----------|-----------|-------------|--------------|
 | GUI | Class instance | Session | UI updates, file I/O |
+| Provider Selection | Transient | None | Registry lookup |
 | Auth | Transient | API key (env/arg) | Header construction |
-| Data Fetch | Transient | None | Network requests |
+| Data Fetch | Transient | None | Network requests (provider-specific) |
+| FIFO PnL | Transient | None | Modifies trade.pnl in place |
 | Filters | Pure functional | None | None |
 | PnL | Transient | None | Calculations only |
 | Interactive CLI | Loop-based | Session | Console I/O |
 | Charts | Transient | File output | File I/O, browser |
 | Inference | Pure functional | None | None |
 | Export | Transient | File output | File I/O |
+| MCP Session | Singleton | Optional SQLite | Trade state, filters |
 
 ---
 
@@ -475,28 +648,39 @@ stateDiagram-v2
 flowchart TB
     subgraph "Data Acquisition"
         A[Start] --> B{Load Source}
-        B -->|File| C[FileLoader]
-        B -->|API| D[Authentication]
-        D --> E[DataFetcher]
-        C --> F[Trade Objects]
-        E --> F
+        B -->|File| C[FileLoader + Auto-Detect]
+        B -->|API| D[Provider Selection]
+        D --> D1[Limitless]
+        D --> D2[Polymarket]
+        D --> D3[Kalshi]
+        D --> D4[Manifold]
+        D1 --> E[Authentication]
+        D2 --> E
+        D3 --> E
+        D4 --> E
+        E --> F[DataFetcher]
+        C --> G[Trade Objects]
+        F --> FIFO[FIFO PnL Calculator]
+        FIFO --> G
     end
 
     subgraph "Data Processing"
-        F --> G[Filter Pipeline]
-        G --> H[Filtered Trades]
-        H --> I[PnL Calculator]
-        I --> J[Summary Stats]
+        G --> H[Filter Pipeline]
+        H --> H1[Source Filter]
+        H1 --> H2[Date/Type/PnL Filters]
+        H2 --> I[Filtered Trades]
+        I --> J[PnL Calculator]
+        J --> K[Summary Stats + Source Breakdown]
     end
 
     subgraph "Output Generation"
-        H --> K{Output Type}
-        K -->|Chart| L[Chart Generator]
-        K -->|Report| M[Report Generator]
-        K -->|Export| N[File Exporter]
-        L --> O[Visual Output]
-        M --> P[Text Output]
-        N --> Q[File Output]
+        I --> L{Output Type}
+        L -->|Chart| M[Chart Generator]
+        L -->|Report| N[Report Generator]
+        L -->|Export| O[File Exporter]
+        M --> P[Visual Output]
+        N --> Q[Text Output]
+        O --> R[File Output]
     end
 ```
 
@@ -507,23 +691,30 @@ flowchart TB
 ### User Actions
 | Trigger | Component | Transition |
 |---------|-----------|------------|
-| Click "Load File" | GUI | NoDataLoaded → FileLoading |
-| Click "Load from API" | GUI | NoDataLoaded → APIFetching |
-| Click "Apply Filters" | GUI | DataLoaded → FiltersApplied |
-| Click "Clear Filters" | GUI | FiltersApplied → DataLoaded |
-| Select menu option | CLI | CurrentMenu → SelectedSubmenu |
+| Select provider dropdown | GUI | NoDataLoaded -> ProviderSelected |
+| Click "Load File" | GUI | NoDataLoaded -> FileLoading |
+| Click "Load from API" | GUI | ProviderSelected -> APIFetching |
+| Click "Apply Filters" | GUI | DataLoaded -> FiltersApplied |
+| Click "Clear Filters" | GUI | FiltersApplied -> DataLoaded |
+| Select menu option | CLI | CurrentMenu -> SelectedSubmenu |
+| Call fetch_trades MCP tool | MCP | Ready -> Loading |
 
 ### System Events
 | Event | Component | Transition |
 |-------|-----------|------------|
-| API key resolved | Auth | ResolvingKey → KeyResolved |
-| No API key found | Auth | ResolvingKey → NoKey |
-| Last page fetched | DataFetch | CheckingMore → Complete |
-| File write success | Export | WritingFile → Success |
+| API key resolved | Auth | ResolvingKey -> KeyResolved |
+| Provider detected from key | Provider | AutoDetecting -> ProviderKnown |
+| Provider detected from file | Provider | CheckFileFormat -> ProviderKnown |
+| No API key found | Auth | ResolvingKey -> NoKey |
+| Last page fetched | DataFetch | CheckingMore -> Complete |
+| File write success | Export | WritingFile -> Success |
+| Session saved to SQLite | MCP | Persisting -> Ready |
 
 ### Data Events
 | Event | Component | Transition |
 |-------|-----------|------------|
-| Trade processed | PnL | ProcessingTrade → UpdatingCumulative |
-| All trades done | Chart | RecordingDataPoint → BuildingFigure |
-| Filter applied | Filter | Input → Output (pure transform) |
+| Trade processed | PnL | ProcessingTrade -> UpdatingCumulative |
+| FIFO match found | PnL Calculator | IsSell -> CalculatePnL |
+| All trades done | Chart | RecordingDataPoint -> BuildingFigure |
+| Filter applied | Filter | Input -> Output (pure transform) |
+| New source added | MCP Session | SingleSource -> MultiSource |

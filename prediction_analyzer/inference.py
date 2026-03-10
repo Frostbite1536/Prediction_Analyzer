@@ -28,11 +28,10 @@ def infer_resolved_side_from_trades(trades: List[Trade], threshold: float = PRIC
     if side not in {"YES", "NO"}:
         return None, latest
 
-    threshold_cents = threshold * 100
-
-    # If price is very high, assume the side being traded resolved YES
-    # If price is very low, assume the opposite side resolved YES
-    if price >= threshold_cents:
+    # If price is very high (>= threshold), assume the side being traded resolved YES
+    # If price is very low (< threshold), assume the opposite side resolved YES
+    # Prices are stored as decimals (0.0-1.0), threshold default is 0.5
+    if price >= threshold:
         inferred = side
     else:
         inferred = "NO" if side == "YES" else "YES"
@@ -48,10 +47,6 @@ def detect_market_resolution(trades: List[Trade]) -> Optional[str]:
     """
     # Look for explicit resolution indicators in trade data
     for trade in reversed(trades):  # Check most recent first
-        # Check if trade has resolution info
-        if hasattr(trade, 'resolution'):
-            return trade.resolution
-
         # Check for claim/result events
         if trade.type in ["Claim", "Won", "Loss"]:
             return trade.side

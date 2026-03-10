@@ -118,6 +118,18 @@ def get_tool_definitions() -> list[types.Tool]:
                 "properties": _FILTER_PROPERTIES,
             },
         ),
+        types.Tool(
+            name="get_provider_breakdown",
+            description=(
+                "Get PnL breakdown by prediction market provider. "
+                "Shows per-provider trade count, total PnL, and currency. "
+                "Useful when trades from multiple providers are loaded."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
     ]
 
 
@@ -131,6 +143,8 @@ async def handle_tool(name: str, arguments: dict):
         return await _handle_advanced_metrics(arguments)
     elif name == "get_market_breakdown":
         return await _handle_market_breakdown(arguments)
+    elif name == "get_provider_breakdown":
+        return await _handle_provider_breakdown(arguments)
     return None
 
 
@@ -196,6 +210,42 @@ async def _handle_market_breakdown(arguments: dict):
             "trade_count": stats["trade_count"],
             "pnl": stats["total_pnl"],
             "volume": stats["total_volume"],
+        })
+
+    return [types.TextContent(type="text", text=to_json_text(result))]
+
+
+@safe_tool
+async def _handle_provider_breakdown(arguments: dict):
+    if not session.has_trades:
+        raise NoTradesError("No trades loaded")
+
+    from prediction_analyzer.config import PROVIDER_CONFIGS
+
+    sources = {}
+    for trade in session.trades:
+        src = getattr(trade, "source", "limitless")
+        if src not in sources:
+            sources[src] = {
+                "total_trades": 0,
+                "total_pnl": 0.0,
+                "total_volume": 0.0,
+                "currency": getattr(trade, "currency", "USD"),
+            }
+        sources[src]["total_trades"] += 1
+        sources[src]["total_pnl"] += trade.pnl
+        sources[src]["total_volume"] += trade.cost
+
+    result = []
+    for src, stats in sorted(sources.items(), key=lambda x: x[1]["total_pnl"], reverse=True):
+        cfg = PROVIDER_CONFIGS.get(src, {})
+        result.append({
+            "provider": src,
+            "display_name": cfg.get("display_name", src.title()),
+            "total_trades": stats["total_trades"],
+            "total_pnl": stats["total_pnl"],
+            "total_volume": stats["total_volume"],
+            "currency": stats["currency"],
         })
 
     return [types.TextContent(type="text", text=to_json_text(result))]

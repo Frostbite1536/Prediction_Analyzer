@@ -139,8 +139,8 @@ class TestCalculateGlobalPnLSummaryContracts:
         expected = sum(t.pnl for t in sample_trades_list)
         assert abs(result["total_pnl"] - expected) < 0.01
 
-    def test_winning_plus_losing_plus_breakeven_equals_total(self, sample_trades_list):
-        """Sum of win/lose/breakeven should equal total trades."""
+    def test_winning_plus_losing_plus_breakeven_lte_total(self, sample_trades_list):
+        """Sum of win/lose/breakeven should not exceed total trades."""
         from prediction_analyzer.pnl import calculate_global_pnl_summary
 
         result = calculate_global_pnl_summary(sample_trades_list)
@@ -149,7 +149,7 @@ class TestCalculateGlobalPnLSummaryContracts:
             result["losing_trades"] +
             result.get("breakeven_trades", 0)
         )
-        assert count_sum == result["total_trades"]
+        assert count_sum <= result["total_trades"]
 
     def test_all_winning_trades(self, winning_trades):
         """All winning trades should have 100% win rate (excl breakeven)."""

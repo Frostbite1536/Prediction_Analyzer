@@ -26,15 +26,29 @@ def print_global_summary(trades: List[Trade], stream: TextIO = None):
     def _print(text=""):
         out.write(text + "\n")
 
+    cur_label = summary.get("currency", "USD")
+    cur_symbol = "M$" if cur_label == "MANA" else "$"
+
     _print("\n" + "="*60)
     _print("GLOBAL PORTFOLIO SUMMARY")
     _print("="*60)
     _print(f"Total Trades:          {summary['total_trades']}")
-    _print(f"Total Volume:          ${summary['total_volume']:,.2f}")
-    _print(f"Total Realized PnL:    ${summary['total_pnl']:,.2f}")
+    _print(f"Total Volume:          {cur_symbol}{summary['total_volume']:,.2f} {cur_label}")
+    _print(f"Total Realized PnL:    {cur_symbol}{summary['total_pnl']:,.2f} {cur_label}")
     _print(f"Win Rate:              {summary['win_rate']:.1f}%")
-    _print(f"Avg PnL per Trade:     ${summary['avg_pnl_per_trade']:.2f}")
+    _print(f"Avg PnL per Trade:     {cur_symbol}{summary['avg_pnl_per_trade']:.2f} {cur_label}")
     _print("-" * 60)
+
+    # Per-currency breakdown
+    by_currency = summary.get("by_currency")
+    if by_currency:
+        _print("\nPNL BY CURRENCY:")
+        for cur, cur_stats in sorted(by_currency.items()):
+            cs = "M$" if cur == "MANA" else "$"
+            _print(f"  {cur:<8} {cur_stats['total_trades']:>5} trades  "
+                   f"PnL: {cs}{cur_stats['total_pnl']:>10,.2f}  "
+                   f"Win Rate: {cur_stats['win_rate']:.1f}%")
+        _print("-" * 60)
 
     # Top markets by PnL
     sorted_markets = sorted(market_stats.items(), key=lambda x: x[1]['total_pnl'], reverse=True)
@@ -72,16 +86,32 @@ def generate_text_report(trades: List[Trade], filename: str = None):
     lines.append("")
 
     # Global summary
+    cur_label = summary.get("currency", "USD")
+    cur_symbol = "M$" if cur_label == "MANA" else "$"
+
     lines.append("GLOBAL SUMMARY")
     lines.append("-"*70)
     lines.append(f"Total Trades:           {summary['total_trades']}")
     lines.append(f"Winning Trades:         {summary['winning_trades']}")
     lines.append(f"Losing Trades:          {summary['losing_trades']}")
     lines.append(f"Win Rate:               {summary['win_rate']:.2f}%")
-    lines.append(f"Total Volume:           ${summary['total_volume']:,.2f}")
-    lines.append(f"Total Realized PnL:     ${summary['total_pnl']:,.2f}")
-    lines.append(f"Average PnL per Trade:  ${summary['avg_pnl_per_trade']:.2f}")
+    lines.append(f"Total Volume:           {cur_symbol}{summary['total_volume']:,.2f} {cur_label}")
+    lines.append(f"Total Realized PnL:     {cur_symbol}{summary['total_pnl']:,.2f} {cur_label}")
+    lines.append(f"Average PnL per Trade:  {cur_symbol}{summary['avg_pnl_per_trade']:.2f} {cur_label}")
     lines.append("")
+
+    # Per-currency breakdown
+    by_currency = summary.get("by_currency")
+    if by_currency:
+        lines.append("PNL BY CURRENCY")
+        lines.append("-"*70)
+        for cur, cur_stats in sorted(by_currency.items()):
+            cs = "M$" if cur == "MANA" else "$"
+            lines.append(f"  {cur:<8} {cur_stats['total_trades']:>5} trades  "
+                         f"PnL: {cs}{cur_stats['total_pnl']:>10,.2f}  "
+                         f"Win Rate: {cur_stats['win_rate']:.1f}%  "
+                         f"ROI: {cur_stats['roi']:.1f}%")
+        lines.append("")
 
     # Market breakdown
     lines.append("MARKET BREAKDOWN")

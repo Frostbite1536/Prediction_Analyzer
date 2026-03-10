@@ -45,7 +45,10 @@ class Trade:
     type: str  # "Buy" or "Sell"
     side: str  # "YES" or "NO"
     pnl: float = 0.0
+    pnl_is_set: bool = False  # True when pnl was explicitly set by provider
     tx_hash: Optional[str] = None
+    source: str = "limitless"  # "limitless", "polymarket", "kalshi", "manifold"
+    currency: str = "USD"  # "USD", "USDC", "MANA"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a JSON-serializable dictionary."""
@@ -59,7 +62,10 @@ class Trade:
             "type": self.type,
             "side": self.side,
             "pnl": sanitize_numeric(self.pnl),
+            "pnl_is_set": self.pnl_is_set,
             "tx_hash": self.tx_hash,
+            "source": self.source,
+            "currency": self.currency,
         }
 
 
@@ -73,20 +79,20 @@ def _parse_timestamp(value) -> datetime:
     Returns:
         datetime object (timezone-naive in UTC)
     """
-    if value is None or value == 0:
+    if value is None or (isinstance(value, (int, float)) and value == 0):
         return datetime(1970, 1, 1)
 
-    # If it's already a datetime, make it naive (remove timezone info for consistency)
+    # If it's already a datetime, convert to naive UTC
     if isinstance(value, datetime):
         if value.tzinfo is not None:
-            return value.replace(tzinfo=None)
+            return value.astimezone(timezone.utc).replace(tzinfo=None)
         return value
 
     # If it's a pandas Timestamp
     if hasattr(value, 'to_pydatetime'):
         dt = value.to_pydatetime()
         if dt.tzinfo is not None:
-            return dt.replace(tzinfo=None)
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
         return dt
 
     # Try to parse as string first (RFC 3339, ISO 8601)
@@ -98,7 +104,7 @@ def _parse_timestamp(value) -> datetime:
             dt = datetime.fromisoformat(clean_value)
             # Convert to naive UTC
             if dt.tzinfo is not None:
-                dt = dt.replace(tzinfo=None)
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
             return dt
         except ValueError:
             pass
@@ -126,7 +132,7 @@ def _parse_timestamp(value) -> datetime:
         if hasattr(result, 'to_pydatetime'):
             dt = result.to_pydatetime()
             if dt.tzinfo is not None:
-                return dt.replace(tzinfo=None)
+                return dt.astimezone(timezone.utc).replace(tzinfo=None)
             return dt
         return result
     except Exception:
@@ -184,6 +190,20 @@ def load_trades(file_path: str) -> List[Trade]:
         else:
             raise ValueError("Unsupported file type. Use JSON, CSV, or XLSX.")
 
+        # Auto-detect provider from file format
+        try:
+            from .providers import ProviderRegistry
+            sample = raw_trades[:5] if raw_trades else []
+            provider = ProviderRegistry.detect_from_file(sample)
+            if provider and provider.name != "limitless":
+                logger.info("Auto-detected file format: %s", provider.display_name)
+                return [provider.normalize_trade(t) for t in raw_trades]
+        except ImportError as exc:
+            logger.debug("Provider auto-detection skipped (import): %s", exc)
+        except Exception as exc:
+            logger.warning("Provider auto-detection failed: %s", exc)
+
+        # Default: Limitless / generic parsing (backward compat)
         for t in raw_trades:
             # Handle both old and new format for market data
             # Also handle null values properly
@@ -241,6 +261,7 @@ def load_trades(file_path: str) -> List[Trade]:
                 type=trade_type,
                 side=side,
                 pnl=raw_pnl,
+                pnl_is_set=raw_pnl != 0.0,
                 tx_hash=t.get("tx_hash") or t.get("transactionHash")
             )
             trades.append(trade)
@@ -259,8 +280,8 @@ def save_trades(trades: List[Union[Trade, dict]], file_path: str):
         if isinstance(t, dict):
             trades_dict.append(t)
         else:
-            # It's a Trade object, convert using vars()
-            trades_dict.append(vars(t))
+            # It's a Trade object, convert using to_dict() for NaN/Inf sanitization
+            trades_dict.append(t.to_dict())
 
     # Convert datetime to string for JSON serialization
     for t in trades_dict:

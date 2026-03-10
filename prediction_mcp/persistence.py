@@ -37,10 +37,13 @@ CREATE TABLE IF NOT EXISTS trades (
     type TEXT NOT NULL,
     side TEXT NOT NULL,
     pnl REAL NOT NULL DEFAULT 0.0,
-    tx_hash TEXT
+    tx_hash TEXT,
+    source TEXT NOT NULL DEFAULT 'limitless',
+    currency TEXT NOT NULL DEFAULT 'USD'
 );
 CREATE INDEX IF NOT EXISTS idx_trades_market_slug ON trades(market_slug);
 CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
+CREATE INDEX IF NOT EXISTS idx_trades_source ON trades(source);
 """
 
 
@@ -52,7 +55,20 @@ class SessionStore:
         self._conn = sqlite3.connect(db_path)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        # Add source/currency columns if upgrading from old schema
+        self._migrate()
         logger.info("Session store opened: %s", db_path)
+
+    def _migrate(self):
+        """Add source/currency columns if they don't exist (schema upgrade)."""
+        cur = self._conn.cursor()
+        try:
+            cur.execute("SELECT source FROM trades LIMIT 1")
+        except sqlite3.OperationalError:
+            cur.execute("ALTER TABLE trades ADD COLUMN source TEXT NOT NULL DEFAULT 'limitless'")
+            cur.execute("ALTER TABLE trades ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'")
+            self._conn.commit()
+            logger.info("Migrated persistence DB: added source/currency columns")
 
     def save(self, session) -> None:
         """Persist session trades and metadata to SQLite."""
@@ -63,14 +79,20 @@ class SessionStore:
         for trade in session.trades:
             ts = trade.timestamp.isoformat() if hasattr(trade.timestamp, "isoformat") else str(trade.timestamp)
             cur.execute(
-                "INSERT INTO trades (market, market_slug, timestamp, price, shares, cost, type, side, pnl, tx_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO trades (market, market_slug, timestamp, price, shares, cost, type, side, pnl, tx_hash, source, currency) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (trade.market, trade.market_slug, ts, trade.price, trade.shares,
-                 trade.cost, trade.type, trade.side, trade.pnl, trade.tx_hash),
+                 trade.cost, trade.type, trade.side, trade.pnl, trade.tx_hash,
+                 getattr(trade, "source", "limitless"),
+                 getattr(trade, "currency", "USD")),
             )
 
-        if session.source:
-            cur.execute("INSERT INTO session_meta (key, value) VALUES (?, ?)", ("source", session.source))
+        # Save sources list
+        if session.sources:
+            cur.execute(
+                "INSERT INTO session_meta (key, value) VALUES (?, ?)",
+                ("sources", json.dumps(session.sources)),
+            )
 
         if session.active_filters:
             cur.execute(
@@ -90,6 +112,7 @@ class SessionStore:
             return False
 
         trades = []
+        row_keys = rows[0].keys() if rows else []
         for row in rows:
             trades.append(Trade(
                 market=row["market"],
@@ -102,6 +125,8 @@ class SessionStore:
                 side=row["side"],
                 pnl=row["pnl"],
                 tx_hash=row["tx_hash"],
+                source=row["source"] if "source" in row_keys else "limitless",
+                currency=row["currency"] if "currency" in row_keys else "USD",
             ))
 
         session.trades = trades
@@ -109,7 +134,13 @@ class SessionStore:
 
         # Restore metadata
         meta = {r["key"]: r["value"] for r in cur.execute("SELECT key, value FROM session_meta").fetchall()}
-        session.source = meta.get("source")
+
+        sources_json = meta.get("sources")
+        if sources_json:
+            session.sources = json.loads(sources_json)
+        else:
+            # Legacy: infer from trades
+            session.sources = list({t.source for t in trades})
 
         filters_json = meta.get("active_filters")
         if filters_json:
@@ -117,7 +148,7 @@ class SessionStore:
         else:
             session.active_filters = {}
 
-        logger.info("Session restored: %d trades from %s", len(trades), session.source)
+        logger.info("Session restored: %d trades from sources %s", len(trades), session.sources)
         return True
 
     def close(self) -> None:

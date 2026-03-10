@@ -97,13 +97,20 @@ def _drawdown_metrics(pnls: List[float]) -> Dict:
     if not pnls:
         return {"max_drawdown": 0.0, "max_drawdown_pct": 0.0, "max_drawdown_duration_trades": 0}
 
-    cumulative = np.cumsum(pnls)
+    # Prepend a zero so the equity curve starts at 0 (initial capital baseline)
+    cumulative = np.concatenate(([0.0], np.cumsum(pnls)))
     peak = np.maximum.accumulate(cumulative)
     drawdowns = peak - cumulative
 
     max_dd = float(np.max(drawdowns))
     peak_at_max_dd = float(peak[np.argmax(drawdowns)])
-    max_dd_pct = (max_dd / peak_at_max_dd * 100) if peak_at_max_dd > 0 else 0.0
+    if peak_at_max_dd > 0:
+        max_dd_pct = max_dd / peak_at_max_dd * 100
+    elif max_dd > 0:
+        # Portfolio never had positive equity — report 100% drawdown
+        max_dd_pct = 100.0
+    else:
+        max_dd_pct = 0.0
 
     # Calculate drawdown duration (in number of trades)
     max_duration = 0
@@ -134,9 +141,9 @@ def _risk_adjusted_metrics(pnls: List[float]) -> Dict:
     # Sharpe ratio (risk-free rate assumed 0 for prediction markets)
     sharpe = (mean_return / std_return) if std_return > 0 else 0.0
 
-    # Sortino ratio (only downside deviation)
-    downside = arr[arr < 0]
-    downside_std = np.std(downside, ddof=1) if len(downside) > 1 else 0.0
+    # Sortino ratio — downside deviation from target (0)
+    downside_diffs = np.minimum(arr, 0.0)
+    downside_std = np.sqrt(np.mean(downside_diffs ** 2)) if len(arr) > 0 else 0.0
     sortino = (mean_return / downside_std) if downside_std > 0 else 0.0
 
     return {
