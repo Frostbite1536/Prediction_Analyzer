@@ -398,6 +398,54 @@ class TestKalshiNormalizeTrade:
         # 0.60 * 100 + 2.00 = 62.0
         assert abs(trade.cost - 62.0) < 0.01
 
+    def test_empty_fixed_falls_back_to_legacy(self):
+        """Empty string in yes_price_fixed should fall back to yes_price."""
+        p = self._provider()
+        raw = {
+            "ticker": "KX-TEST",
+            "side": "yes",
+            "yes_price_fixed": "",
+            "yes_price": 60,
+            "count_fp": "10.00",
+            "action": "buy",
+            "created_time": 0,
+            "fill_id": "f7",
+        }
+        trade = p.normalize_trade(raw)
+        assert trade.price == 0.60
+
+    def test_whitespace_fixed_falls_back_to_legacy(self):
+        """Whitespace-only yes_price_fixed should fall back to yes_price."""
+        p = self._provider()
+        raw = {
+            "ticker": "KX-TEST",
+            "side": "yes",
+            "yes_price_fixed": "  ",
+            "yes_price": 45,
+            "count_fp": "10.00",
+            "action": "buy",
+            "created_time": 0,
+            "fill_id": "f8",
+        }
+        trade = p.normalize_trade(raw)
+        assert trade.price == 0.45
+
+    def test_invalid_fixed_falls_back_to_legacy(self):
+        """Non-numeric yes_price_fixed should fall back to yes_price."""
+        p = self._provider()
+        raw = {
+            "ticker": "KX-TEST",
+            "side": "yes",
+            "yes_price_fixed": "N/A",
+            "yes_price": 70,
+            "count_fp": "10.00",
+            "action": "buy",
+            "created_time": 0,
+            "fill_id": "f9",
+        }
+        trade = p.normalize_trade(raw)
+        assert trade.price == 0.70
+
 
 # ===========================================================================
 # Additional: PnL calculator FIFO tests
