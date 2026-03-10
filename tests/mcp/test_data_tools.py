@@ -98,6 +98,26 @@ class TestGetTradeDetails:
         assert all(t["market_slug"] == "market-0" for t in data["trades"])
 
 
+class TestInputValidation:
+    def test_invalid_sort_field(self, loaded_session):
+        result = asyncio.run(data_tools.handle_tool("get_trade_details", {
+            "sort_by": "invalid_field",
+        }))
+        assert "Invalid sort field" in result[0].text
+
+    def test_negative_limit(self, loaded_session):
+        result = asyncio.run(data_tools.handle_tool("get_trade_details", {
+            "limit": -1,
+        }))
+        assert "Invalid limit" in result[0].text
+
+    def test_negative_offset(self, loaded_session):
+        result = asyncio.run(data_tools.handle_tool("get_trade_details", {
+            "offset": -5,
+        }))
+        assert "Invalid offset" in result[0].text
+
+
 class TestUnknownTool:
     def test_unknown_tool_returns_none(self):
         result = asyncio.run(data_tools.handle_tool("nonexistent_tool", {}))

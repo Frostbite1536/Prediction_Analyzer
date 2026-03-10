@@ -14,6 +14,7 @@ from prediction_analyzer.exceptions import NoTradesError
 from ..state import session
 from ..errors import error_result, safe_tool
 from ..serializers import to_json_text
+from ..validators import validate_cost_basis_method
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,6 @@ async def _handle_tax_report(arguments: dict):
     if not tax_year:
         raise ValueError("tax_year is required")
 
-    method = arguments.get("cost_basis_method", "fifo")
+    method = validate_cost_basis_method(arguments.get("cost_basis_method", "fifo"))
     result = calculate_capital_gains(session.trades, tax_year=tax_year, cost_basis_method=method)
     return [types.TextContent(type="text", text=to_json_text(result))]

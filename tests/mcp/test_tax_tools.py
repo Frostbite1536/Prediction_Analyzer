@@ -54,3 +54,10 @@ class TestTaxReport:
         }))
         data = json.loads(result[0].text)
         assert data["method"] == "fifo"
+
+    def test_invalid_cost_basis_method(self, loaded_session):
+        result = asyncio.run(tax_tools.handle_tool("get_tax_report", {
+            "tax_year": 2024,
+            "cost_basis_method": "invalid",
+        }))
+        assert "Invalid cost basis method" in result[0].text

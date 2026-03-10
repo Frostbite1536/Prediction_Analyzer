@@ -14,11 +14,12 @@ from mcp import types
 from prediction_analyzer.trade_loader import load_trades as _load_trades
 from prediction_analyzer.trade_filter import get_unique_markets, filter_trades_by_market_slug
 from prediction_analyzer.utils.data import fetch_trade_history
-from prediction_analyzer.exceptions import TradeLoadError, NoTradesError, MarketNotFoundError
+from prediction_analyzer.exceptions import TradeLoadError, NoTradesError, MarketNotFoundError, InvalidFilterError
 
 from ..state import session
 from ..errors import error_result, safe_tool
 from ..serializers import to_json_text, serialize_trades
+from ..validators import validate_sort_field, validate_positive_int
 
 logger = logging.getLogger(__name__)
 
@@ -221,9 +222,11 @@ async def _handle_get_trade_details(arguments: dict):
         raise NoTradesError("No trades loaded")
 
     market_slug = arguments.get("market_slug")
-    limit = arguments.get("limit", 50)
+    limit = validate_positive_int(arguments.get("limit", 50), "limit") or 50
     offset = arguments.get("offset", 0)
-    sort_by = arguments.get("sort_by", "timestamp")
+    if offset is not None and (not isinstance(offset, int) or offset < 0):
+        raise InvalidFilterError(f"Invalid offset: {offset}. Must be a non-negative integer.")
+    sort_by = validate_sort_field(arguments.get("sort_by", "timestamp"))
     sort_order = arguments.get("sort_order", "desc")
 
     trades = session.filtered_trades
