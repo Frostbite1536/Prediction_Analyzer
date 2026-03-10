@@ -45,6 +45,8 @@ setup(
         "mcp": [
             "mcp>=1.0.0",
             "pydantic>=2.5.0",
+            "starlette>=0.27.0",
+            "uvicorn>=0.20.0",
         ],
     },
     entry_points={

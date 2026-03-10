@@ -19,7 +19,7 @@ from prediction_analyzer.exceptions import TradeLoadError, NoTradesError, Market
 from ..state import session
 from ..errors import error_result, safe_tool
 from ..serializers import to_json_text, serialize_trades
-from ..validators import validate_sort_field, validate_positive_int
+from ..validators import validate_sort_field, validate_positive_int, validate_market_slug
 
 logger = logging.getLogger(__name__)
 
@@ -231,9 +231,8 @@ async def _handle_get_trade_details(arguments: dict):
 
     trades = session.filtered_trades
     if market_slug:
+        validate_market_slug(market_slug, get_unique_markets(session.trades))
         trades = filter_trades_by_market_slug(trades, market_slug)
-        if not trades:
-            raise MarketNotFoundError(f"No trades found for market: {market_slug}")
 
     reverse = sort_order == "desc"
     trades = sorted(trades, key=lambda t: getattr(t, sort_by, 0), reverse=reverse)

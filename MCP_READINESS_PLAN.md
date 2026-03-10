@@ -50,8 +50,8 @@ manage portfolios, and answer trading questions — all through structured tool 
 
 - The MCP server is a **new package** (`prediction_mcp/`) alongside the existing `prediction_analyzer/` package
 - It reuses the existing core library and API services — no duplication
-- Transport: **stdio** (primary, for Claude Code) and **HTTP/SSE** (secondary, for web agents)
-- State: stateless per-call for analysis tools; optional SQLite session for portfolio tracking
+- Transport: **stdio** (primary, for Claude Code) and **HTTP/SSE** (secondary, for web agents) — both implemented
+- State: in-memory per-session with optional **SQLite persistence** (`--persist` flag or `PREDICTION_MCP_DB` env var)
 - Python 3.8+ compatible (`Optional[X]` not `X | None`)
 
 ---
@@ -691,52 +691,52 @@ extras_require={
 Per the MCP_DEVELOPMENT.md checklist:
 
 ### Tool Descriptions
-- [ ] Every parameter listed with type, purpose, and valid values
-- [ ] Return type semantics documented
-- [ ] No description says "see docs" — all info inline
-- [ ] Parameter names match what description leads consumer to expect
-- [ ] Consistent naming across all 17 tools
+- [x] Every parameter listed with type, purpose, and valid values
+- [x] Return type semantics documented
+- [x] No description says "see docs" — all info inline
+- [x] Parameter names match what description leads consumer to expect
+- [x] Consistent naming across all 17 tools
 
 ### Input Validation
-- [ ] Enum values validated (trade_types, sides, chart_type, format, cost_basis_method)
-- [ ] Numeric inputs checked for NaN/Infinity
-- [ ] Market slugs verified to exist (with available list in error)
-- [ ] Dates validated as YYYY-MM-DD
-- [ ] Required vs optional parameters enforced
+- [x] Enum values validated (trade_types, sides, chart_type, format, cost_basis_method)
+- [x] Numeric inputs checked for NaN/Infinity
+- [x] Market slugs verified to exist (with available list in error)
+- [x] Dates validated as YYYY-MM-DD
+- [x] Required vs optional parameters enforced
 
 ### Error Handling
-- [ ] `@safe_tool` decorator on every handler
-- [ ] Error responses include valid options and expected formats
-- [ ] No error says "see the docs"
-- [ ] Unhandled exceptions never crash the server
+- [x] `@safe_tool` decorator on every handler
+- [x] Error responses include valid options and expected formats
+- [x] No error says "see the docs"
+- [x] Unhandled exceptions never crash the server
 
 ### Serialization
-- [ ] All responses JSON-serializable
-- [ ] `datetime` → `.isoformat()`
-- [ ] `float` → `_safe_float()` (NaN/Infinity guard)
-- [ ] `Trade` dataclass → dict via `serialize_trade()`
-- [ ] `pd.DataFrame` → `.to_dict("records")`
-- [ ] Tested with real trade data
+- [x] All responses JSON-serializable
+- [x] `datetime` → `.isoformat()`
+- [x] `float` → `_safe_float()` (NaN/Infinity guard)
+- [x] `Trade` dataclass → dict via `serialize_trade()`
+- [x] `pd.DataFrame` → `.to_dict("records")`
+- [x] Tested with real trade data
 
 ### Transport Safety
-- [ ] No `print()` in any execution path (all replaced with `logging`)
-- [ ] `plt.show()` / `fig.show()` suppressed (`show=False`)
-- [ ] All debug output to stderr
-- [ ] Existing chart/loader code audited for stdout writes
+- [x] No `print()` in any execution path (all replaced with `logging`)
+- [x] `plt.show()` / `fig.show()` suppressed (`show=False`)
+- [x] All debug output to stderr
+- [x] Existing chart/loader code audited for stdout writes
 
 ### Code Correctness
-- [ ] Every attribute access verified against Trade dataclass definition
-- [ ] Every function call uses correct parameter names from real signatures
-- [ ] All imports verified to resolve
-- [ ] Python 3.8+ compatible (no `X | None` syntax)
-- [ ] `dict` vs dataclass handling correct throughout
+- [x] Every attribute access verified against Trade dataclass definition
+- [x] Every function call uses correct parameter names from real signatures
+- [x] All imports verified to resolve
+- [x] Python 3.8+ compatible (no `X | None` syntax)
+- [x] `dict` vs dataclass handling correct throughout
 
 ### Integration Testing
-- [ ] Each tool tested with realistic LLM inputs
-- [ ] Tools tested with wrong parameter names
-- [ ] Tools tested with edge cases (empty, null, boundary values)
-- [ ] Full stdio transport tested end-to-end
-- [ ] No stdout pollution test passes
+- [x] Each tool tested with realistic LLM inputs
+- [x] Tools tested with wrong parameter names
+- [x] Tools tested with edge cases (empty, null, boundary values)
+- [x] Full stdio transport tested end-to-end
+- [x] No stdout pollution test passes
 
 ---
 

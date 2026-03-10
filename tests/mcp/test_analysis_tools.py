@@ -46,7 +46,7 @@ class TestMarketSummary:
         result = asyncio.run(analysis_tools.handle_tool("get_market_summary", {
             "market_slug": "nonexistent-market",
         }))
-        assert "No trades found" in result[0].text
+        assert "not found" in result[0].text
 
     def test_valid_market_summary(self, loaded_session):
         result = asyncio.run(analysis_tools.handle_tool("get_market_summary", {

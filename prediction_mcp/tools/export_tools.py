@@ -9,13 +9,13 @@ import logging
 from mcp import types
 
 from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel, export_to_json
-from prediction_analyzer.trade_filter import filter_trades_by_market_slug
+from prediction_analyzer.trade_filter import filter_trades_by_market_slug, get_unique_markets
 from prediction_analyzer.exceptions import NoTradesError, MarketNotFoundError
 
 from ..state import session
 from ..errors import error_result, safe_tool
 from ..serializers import to_json_text
-from ..validators import validate_export_format
+from ..validators import validate_export_format, validate_market_slug
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +83,8 @@ async def _handle_export_trades(arguments: dict):
 
     trades = session.trades
     if market_slug:
+        validate_market_slug(market_slug, get_unique_markets(session.trades))
         trades = filter_trades_by_market_slug(trades, market_slug)
-        if not trades:
-            raise MarketNotFoundError(f"No trades found for market: {market_slug}")
 
     exporter = _EXPORTERS[fmt]
     exporter(trades, output_path)

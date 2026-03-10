@@ -2,7 +2,7 @@
 """Tests for MCP input validators."""
 import pytest
 
-from prediction_analyzer.exceptions import InvalidFilterError
+from prediction_analyzer.exceptions import InvalidFilterError, MarketNotFoundError
 from prediction_mcp.validators import (
     validate_date,
     validate_trade_types,
@@ -12,6 +12,7 @@ from prediction_mcp.validators import (
     validate_positive_int,
     validate_cost_basis_method,
     validate_sort_field,
+    validate_market_slug,
 )
 
 
@@ -113,3 +114,20 @@ class TestValidateSortField:
     def test_invalid_raises(self):
         with pytest.raises(InvalidFilterError):
             validate_sort_field("market")
+
+
+class TestValidateMarketSlug:
+    def test_valid_slug(self):
+        markets = {"market-0": "Market 0", "market-1": "Market 1"}
+        assert validate_market_slug("market-0", markets) == "market-0"
+
+    def test_invalid_slug_raises_with_available(self):
+        markets = {"market-0": "Market 0", "market-1": "Market 1"}
+        with pytest.raises(MarketNotFoundError, match="not found") as exc_info:
+            validate_market_slug("nonexistent", markets)
+        assert "market-0" in str(exc_info.value)
+        assert "market-1" in str(exc_info.value)
+
+    def test_empty_markets(self):
+        with pytest.raises(MarketNotFoundError, match="0 total"):
+            validate_market_slug("anything", {})

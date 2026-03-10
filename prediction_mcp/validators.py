@@ -8,7 +8,8 @@ core library functions. Raises InvalidFilterError for bad inputs.
 from datetime import datetime
 from typing import Optional, List
 
-from prediction_analyzer.exceptions import InvalidFilterError
+from typing import Dict
+from prediction_analyzer.exceptions import InvalidFilterError, MarketNotFoundError
 
 
 VALID_TRADE_TYPES = {"Buy", "Sell"}
@@ -101,3 +102,22 @@ def validate_sort_field(field: str) -> str:
             f"Invalid sort field: '{field}'. Valid values: {sorted(VALID_SORT_FIELDS)}"
         )
     return field
+
+
+def validate_market_slug(slug: str, available_markets: Dict[str, str]) -> str:
+    """Validate a market slug exists in the available markets.
+
+    Args:
+        slug: The market slug to validate.
+        available_markets: Dict mapping slug -> title from get_unique_markets().
+
+    Raises:
+        MarketNotFoundError with the list of available slugs (max 20).
+    """
+    if slug not in available_markets:
+        available = sorted(available_markets.keys())[:20]
+        raise MarketNotFoundError(
+            f"Market '{slug}' not found. "
+            f"Available markets ({len(available_markets)} total): {available}"
+        )
+    return slug

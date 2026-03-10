@@ -12,13 +12,13 @@ from prediction_analyzer.charts.simple import generate_simple_chart
 from prediction_analyzer.charts.pro import generate_pro_chart
 from prediction_analyzer.charts.enhanced import generate_enhanced_chart
 from prediction_analyzer.charts.global_chart import generate_global_dashboard
-from prediction_analyzer.trade_filter import filter_trades_by_market_slug, group_trades_by_market
+from prediction_analyzer.trade_filter import filter_trades_by_market_slug, group_trades_by_market, get_unique_markets
 from prediction_analyzer.exceptions import NoTradesError, MarketNotFoundError
 
 from ..state import session
 from ..errors import error_result, safe_tool
 from ..serializers import to_json_text
-from ..validators import validate_chart_type
+from ..validators import validate_chart_type, validate_market_slug
 
 logger = logging.getLogger(__name__)
 
@@ -103,10 +103,9 @@ async def _handle_generate_chart(arguments: dict):
         raise ValueError("chart_type is required")
 
     validate_chart_type(chart_type)
+    validate_market_slug(market_slug, get_unique_markets(session.trades))
 
     trades = filter_trades_by_market_slug(session.trades, market_slug)
-    if not trades:
-        raise MarketNotFoundError(f"No trades found for market: {market_slug}")
 
     market_name = trades[0].market
     generator = _CHART_GENERATORS[chart_type]

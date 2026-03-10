@@ -41,7 +41,7 @@ class TestGenerateChart:
             "market_slug": "nonexistent-market",
             "chart_type": "simple",
         }))
-        assert "No trades found" in result[0].text
+        assert "not found" in result[0].text
 
 
 class TestGenerateDashboard:

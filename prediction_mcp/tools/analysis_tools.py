@@ -14,13 +14,14 @@ from prediction_analyzer.pnl import (
     calculate_market_pnl,
 )
 from prediction_analyzer.metrics import calculate_advanced_metrics
-from prediction_analyzer.trade_filter import filter_trades_by_market_slug
+from prediction_analyzer.trade_filter import filter_trades_by_market_slug, get_unique_markets
 from prediction_analyzer.exceptions import NoTradesError, MarketNotFoundError
 
 from ..state import session
 from ..errors import error_result, safe_tool
 from ..serializers import to_json_text, sanitize_dict
 from .._apply_filters import apply_filters
+from ..validators import validate_market_slug
 
 logger = logging.getLogger(__name__)
 
@@ -152,9 +153,8 @@ async def _handle_market_summary(arguments: dict):
     if not market_slug:
         raise ValueError("market_slug is required")
 
+    validate_market_slug(market_slug, get_unique_markets(session.trades))
     market_trades = filter_trades_by_market_slug(session.trades, market_slug)
-    if not market_trades:
-        raise MarketNotFoundError(f"No trades found for market: {market_slug}")
 
     trades = apply_filters(market_trades, arguments)
     if not trades:
@@ -172,9 +172,8 @@ async def _handle_advanced_metrics(arguments: dict):
     trades = session.trades
     market_slug = arguments.get("market_slug")
     if market_slug:
+        validate_market_slug(market_slug, get_unique_markets(session.trades))
         trades = filter_trades_by_market_slug(trades, market_slug)
-        if not trades:
-            raise MarketNotFoundError(f"No trades found for market: {market_slug}")
 
     trades = apply_filters(trades, arguments)
     metrics = calculate_advanced_metrics(trades)
