@@ -34,7 +34,8 @@ def get_tool_definitions() -> list[types.Tool]:
             name="export_trades",
             description=(
                 "Export trades to CSV, Excel, or JSON format. "
-                "Optionally export only trades for a specific market."
+                "Optionally export only trades for a specific market. "
+                "Returns {file_path: str, trade_count: int, format: str}."
             ),
             inputSchema={
                 "type": "object",

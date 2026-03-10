@@ -11,7 +11,7 @@ from prediction_analyzer.trade_loader import Trade
 from prediction_analyzer.filters import filter_by_date, filter_by_trade_type, filter_by_side, filter_by_pnl
 from prediction_analyzer.trade_filter import filter_trades_by_market_slug
 
-from .validators import validate_date, validate_trade_types, validate_sides
+from .validators import validate_date, validate_trade_types, validate_sides, validate_numeric
 
 
 def apply_filters(trades: List[Trade], arguments: Dict[str, Any]) -> List[Trade]:
@@ -51,9 +51,10 @@ def apply_filters(trades: List[Trade], arguments: Dict[str, Any]) -> List[Trade]
     if sides:
         result = filter_by_side(result, sides=sides)
 
-    # PnL filter
-    min_pnl = arguments.get("min_pnl")
-    max_pnl = arguments.get("max_pnl")
+    # PnL filter (guard against NaN/Infinity — comparisons with NaN are always
+    # False, which would silently return all trades instead of filtering)
+    min_pnl = validate_numeric(arguments.get("min_pnl"), "min_pnl")
+    max_pnl = validate_numeric(arguments.get("max_pnl"), "max_pnl")
     if min_pnl is not None or max_pnl is not None:
         result = filter_by_pnl(result, min_pnl=min_pnl, max_pnl=max_pnl)
 

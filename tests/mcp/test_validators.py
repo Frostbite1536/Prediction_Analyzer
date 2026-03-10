@@ -1,5 +1,7 @@
 # tests/mcp/test_validators.py
 """Tests for MCP input validators."""
+import math
+
 import pytest
 
 from prediction_analyzer.exceptions import InvalidFilterError, MarketNotFoundError
@@ -10,8 +12,10 @@ from prediction_mcp.validators import (
     validate_chart_type,
     validate_export_format,
     validate_positive_int,
+    validate_numeric,
     validate_cost_basis_method,
     validate_sort_field,
+    validate_sort_order,
     validate_market_slug,
 )
 
@@ -47,6 +51,9 @@ class TestValidateTradeTypes:
         with pytest.raises(InvalidFilterError, match="Invalid trade types"):
             validate_trade_types(["Buy", "Hold"])
 
+    def test_lowercase_normalized(self):
+        assert validate_trade_types(["buy", "sell"]) == ["Buy", "Sell"]
+
 
 class TestValidateSides:
     def test_valid_sides(self):
@@ -58,6 +65,9 @@ class TestValidateSides:
     def test_invalid_side_raises(self):
         with pytest.raises(InvalidFilterError, match="Invalid sides"):
             validate_sides(["MAYBE"])
+
+    def test_lowercase_normalized(self):
+        assert validate_sides(["yes", "no"]) == ["YES", "NO"]
 
 
 class TestValidateChartType:
@@ -94,6 +104,48 @@ class TestValidatePositiveInt:
     def test_negative_raises(self):
         with pytest.raises(InvalidFilterError):
             validate_positive_int(-1, "test")
+
+    def test_nan_raises(self):
+        with pytest.raises(InvalidFilterError, match="NaN"):
+            validate_positive_int(float("nan"), "test")
+
+    def test_infinity_raises(self):
+        with pytest.raises(InvalidFilterError, match="NaN"):
+            validate_positive_int(float("inf"), "test")
+
+
+class TestValidateNumeric:
+    def test_valid_number(self):
+        assert validate_numeric(3.14, "test") == 3.14
+
+    def test_none_returns_none(self):
+        assert validate_numeric(None, "test") is None
+
+    def test_nan_raises(self):
+        with pytest.raises(InvalidFilterError, match="NaN"):
+            validate_numeric(float("nan"), "test")
+
+    def test_infinity_raises(self):
+        with pytest.raises(InvalidFilterError, match="NaN"):
+            validate_numeric(float("inf"), "test")
+
+    def test_negative_infinity_raises(self):
+        with pytest.raises(InvalidFilterError, match="NaN"):
+            validate_numeric(float("-inf"), "test")
+
+
+class TestValidateSortOrder:
+    def test_valid_orders(self):
+        assert validate_sort_order("asc") == "asc"
+        assert validate_sort_order("desc") == "desc"
+
+    def test_case_insensitive(self):
+        assert validate_sort_order("ASC") == "asc"
+        assert validate_sort_order("Desc") == "desc"
+
+    def test_invalid_raises(self):
+        with pytest.raises(InvalidFilterError, match="Invalid sort order"):
+            validate_sort_order("ascending")
 
 
 class TestValidateCostBasisMethod:

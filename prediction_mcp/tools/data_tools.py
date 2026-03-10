@@ -19,7 +19,7 @@ from prediction_analyzer.exceptions import TradeLoadError, NoTradesError, Market
 from ..state import session
 from ..errors import error_result, safe_tool
 from ..serializers import to_json_text, serialize_trades
-from ..validators import validate_sort_field, validate_positive_int, validate_market_slug
+from ..validators import validate_sort_field, validate_sort_order, validate_positive_int, validate_market_slug
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,8 @@ def get_tool_definitions() -> list[types.Tool]:
             name="get_trade_details",
             description=(
                 "Get detailed information about individual trades, optionally filtered by market. "
-                "Supports pagination and sorting by timestamp, pnl, or cost."
+                "Supports pagination and sorting by timestamp, pnl, or cost. "
+                "Returns {trades: [...], total: int, limit: int, offset: int}."
             ),
             inputSchema={
                 "type": "object",
@@ -262,7 +263,7 @@ async def _handle_get_trade_details(arguments: dict):
     if offset is not None and (not isinstance(offset, int) or offset < 0):
         raise InvalidFilterError(f"Invalid offset: {offset}. Must be a non-negative integer.")
     sort_by = validate_sort_field(arguments.get("sort_by", "timestamp"))
-    sort_order = arguments.get("sort_order", "desc")
+    sort_order = validate_sort_order(arguments.get("sort_order", "desc"))
 
     trades = session.filtered_trades
     if market_slug:

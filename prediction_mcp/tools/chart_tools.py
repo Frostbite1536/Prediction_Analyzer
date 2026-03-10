@@ -37,7 +37,8 @@ def get_tool_definitions() -> list[types.Tool]:
             description=(
                 "Generate a chart image or interactive HTML for a specific market. "
                 "Chart types: 'simple' (PNG, quick view), 'pro' (HTML, interactive), "
-                "'enhanced' (HTML, battlefield view). Does NOT open in browser."
+                "'enhanced' (HTML, battlefield view). Does NOT open in browser. "
+                "Returns {file_path: str, chart_type: str, market: str, trade_count: int}."
             ),
             inputSchema={
                 "type": "object",
@@ -64,7 +65,8 @@ def get_tool_definitions() -> list[types.Tool]:
             description=(
                 "Generate a multi-market PnL dashboard as interactive HTML. "
                 "Shows cumulative PnL for all markets plus total portfolio. "
-                "Trades must be loaded first."
+                "Trades must be loaded first. "
+                "Returns {file_path: str, market_count: int, total_trades: int}."
             ),
             inputSchema={
                 "type": "object",
