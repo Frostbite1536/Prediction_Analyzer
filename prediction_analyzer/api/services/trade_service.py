@@ -22,6 +22,7 @@ class TradeService:
 
     def db_trade_to_dataclass(self, db_trade: TradeModel) -> TradeDataclass:
         """Convert a SQLAlchemy Trade model to a Trade dataclass"""
+        pnl_val = db_trade.pnl or 0.0
         return TradeDataclass(
             market=db_trade.market,
             market_slug=db_trade.market_slug,
@@ -31,7 +32,8 @@ class TradeService:
             cost=db_trade.cost,
             type=db_trade.type,
             side=db_trade.side,
-            pnl=db_trade.pnl,
+            pnl=pnl_val,
+            pnl_is_set=pnl_val != 0.0,
             tx_hash=db_trade.tx_hash,
             source=getattr(db_trade, "source", "limitless"),
             currency=getattr(db_trade, "currency", "USD"),

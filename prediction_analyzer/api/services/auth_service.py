@@ -52,7 +52,12 @@ class AuthService:
             expire = datetime.now(timezone.utc) + timedelta(
                 minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
             )
-        to_encode.update({"exp": expire})
+        to_encode.update({
+            "exp": expire,
+            "iat": datetime.now(timezone.utc),
+            "iss": "prediction-analyzer",
+            "aud": "prediction-analyzer-api",
+        })
         encoded_jwt = jwt.encode(
             to_encode,
             settings.SECRET_KEY,
@@ -74,7 +79,9 @@ class AuthService:
             payload = jwt.decode(
                 token,
                 settings.SECRET_KEY,
-                algorithms=[settings.ALGORITHM]
+                algorithms=[settings.ALGORITHM],
+                issuer="prediction-analyzer",
+                audience="prediction-analyzer-api",
             )
             user_id: int = payload.get("sub")
             if user_id is None:

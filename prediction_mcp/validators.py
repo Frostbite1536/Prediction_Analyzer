@@ -5,10 +5,10 @@ Input validation helpers for MCP tool parameters.
 Validates and normalizes tool inputs before passing them to the
 core library functions. Raises InvalidFilterError for bad inputs.
 """
+import math
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict
 
-from typing import Dict
 from prediction_analyzer.exceptions import InvalidFilterError, MarketNotFoundError
 
 
@@ -18,6 +18,11 @@ VALID_CHART_TYPES = {"simple", "pro", "enhanced", "global"}
 VALID_EXPORT_FORMATS = {"csv", "xlsx", "json"}
 VALID_SORT_FIELDS = {"timestamp", "pnl", "cost"}
 VALID_COST_BASIS_METHODS = {"fifo", "lifo", "average"}
+VALID_SORT_ORDERS = {"asc", "desc"}
+
+# Maps common LLM casing variants to canonical values
+_TRADE_TYPE_NORMALIZE = {"buy": "Buy", "sell": "Sell"}
+_SIDE_NORMALIZE = {"yes": "YES", "no": "NO"}
 
 
 def validate_date(value: Optional[str], param_name: str) -> Optional[str]:
@@ -34,27 +39,35 @@ def validate_date(value: Optional[str], param_name: str) -> Optional[str]:
 
 
 def validate_trade_types(types: Optional[List[str]]) -> Optional[List[str]]:
-    """Validate trade type filter values."""
+    """Validate and normalize trade type filter values.
+
+    Accepts case-insensitive input (e.g. "buy" -> "Buy").
+    """
     if types is None:
         return None
-    invalid = [t for t in types if t not in VALID_TRADE_TYPES]
+    normalized = [_TRADE_TYPE_NORMALIZE.get(t.lower(), t) if isinstance(t, str) else t for t in types]
+    invalid = [t for t in normalized if t not in VALID_TRADE_TYPES]
     if invalid:
         raise InvalidFilterError(
             f"Invalid trade types: {invalid}. Valid values: {sorted(VALID_TRADE_TYPES)}"
         )
-    return types
+    return normalized
 
 
 def validate_sides(sides: Optional[List[str]]) -> Optional[List[str]]:
-    """Validate side filter values."""
+    """Validate and normalize side filter values.
+
+    Accepts case-insensitive input (e.g. "yes" -> "YES").
+    """
     if sides is None:
         return None
-    invalid = [s for s in sides if s not in VALID_SIDES]
+    normalized = [_SIDE_NORMALIZE.get(s.lower(), s) if isinstance(s, str) else s for s in sides]
+    invalid = [s for s in normalized if s not in VALID_SIDES]
     if invalid:
         raise InvalidFilterError(
             f"Invalid sides: {invalid}. Valid values: {sorted(VALID_SIDES)}"
         )
-    return sides
+    return normalized
 
 
 def validate_chart_type(chart_type: str) -> str:
@@ -79,11 +92,37 @@ def validate_positive_int(value: Optional[int], param_name: str) -> Optional[int
     """Validate that an integer parameter is positive."""
     if value is None:
         return None
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            raise InvalidFilterError(
+                f"Invalid {param_name}: {value}. Must be a positive integer, not NaN/Infinity."
+            )
     if not isinstance(value, int) or value < 1:
         raise InvalidFilterError(
             f"Invalid {param_name}: {value}. Must be a positive integer."
         )
     return value
+
+
+def validate_numeric(value: Optional[float], param_name: str) -> Optional[float]:
+    """Validate a numeric parameter is finite (not NaN or Infinity)."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)) and (math.isnan(float(value)) or math.isinf(float(value))):
+        raise InvalidFilterError(
+            f"Invalid {param_name}: {value}. Must be a finite number, not NaN/Infinity."
+        )
+    return value
+
+
+def validate_sort_order(order: str) -> str:
+    """Validate sort order parameter."""
+    normalized = order.lower() if isinstance(order, str) else order
+    if normalized not in VALID_SORT_ORDERS:
+        raise InvalidFilterError(
+            f"Invalid sort order: '{order}'. Valid values: {sorted(VALID_SORT_ORDERS)}"
+        )
+    return normalized
 
 
 def validate_cost_basis_method(method: str) -> str:

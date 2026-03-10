@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # prediction_mcp/tools/tax_tools.py
 """
 Tax reporting tools (new feature).
@@ -12,7 +14,7 @@ from prediction_analyzer.tax import calculate_capital_gains
 from prediction_analyzer.exceptions import NoTradesError
 
 from ..state import session
-from ..errors import error_result, safe_tool
+from ..errors import safe_tool
 from ..serializers import to_json_text
 from ..validators import validate_cost_basis_method
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # prediction_analyzer/api/routers/trades.py
 """
 Trade management endpoints - CRUD, upload, export
@@ -181,7 +183,7 @@ async def export_trades_csv(
     return StreamingResponse(
         iter([buffer.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 
@@ -227,15 +229,18 @@ async def export_trades_json(
         for t in trades
     ]
 
-    filename = f"trades_{current_user.username}"
+    import re
+    safe_user = re.sub(r'[^\w\-.]', '_', current_user.username)
+    filename = f"trades_{safe_user}"
     if market_slug:
-        filename += f"_{market_slug}"
+        safe_slug = re.sub(r'[^\w\-.]', '_', market_slug)
+        filename += f"_{safe_slug}"
     filename += ".json"
 
     return StreamingResponse(
         iter([json.dumps(trades_data, indent=2)]),
         media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 

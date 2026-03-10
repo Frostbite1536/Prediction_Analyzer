@@ -682,7 +682,7 @@ extras_require={
 | 16 | `compare_periods` | Analysis | `prediction_analyzer/comparison.py` |
 | 17 | `get_tax_report` | Tax | `prediction_analyzer/tax.py` |
 
-**Total: 17 tools**
+**Total: 18 tools** (including `get_provider_breakdown`)
 
 ---
 
@@ -692,17 +692,20 @@ Per the MCP_DEVELOPMENT.md checklist:
 
 ### Tool Descriptions
 - [x] Every parameter listed with type, purpose, and valid values
-- [x] Return type semantics documented
+- [x] Return type semantics documented (added return shapes to get_trade_details, export_trades, generate_chart, generate_dashboard)
 - [x] No description says "see docs" — all info inline
 - [x] Parameter names match what description leads consumer to expect
-- [x] Consistent naming across all 17 tools
+- [x] Consistent naming across all 18 tools
 
 ### Input Validation
-- [x] Enum values validated (trade_types, sides, chart_type, format, cost_basis_method)
-- [x] Numeric inputs checked for NaN/Infinity
+- [x] Enum values validated (trade_types, sides, chart_type, format, cost_basis_method, sort_field, sort_order)
+- [x] Case-insensitive normalization for trade_types ("buy" → "Buy") and sides ("yes" → "YES")
+- [x] Numeric inputs checked for NaN/Infinity (min_pnl, max_pnl, limit via `validate_numeric`)
 - [x] Market slugs verified to exist (with available list in error)
 - [x] Dates validated as YYYY-MM-DD
 - [x] Required vs optional parameters enforced
+- [x] Sort order validated (was previously unvalidated — invalid values silently defaulted)
+- [x] Path traversal prevention on export_trades output_path
 
 ### Error Handling
 - [x] `@safe_tool` decorator on every handler
@@ -725,7 +728,7 @@ Per the MCP_DEVELOPMENT.md checklist:
 - [x] Existing chart/loader code audited for stdout writes
 
 ### Code Correctness
-- [x] Every attribute access verified against Trade dataclass definition
+- [x] Every attribute access verified against Trade dataclass definition (13 fields)
 - [x] Every function call uses correct parameter names from real signatures
 - [x] All imports verified to resolve
 - [x] Python 3.8+ compatible (no `X | None` syntax)
@@ -735,6 +738,8 @@ Per the MCP_DEVELOPMENT.md checklist:
 - [x] Each tool tested with realistic LLM inputs
 - [x] Tools tested with wrong parameter names
 - [x] Tools tested with edge cases (empty, null, boundary values)
+- [x] NaN/Infinity inputs tested and rejected with clear errors
+- [x] Case-insensitive enum inputs tested (normalized, not rejected)
 - [x] Full stdio transport tested end-to-end
 - [x] No stdout pollution test passes
 

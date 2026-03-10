@@ -69,18 +69,20 @@ class TestLowercaseEnumValues:
     """LLMs often send lowercase versions of enum values."""
 
     def test_lowercase_trade_type(self, loaded_session):
-        """LLM sends 'buy' instead of 'Buy'."""
+        """LLM sends 'buy' instead of 'Buy' — should be normalized."""
         result = asyncio.run(filter_tools.handle_tool("filter_trades", {
             "trade_types": ["buy"],
         }))
-        assert "Invalid trade types" in result[0].text
+        data = json.loads(result[0].text)
+        assert "filtered_count" in data  # normalized to "Buy", filter applied
 
     def test_lowercase_side(self, loaded_session):
-        """LLM sends 'yes' instead of 'YES'."""
+        """LLM sends 'yes' instead of 'YES' — should be normalized."""
         result = asyncio.run(filter_tools.handle_tool("filter_trades", {
             "sides": ["yes"],
         }))
-        assert "Invalid sides" in result[0].text
+        data = json.loads(result[0].text)
+        assert "filtered_count" in data  # normalized to "YES", filter applied
 
     def test_uppercase_format(self, loaded_session):
         """LLM sends 'CSV' instead of 'csv'."""
@@ -167,26 +169,28 @@ class TestNaNAndInfinityInputs:
     """LLMs might send NaN or Infinity as numeric parameters."""
 
     def test_nan_min_pnl(self, loaded_session):
-        """NaN as a filter threshold should not crash."""
+        """NaN as a filter threshold should return a validation error."""
         result = asyncio.run(filter_tools.handle_tool("filter_trades", {
             "min_pnl": float("nan"),
         }))
-        # Should not crash — either filters nothing or returns error
         assert result is not None
+        assert "NaN" in result[0].text or "Invalid" in result[0].text
 
     def test_infinity_max_pnl(self, loaded_session):
-        """Infinity as max_pnl should not crash."""
+        """Infinity as max_pnl should return a validation error."""
         result = asyncio.run(filter_tools.handle_tool("filter_trades", {
             "max_pnl": float("inf"),
         }))
         assert result is not None
+        assert "NaN" in result[0].text or "Invalid" in result[0].text
 
     def test_negative_infinity_min_pnl(self, loaded_session):
-        """Negative infinity as min_pnl should not crash."""
+        """Negative infinity as min_pnl should return a validation error."""
         result = asyncio.run(filter_tools.handle_tool("filter_trades", {
             "min_pnl": float("-inf"),
         }))
         assert result is not None
+        assert "NaN" in result[0].text or "Invalid" in result[0].text
 
     def test_nan_limit(self, loaded_session):
         """NaN as limit should be caught by validation."""

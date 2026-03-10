@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # prediction_mcp/tools/filter_tools.py
 """
 Trade filtering tools.
@@ -11,7 +13,7 @@ from mcp import types
 from prediction_analyzer.exceptions import NoTradesError
 
 from ..state import session
-from ..errors import error_result, safe_tool
+from ..errors import safe_tool
 from ..serializers import to_json_text
 from .._apply_filters import apply_filters
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # prediction_mcp/server.py
 """
 MCP Server entry point for Prediction Analyzer.

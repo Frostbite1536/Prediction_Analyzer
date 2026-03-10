@@ -41,7 +41,9 @@ def analyze_drawdowns(
     pnls = [t.pnl for t in sorted_trades]
     timestamps = [t.timestamp for t in sorted_trades]
 
-    cumulative = np.cumsum(pnls)
+    # Prepend a zero so the equity curve starts at 0 (initial capital baseline),
+    # consistent with metrics.py drawdown calculation
+    cumulative = np.concatenate(([0.0], np.cumsum(pnls)))
     peak = np.maximum.accumulate(cumulative)
     drawdowns = peak - cumulative
 
@@ -50,7 +52,20 @@ def analyze_drawdowns(
     max_dd = float(drawdowns[max_dd_idx])
     peak_value = float(peak[max_dd_idx])
     trough_value = float(cumulative[max_dd_idx])
-    max_dd_pct = (max_dd / peak_value * 100) if peak_value > 0 else 0.0
+    if peak_value > 0:
+        max_dd_pct = max_dd / peak_value * 100
+    elif max_dd > 0:
+        # Portfolio never had positive equity — report 100% drawdown
+        max_dd_pct = 100.0
+    else:
+        max_dd_pct = 0.0
+
+    # Map drawdown array indices (length N+1) back to trade indices (length N).
+    # Index 0 in drawdowns corresponds to the prepended zero (before first trade).
+    def _ts(dd_idx):
+        """Convert drawdown array index to a trade timestamp, clamping to valid range."""
+        trade_idx = max(0, min(dd_idx - 1, len(timestamps) - 1))
+        return timestamps[trade_idx]
 
     # Find drawdown start (last peak before max drawdown)
     dd_start_idx = max_dd_idx
@@ -66,21 +81,21 @@ def analyze_drawdowns(
             recovery_idx = i
             break
 
-    dd_start_date = timestamps[dd_start_idx].strftime("%Y-%m-%d")
-    dd_end_date = timestamps[max_dd_idx].strftime("%Y-%m-%d")
-    recovery_date = timestamps[recovery_idx].strftime("%Y-%m-%d") if recovery_idx else None
+    dd_start_date = _ts(dd_start_idx).strftime("%Y-%m-%d")
+    dd_end_date = _ts(max_dd_idx).strftime("%Y-%m-%d")
+    recovery_date = _ts(recovery_idx).strftime("%Y-%m-%d") if recovery_idx else None
 
-    dd_duration = (timestamps[max_dd_idx] - timestamps[dd_start_idx]).days
+    dd_duration = (_ts(max_dd_idx) - _ts(dd_start_idx)).days
     recovery_duration = None
     if recovery_idx:
-        recovery_duration = (timestamps[recovery_idx] - timestamps[max_dd_idx]).days
+        recovery_duration = (_ts(recovery_idx) - _ts(max_dd_idx)).days
 
     # Current drawdown state
     current_dd = float(drawdowns[-1])
     is_in_drawdown = current_dd > 0
 
-    # Identify all drawdown periods
-    periods = _identify_drawdown_periods(drawdowns, cumulative, peak, timestamps)
+    # Identify all drawdown periods (skip index 0 which is the prepended baseline)
+    periods = _identify_drawdown_periods(drawdowns[1:], cumulative[1:], peak[1:], timestamps)
 
     return {
         "max_drawdown_amount": sanitize_numeric(max_dd),

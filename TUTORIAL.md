@@ -753,19 +753,20 @@ python -m prediction_mcp --persist session.db
 | `fetch_trades` | Fetch from API (supports all 4 providers with auto-detection) |
 | `list_markets` | List markets with trade counts and source providers |
 | `get_trade_details` | Paginated trade details with sorting |
-| `get_pnl_summary` | Global PnL analysis |
-| `get_market_pnl` | Per-market PnL |
+| `get_global_summary` | Global PnL analysis with optional filters |
+| `get_market_summary` | Per-market PnL analysis |
+| `get_advanced_metrics` | Risk-adjusted metrics (Sharpe, Sortino, drawdown) |
+| `get_market_breakdown` | PnL breakdown by market |
 | `get_provider_breakdown` | Cross-provider analysis |
-| `filter_trades` | Apply date/type/PnL filters |
-| `clear_filters` | Reset all filters |
-| `generate_chart` | Create market charts |
-| `generate_dashboard` | Multi-market dashboard |
-| `export_csv` | Export to CSV |
-| `export_report` | Generate text report |
-| `get_open_positions` | Unrealized position analysis |
-| `get_portfolio_summary` | Portfolio metrics |
-| `get_concentration` | Concentration risk analysis |
-| `get_tax_report` | Tax-year trade summary |
+| `filter_trades` | Apply date/type/PnL filters (use `clear=true` to reset) |
+| `generate_chart` | Create market charts (simple/pro/enhanced) |
+| `generate_dashboard` | Multi-market PnL dashboard |
+| `export_trades` | Export to CSV, Excel, or JSON |
+| `get_open_positions` | Current positions with unrealized PnL |
+| `get_concentration_risk` | Portfolio concentration (HHI index) |
+| `get_drawdown_analysis` | Drawdown periods and recovery analysis |
+| `compare_periods` | Compare performance between two time periods |
+| `get_tax_report` | Capital gains/losses with FIFO/LIFO/average cost basis |
 
 ### Claude Desktop Configuration
 

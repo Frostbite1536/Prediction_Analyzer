@@ -25,12 +25,16 @@ class GlobalSummaryResponse(BaseModel):
     total_pnl: float
     win_rate: float
     avg_pnl_per_trade: float
+    avg_pnl: float
     winning_trades: int
     losing_trades: int
     breakeven_trades: int
     total_invested: float
     total_returned: float
     roi: float
+    currency: Optional[str] = None
+    by_currency: Optional[Dict[str, Any]] = None
+    by_source: Optional[Dict[str, Any]] = None
 
 
 class MarketSummaryResponse(BaseModel):

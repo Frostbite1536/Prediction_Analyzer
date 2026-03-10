@@ -226,6 +226,31 @@ class AnalysisService:
         db.delete(analysis)
         db.commit()
 
+    def get_filtered_trades(
+        self,
+        db: Session,
+        user_id: int,
+        filters: Optional[FilterParams] = None
+    ) -> List[TradeDataclass]:
+        """
+        Get all trades for a user with optional filters applied.
+
+        Args:
+            db: Database session
+            user_id: User ID
+            filters: Optional filter parameters
+
+        Returns:
+            List of Trade dataclass objects
+        """
+        db_trades = trade_service.get_all_user_trades(db, user_id)
+        trades = trade_service.db_trades_to_dataclass(db_trades)
+
+        if filters:
+            trades = self.apply_filters(trades, filters)
+
+        return trades
+
     def parse_saved_analysis(self, analysis: SavedAnalysis) -> Dict[str, Any]:
         """Parse a saved analysis into response format"""
         return {

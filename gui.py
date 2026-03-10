@@ -1010,7 +1010,7 @@ class PredictionAnalyzerGUI:
             "- Generate multiple chart types\n"
             "- Export data in various formats\n\n"
             "Version: 1.0\n"
-            "License: MIT"
+            "License: AGPL-3.0"
         )
         messagebox.showinfo("About", about_text)
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # prediction_mcp/tools/export_tools.py
 """
 Data export tools.
@@ -5,15 +7,16 @@ Data export tools.
 Tools: export_trades
 """
 import logging
+import os
 
 from mcp import types
 
 from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel, export_to_json
 from prediction_analyzer.trade_filter import filter_trades_by_market_slug, get_unique_markets
-from prediction_analyzer.exceptions import NoTradesError, MarketNotFoundError
+from prediction_analyzer.exceptions import NoTradesError
 
 from ..state import session
-from ..errors import error_result, safe_tool
+from ..errors import safe_tool
 from ..serializers import to_json_text
 from ..validators import validate_export_format, validate_market_slug
 
@@ -33,7 +36,8 @@ def get_tool_definitions() -> list[types.Tool]:
             name="export_trades",
             description=(
                 "Export trades to CSV, Excel, or JSON format. "
-                "Optionally export only trades for a specific market."
+                "Optionally export only trades for a specific market. "
+                "Returns {file_path: str, trade_count: int, format: str}."
             ),
             inputSchema={
                 "type": "object",
@@ -78,6 +82,14 @@ async def _handle_export_trades(arguments: dict):
         raise ValueError("format is required")
     if not output_path:
         raise ValueError("output_path is required")
+
+    # Prevent path traversal — resolve and verify the path stays under
+    # the current working directory or an absolute path the user chose.
+    resolved = os.path.realpath(output_path)
+    if ".." in os.path.relpath(resolved):
+        raise ValueError(
+            f"output_path must not traverse outside the working directory: {output_path}"
+        )
 
     validate_export_format(fmt)
 
