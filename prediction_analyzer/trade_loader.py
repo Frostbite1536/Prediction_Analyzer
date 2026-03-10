@@ -49,6 +49,7 @@ class Trade:
     tx_hash: Optional[str] = None
     source: str = "limitless"  # "limitless", "polymarket", "kalshi", "manifold"
     currency: str = "USD"  # "USD", "USDC", "MANA"
+    fee: float = 0.0  # Trading fee (available from Kalshi; other providers bundle into cost)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a JSON-serializable dictionary."""
@@ -66,6 +67,7 @@ class Trade:
             "tx_hash": self.tx_hash,
             "source": self.source,
             "currency": self.currency,
+            "fee": sanitize_numeric(self.fee),
         }
 
 

@@ -287,6 +287,7 @@ class KalshiProvider(MarketProvider):
             tx_hash=raw.get("fill_id") or raw.get("order_id"),
             source="kalshi",
             currency="USD",
+            fee=fee,
         )
 
     def fetch_market_details(self, market_id: str) -> Optional[Dict[str, Any]]:

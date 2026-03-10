@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 VALID_METHODS = {"fifo", "lifo", "average"}
 LONG_TERM_THRESHOLD = timedelta(days=365)
+WASH_SALE_WINDOW = timedelta(days=30)
 
 _BUY_TYPES = {"Buy", "Market Buy", "Limit Buy"}
 _SELL_TYPES = {"Sell", "Market Sell", "Limit Sell", "Claim", "Won", "Loss"}
@@ -49,12 +50,16 @@ def calculate_capital_gains(
     short_term_losses = 0.0
     long_term_gains = 0.0
     long_term_losses = 0.0
+    total_fees = 0.0
     skipped_types: Dict[str, int] = {}  # trade types not recognized
 
     for trade in sorted_trades:
         slug = trade.market_slug
 
         if trade.type in _BUY_TYPES:
+            # Track fees (fee is already included in cost for Kalshi;
+            # other providers bundle fees into cost implicitly)
+            total_fees += getattr(trade, "fee", 0.0)
             # Add to buy lots
             buy_lots.setdefault(slug, []).append({
                 "date": trade.timestamp,
@@ -64,6 +69,10 @@ def calculate_capital_gains(
             })
 
         elif trade.type in _SELL_TYPES:
+            # Track fees
+            sell_fee = getattr(trade, "fee", 0.0)
+            total_fees += sell_fee
+
             # Determine if this sell falls within the tax year
             in_tax_year = year_start <= trade.timestamp < year_end
 
@@ -96,7 +105,7 @@ def calculate_capital_gains(
                     is_long_term = holding_delta >= LONG_TERM_THRESHOLD
                     holding_period = "long_term" if is_long_term else "short_term"
 
-                    transactions.append({
+                    tx = {
                         "market": trade.market,
                         "market_slug": slug,
                         "date_acquired": lot["date"].strftime("%Y-%m-%d"),
@@ -106,7 +115,10 @@ def calculate_capital_gains(
                         "cost_basis": sanitize_numeric(cost_basis),
                         "gain_loss": sanitize_numeric(gain_loss),
                         "holding_period": holding_period,
-                    })
+                    }
+                    if sell_fee > 0:
+                        tx["fee"] = sanitize_numeric(sell_fee)
+                    transactions.append(tx)
 
                     if is_long_term:
                         if gain_loss >= 0:
@@ -148,19 +160,30 @@ def calculate_capital_gains(
             sum(skipped_types.values()), skipped_types,
         )
 
+    # Detect wash sales
+    wash_sales = _detect_wash_sales(transactions, sorted_trades)
+
     net_gain_loss = (short_term_gains - short_term_losses + long_term_gains - long_term_losses)
 
     result = {
         "tax_year": tax_year,
         "method": cost_basis_method,
+        "total_trades_in_scope": len(sorted_trades),
         "short_term_gains": sanitize_numeric(short_term_gains),
         "short_term_losses": sanitize_numeric(short_term_losses),
         "long_term_gains": sanitize_numeric(long_term_gains),
         "long_term_losses": sanitize_numeric(long_term_losses),
         "net_gain_loss": sanitize_numeric(net_gain_loss),
+        "total_fees": sanitize_numeric(total_fees),
         "transaction_count": len(transactions),
         "transactions": transactions,
     }
+
+    if wash_sales:
+        result["wash_sales"] = wash_sales
+        result["wash_sale_disallowed_loss"] = sanitize_numeric(
+            sum(ws["disallowed_loss"] for ws in wash_sales)
+        )
 
     if skipped_types:
         result["skipped_trade_types"] = skipped_types
@@ -184,3 +207,67 @@ def _average_lot(lots: List[Dict]) -> Dict:
         "price": weighted_cost,
         "cost_per_share": weighted_cost,
     }
+
+
+def _detect_wash_sales(
+    transactions: List[Dict],
+    sorted_trades: List[Trade],
+) -> List[Dict]:
+    """Detect wash sales per IRS §1091.
+
+    A wash sale occurs when a security is sold at a loss and a
+    "substantially identical" security is purchased within 30 days
+    before or after the sale.  For prediction markets, "substantially
+    identical" means the same market contract (market_slug + side).
+
+    This function flags loss transactions that have a matching buy
+    within the ±30 day window.  It does NOT adjust cost basis (that
+    requires the CPA to handle), but reports the disallowed loss amount
+    so the trader can file correctly.
+
+    Returns:
+        List of wash sale records with details for each flagged loss.
+    """
+    if not transactions:
+        return []
+
+    # Build a lookup of buy dates per (market_slug, side)
+    buy_events: Dict[tuple, List[datetime]] = {}
+    for trade in sorted_trades:
+        if trade.type in _BUY_TYPES:
+            key = (trade.market_slug, trade.side)
+            buy_events.setdefault(key, []).append(trade.timestamp)
+
+    wash_sales = []
+
+    for tx in transactions:
+        # Only check loss transactions
+        if tx["gain_loss"] >= 0:
+            continue
+
+        slug = tx["market_slug"]
+        sell_date = datetime.strptime(tx["date_sold"], "%Y-%m-%d")
+
+        # Check all sides — a wash sale on the same market contract
+        # applies regardless of YES/NO side (same underlying market)
+        for side in ("YES", "NO"):
+            key = (slug, side)
+            buy_dates = buy_events.get(key, [])
+
+            for buy_date in buy_dates:
+                delta = abs((buy_date - sell_date).days)
+                if 0 < delta <= 30:
+                    wash_sales.append({
+                        "market": tx["market"],
+                        "market_slug": slug,
+                        "date_sold": tx["date_sold"],
+                        "date_repurchased": buy_date.strftime("%Y-%m-%d"),
+                        "disallowed_loss": sanitize_numeric(abs(tx["gain_loss"])),
+                        "shares": tx["shares"],
+                    })
+                    break  # One wash sale per loss transaction
+
+            if wash_sales and wash_sales[-1]["date_sold"] == tx["date_sold"]:
+                break  # Already found a wash sale for this tx
+
+    return wash_sales
