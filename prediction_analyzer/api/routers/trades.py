@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # prediction_analyzer/api/routers/trades.py
 """
 Trade management endpoints - CRUD, upload, export

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # prediction_mcp/tools/portfolio_tools.py
 """
 Portfolio analysis tools (new features).
@@ -14,7 +16,7 @@ from prediction_analyzer.comparison import compare_periods as _compare_periods
 from prediction_analyzer.exceptions import NoTradesError
 
 from ..state import session
-from ..errors import error_result, safe_tool
+from ..errors import safe_tool
 from ..serializers import to_json_text, sanitize_dict
 from ..validators import validate_date
 

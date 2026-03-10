@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # prediction_mcp/tools/analysis_tools.py
 """
 Analysis tools for PnL summaries and metrics.
@@ -15,10 +17,10 @@ from prediction_analyzer.pnl import (
 )
 from prediction_analyzer.metrics import calculate_advanced_metrics
 from prediction_analyzer.trade_filter import filter_trades_by_market_slug, get_unique_markets
-from prediction_analyzer.exceptions import NoTradesError, MarketNotFoundError
+from prediction_analyzer.exceptions import NoTradesError
 
 from ..state import session
-from ..errors import error_result, safe_tool
+from ..errors import safe_tool
 from ..serializers import to_json_text, sanitize_dict
 from .._apply_filters import apply_filters
 from ..validators import validate_market_slug

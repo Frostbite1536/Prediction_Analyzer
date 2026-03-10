@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # prediction_mcp/tools/chart_tools.py
 """
 Chart generation tools.
@@ -13,10 +15,10 @@ from prediction_analyzer.charts.pro import generate_pro_chart
 from prediction_analyzer.charts.enhanced import generate_enhanced_chart
 from prediction_analyzer.charts.global_chart import generate_global_dashboard
 from prediction_analyzer.trade_filter import filter_trades_by_market_slug, group_trades_by_market, get_unique_markets
-from prediction_analyzer.exceptions import NoTradesError, MarketNotFoundError
+from prediction_analyzer.exceptions import NoTradesError
 
 from ..state import session
-from ..errors import error_result, safe_tool
+from ..errors import safe_tool
 from ..serializers import to_json_text
 from ..validators import validate_chart_type, validate_market_slug
 

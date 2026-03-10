@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # prediction_mcp/tools/data_tools.py
 """
 Data loading and market listing tools.
