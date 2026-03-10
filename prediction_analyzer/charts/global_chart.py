@@ -2,11 +2,19 @@
 """
 Global multi-market dashboard
 """
+import logging
 import plotly.graph_objects as go
-from typing import Dict, List
+from pathlib import Path
+from typing import Dict, List, Optional
 from ..trade_loader import Trade
+from ..exceptions import NoTradesError
 
-def generate_global_dashboard(trades_by_market: Dict[str, List[Trade]]):
+logger = logging.getLogger(__name__)
+
+# Default output directory: charts_output/ under project root
+_DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "charts_output"
+
+def generate_global_dashboard(trades_by_market: Dict[str, List[Trade]], output_dir: Optional[str] = None, show: bool = True):
     """
     Generate a global PnL dashboard across multiple markets
 
@@ -14,8 +22,7 @@ def generate_global_dashboard(trades_by_market: Dict[str, List[Trade]]):
         trades_by_market: Dictionary mapping market_name -> list of trades
     """
     if not trades_by_market:
-        print("⚠️ No trades available for dashboard.")
-        return
+        raise NoTradesError("No trades available for dashboard.")
 
     fig = go.Figure()
 
@@ -92,8 +99,12 @@ def generate_global_dashboard(trades_by_market: Dict[str, List[Trade]]):
         )
     )
 
-    # Save and display
-    filename = "global_dashboard.html"
-    fig.write_html(filename)
-    print(f"✅ Global dashboard saved: {filename}")
-    fig.show()
+    # Save and display to output directory
+    out = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR
+    out.mkdir(parents=True, exist_ok=True)
+    filepath = out / "global_dashboard.html"
+    fig.write_html(str(filepath))
+    logger.info("Global dashboard saved: %s", filepath)
+    if show:
+        fig.show()
+    return str(filepath)

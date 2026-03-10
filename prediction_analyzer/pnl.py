@@ -59,6 +59,7 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
             "avg_pnl_per_trade": 0.0,
             "winning_trades": 0,
             "losing_trades": 0,
+            "breakeven_trades": 0,
             "total_invested": 0.0,
             "total_returned": 0.0,
             "roi": 0.0,

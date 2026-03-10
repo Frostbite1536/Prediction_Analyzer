@@ -73,7 +73,7 @@ prediction_analyzer/
 │
 ├── utils/                   # Utility functions
 │   ├── __init__.py
-│   ├── auth.py              # API authentication (eth-account signing)
+│   ├── auth.py              # API key authentication (X-API-Key header)
 │   ├── data.py              # API data fetching
 │   ├── export.py            # Export utilities
 │   ├── math_utils.py        # Mathematical helpers
@@ -246,7 +246,7 @@ Four chart types with different use cases:
 
 Supporting utilities:
 
-- **auth.py**: Ethereum wallet authentication using eth-account
+- **auth.py**: API key authentication for Limitless Exchange (`X-API-Key` header)
 - **data.py**: API communication for fetching live trades
 - **export.py**: File export helpers
 - **math_utils.py**: Mathematical calculations
@@ -262,7 +262,7 @@ Command-line interface with argparse:
 Data Source:
   --file FILE       Load from JSON/CSV/XLSX file
   --fetch           Fetch from API
-  --key KEY         Private key for API auth
+  --key KEY         API key (lmts_...) or LIMITLESS_API_KEY env var
 
 Analysis:
   --market MARKET   Analyze specific market
@@ -312,7 +312,7 @@ Tkinter-based desktop application:
 
 Features:
 - File loading with dialog
-- API authentication with private key input
+- API authentication with API key input
 - Tabbed interface for different views
 - Market listbox with selection preservation
 - Filter controls with validation
@@ -331,7 +331,6 @@ Features:
 | plotly | >=5.20.0 | Interactive charts |
 | openpyxl | >=3.1.0 | Excel file support |
 | requests | >=2.28.0 | API communication |
-| eth-account | >=0.8.0 | Ethereum wallet signing |
 
 ### Development Dependencies
 

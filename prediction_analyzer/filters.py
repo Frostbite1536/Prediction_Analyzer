@@ -2,7 +2,7 @@
 """
 Advanced filtering functions for trades
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from .trade_loader import Trade
 
@@ -24,7 +24,7 @@ def _normalize_datetime(dt) -> datetime:
     # Handle numeric timestamps (Unix epoch)
     if isinstance(dt, (int, float)):
         # Use UTC to avoid local timezone issues
-        return datetime.utcfromtimestamp(dt)
+        return datetime.fromtimestamp(dt, tz=timezone.utc).replace(tzinfo=None)
 
     # Handle pandas Timestamp
     if hasattr(dt, 'to_pydatetime'):
@@ -94,7 +94,8 @@ def filter_by_trade_type(trades: List[Trade], types: Optional[List[str]] = None)
     """
     if not types:
         return trades
-    return [t for t in trades if t.type in types]
+    # Match variant types: "Buy" also matches "Market Buy", "Limit Buy", etc.
+    return [t for t in trades if t.type in types or any(base in t.type for base in types)]
 
 def filter_by_side(trades: List[Trade], sides: Optional[List[str]] = None) -> List[Trade]:
     """

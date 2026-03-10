@@ -1,74 +1,39 @@
 # prediction_analyzer/utils/auth.py
 """
-Authentication utilities for API access
+Authentication utilities for Limitless Exchange API access.
+
+Uses API key authentication (X-API-Key header).
+API keys can be generated at limitless.exchange -> profile -> Api keys.
+Keys use the format: lmts_...
 """
-import requests
-from eth_account import Account
-from eth_account.messages import encode_defunct
-from ..config import API_BASE_URL
+import os
+from typing import Optional
 
-def get_signing_message():
-    """
-    Fetch the signing message from the API
 
-    Returns:
-        Signing message string or None on error
+def get_api_key(api_key: Optional[str] = None) -> Optional[str]:
     """
-    try:
-        resp = requests.get(f"{API_BASE_URL}/auth/signing-message", timeout=10)
-        resp.raise_for_status()
-        return resp.text
-    except Exception as e:
-        print(f"❌ Error getting signing message: {e}")
-        return None
-
-def authenticate(private_key: str, signing_message: str):
-    """
-    Authenticate with the API using private key
+    Resolve an API key from the provided argument or environment variable.
 
     Args:
-        private_key: Ethereum private key (with or without 0x prefix)
-        signing_message: Message to sign from get_signing_message()
+        api_key: Explicit API key, or None to read from LIMITLESS_API_KEY env var.
 
     Returns:
-        Tuple of (session_cookie, address) or (None, None) on failure
+        The API key string, or None if not found.
     """
-    if not private_key.startswith("0x"):
-        private_key = "0x" + private_key
+    key = api_key or os.environ.get("LIMITLESS_API_KEY")
+    if key:
+        key = key.strip()
+    return key or None
 
-    try:
-        account = Account.from_key(private_key)
-        address = account.address
 
-        # Sign the message
-        message = encode_defunct(text=signing_message)
-        signed = account.sign_message(message)
+def get_auth_headers(api_key: str) -> dict:
+    """
+    Build the authentication headers for Limitless Exchange API requests.
 
-        sig_hex = signed.signature.hex()
-        if not sig_hex.startswith("0x"):
-            sig_hex = "0x" + sig_hex
+    Args:
+        api_key: Limitless API key (lmts_...)
 
-        hex_message = "0x" + signing_message.encode('utf-8').hex()
-
-        # Prepare headers
-        headers = {
-            'x-account': address,
-            'x-signing-message': hex_message,
-            'x-signature': sig_hex,
-            'Content-Type': 'application/json',
-        }
-
-        # Authenticate
-        response = requests.post(
-            f"{API_BASE_URL}/auth/login",
-            headers=headers,
-            json={"client": "eoa"}
-        )
-        response.raise_for_status()
-
-        session_cookie = response.cookies.get('limitless_session')
-        return session_cookie, address
-
-    except Exception as e:
-        print(f"❌ Authentication failed: {e}")
-        return None, None
+    Returns:
+        Dict of headers to include on every authenticated request.
+    """
+    return {"X-API-Key": api_key}

@@ -10,13 +10,25 @@ from .config import get_settings
 
 settings = get_settings()
 
-# Ensure data directory exists
-data_dir = Path("data")
-data_dir.mkdir(exist_ok=True)
+# Resolve data directory relative to the project root (parent of prediction_analyzer package)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_db_url = settings.DATABASE_URL
+
+# For SQLite relative paths, anchor to the project root instead of CWD
+if _db_url.startswith("sqlite:///./"):
+    _relative_path = _db_url.replace("sqlite:///./", "")
+    _abs_path = _PROJECT_ROOT / _relative_path
+    _abs_path.parent.mkdir(parents=True, exist_ok=True)
+    _db_url = f"sqlite:///{_abs_path}"
+elif _db_url.startswith("sqlite:///") and not Path(_db_url.replace("sqlite:///", "")).is_absolute():
+    _relative_path = _db_url.replace("sqlite:///", "")
+    _abs_path = _PROJECT_ROOT / _relative_path
+    _abs_path.parent.mkdir(parents=True, exist_ok=True)
+    _db_url = f"sqlite:///{_abs_path}"
 
 # Create SQLAlchemy engine
 engine = create_engine(
-    settings.DATABASE_URL,
+    _db_url,
     connect_args={"check_same_thread": False}  # SQLite specific
 )
 

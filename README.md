@@ -28,6 +28,7 @@ A complete modular analysis tool for prediction market traders. Analyze past tra
 ## 📦 Installation
 
 **📖 For detailed installation instructions, see [INSTALL.md](INSTALL.md)**
+**📚 For a step-by-step walkthrough, see [TUTORIAL.md](TUTORIAL.md)**
 
 ### Quick Start (3 Easy Steps)
 
@@ -111,10 +112,16 @@ python run.py --file trades.json \
 
 **Note:** Replace `python run.py` with `prediction-analyzer` if you installed the package.
 
-### Fetch Live Data
+### Fetch Live Data from Limitless Exchange
 ```bash
-# Fetch trades from API (first time)
-python run.py --fetch --key "0xYOURPRIVATEKEY"
+# Set your API key (generate at limitless.exchange -> profile -> Api keys)
+export LIMITLESS_API_KEY="lmts_your_api_key_here"
+
+# Fetch trades from API
+python run.py --fetch
+
+# Or pass the key directly
+python run.py --fetch --key "lmts_your_api_key_here"
 
 # After fetching, use local file
 python run.py --file limitless_trades.json
@@ -185,8 +192,8 @@ generate_pro_chart(market_trades, "ETH-USD")
 
 ### Data Source
 - `--file FILE` - Load trades from file (JSON/CSV/XLSX)
-- `--fetch` - Fetch live trades from API
-- `--key KEY` - Private key for API authentication
+- `--fetch` - Fetch live trades from Limitless Exchange API
+- `--key KEY` - Limitless API key (`lmts_...`) or set `LIMITLESS_API_KEY` env var
 
 ### Analysis
 - `--market MARKET` - Analyze specific market

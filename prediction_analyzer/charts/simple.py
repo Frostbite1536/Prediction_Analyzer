@@ -2,13 +2,21 @@
 """
 Simple chart generation for novice users
 """
+import logging
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 from ..trade_loader import Trade, _sanitize_filename
 from ..config import get_trade_style
+from ..exceptions import NoTradesError
 
-def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None):
+logger = logging.getLogger(__name__)
+
+# Default output directory: charts_output/ under project root
+_DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "charts_output"
+
+def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None, output_dir: Optional[str] = None, show: bool = True):
     """
     Generate a simple 2-panel chart showing price and exposure
 
@@ -18,8 +26,7 @@ def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcom
         resolved_outcome: "YES" or "NO" if market is resolved
     """
     if not trades:
-        print("⚠️ No trades to chart.")
-        return
+        raise NoTradesError("No trades to chart.")
 
     # Sort trades by timestamp
     sorted_trades = sorted(trades, key=lambda t: t.timestamp)
@@ -102,10 +109,14 @@ def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcom
 
     plt.tight_layout()
 
-    # Save chart with sanitized filename
+    # Save chart with sanitized filename to output directory
+    out = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR
+    out.mkdir(parents=True, exist_ok=True)
     safe_market_name = _sanitize_filename(market_name, max_length=30)
-    filename = f"chart_{safe_market_name}.png"
-    plt.savefig(filename, dpi=150, bbox_inches='tight')
-    print(f"✅ Chart saved: {filename}")
-    plt.show()
+    filepath = out / f"chart_{safe_market_name}.png"
+    plt.savefig(str(filepath), dpi=150, bbox_inches='tight')
+    logger.info("Chart saved: %s", filepath)
+    if show:
+        plt.show()
     plt.close()
+    return str(filepath)

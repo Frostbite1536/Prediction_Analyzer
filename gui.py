@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 from typing import List, Optional
 from datetime import datetime
+import threading
 
 # Add the package directory to Python path
 package_dir = Path(__file__).parent
@@ -23,8 +24,9 @@ from prediction_analyzer.charts.pro import generate_pro_chart
 from prediction_analyzer.charts.enhanced import generate_enhanced_chart
 from prediction_analyzer.charts.global_chart import generate_global_dashboard
 from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel
-from prediction_analyzer.utils.auth import get_signing_message, authenticate
+from prediction_analyzer.utils.auth import get_api_key
 from prediction_analyzer.utils.data import fetch_trade_history
+from prediction_analyzer.metrics import calculate_advanced_metrics
 
 
 class PredictionAnalyzerGUI:
@@ -144,10 +146,10 @@ class PredictionAnalyzerGUI:
         control_frame = ttk.LabelFrame(parent, text="Quick Actions", padding="10")
         control_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-        # Private key input section
-        ttk.Label(control_frame, text="Private Key:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
-        self.private_key_entry = ttk.Entry(control_frame, width=40, show="*")
-        self.private_key_entry.grid(row=0, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=2)
+        # API key input section
+        ttk.Label(control_frame, text="API Key:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        self.api_key_entry = ttk.Entry(control_frame, width=40, show="*")
+        self.api_key_entry.grid(row=0, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=2)
 
         ttk.Button(
             control_frame,
@@ -433,50 +435,53 @@ class PredictionAnalyzerGUI:
             messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")
 
     def load_from_api(self):
-        """Load trades from API using private key"""
-        private_key = self.private_key_entry.get().strip()
+        """Load trades from API using API key (runs in background thread)"""
+        api_key = get_api_key(self.api_key_entry.get().strip())
 
-        if not private_key:
-            messagebox.showwarning("Missing Private Key", "Please enter your private key.")
+        if not api_key:
+            messagebox.showwarning(
+                "Missing API Key",
+                "Please enter your Limitless API key (lmts_...).\n\n"
+                "You can also set the LIMITLESS_API_KEY environment variable.\n\n"
+                "Generate a key at: limitless.exchange -> profile -> Api keys"
+            )
+            return
+
+        # Disable buttons while fetching
+        self.status_label.config(text="Fetching trades from API...")
+        self._set_api_controls_enabled(False)
+
+        def _fetch_worker():
+            """Background thread for API fetch"""
+            try:
+                raw_trades = fetch_trade_history(api_key)
+                # Schedule result handling on main thread
+                self.root.after(0, lambda: self._on_api_fetch_complete(raw_trades))
+            except Exception as e:
+                self.root.after(0, lambda: self._on_api_fetch_error(str(e)))
+
+        thread = threading.Thread(target=_fetch_worker, daemon=True)
+        thread.start()
+
+    def _set_api_controls_enabled(self, enabled: bool):
+        """Enable or disable API-related controls during fetch"""
+        state = "normal" if enabled else "disabled"
+        self.api_key_entry.config(state=state)
+
+    def _on_api_fetch_complete(self, raw_trades):
+        """Handle successful API fetch (called on main thread)"""
+        self._set_api_controls_enabled(True)
+
+        if not raw_trades:
+            messagebox.showinfo("No Trades", "No trades found for this account.")
+            self.status_label.config(text="No trades found")
             return
 
         try:
-            # Show progress
-            self.status_label.config(text="Authenticating...")
-            self.root.update()
-
-            # Get signing message
-            signing_message = get_signing_message()
-            if not signing_message:
-                messagebox.showerror("Error", "Failed to get signing message from API")
-                self.status_label.config(text="Authentication failed")
-                return
-
-            # Authenticate
-            session_cookie, address = authenticate(private_key, signing_message)
-            if not session_cookie:
-                messagebox.showerror("Error", "Authentication failed. Please check your private key.")
-                self.status_label.config(text="Authentication failed")
-                return
-
-            # Update status
-            self.status_label.config(text=f"Authenticated as {address[:10]}... Fetching trades...")
-            self.root.update()
-
-            # Fetch trade history
-            raw_trades = fetch_trade_history(session_cookie)
-
-            if not raw_trades:
-                messagebox.showinfo("No Trades", "No trades found for this account.")
-                self.status_label.config(text=f"Authenticated as {address[:10]}... (0 trades)")
-                return
-
-            # Convert raw trades to Trade objects
             from prediction_analyzer.trade_loader import load_trades
             import json
             import tempfile
 
-            # Save raw trades to temporary file and load them using existing loader
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
                 json.dump(raw_trades, tmp)
                 tmp_path = tmp.name
@@ -484,32 +489,35 @@ class PredictionAnalyzerGUI:
             try:
                 self.all_trades = load_trades(tmp_path)
                 self.filtered_trades = self.all_trades.copy()
-                self.current_file_path = None  # Mark as API-loaded
+                self.current_file_path = None
 
-                # Update status
                 self.status_label.config(
-                    text=f"Loaded from API: {address[:10]}... ({len(self.all_trades)} trades)"
+                    text=f"Loaded from API ({len(self.all_trades)} trades)"
                 )
 
-                # Update displays
                 self.update_markets_list()
                 self.update_summary_display()
 
                 messagebox.showinfo(
                     "Success",
-                    f"Successfully loaded {len(self.all_trades)} trades from API\nAddress: {address}"
+                    f"Successfully loaded {len(self.all_trades)} trades from API"
                 )
             finally:
-                # Clean up temp file
                 import os
                 try:
                     os.unlink(tmp_path)
-                except:
+                except OSError:
                     pass
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to load trades from API:\n{str(e)}")
-            self.status_label.config(text="Failed to load from API")
+            messagebox.showerror("Error", f"Failed to process trades:\n{str(e)}")
+            self.status_label.config(text="Failed to process API data")
+
+    def _on_api_fetch_error(self, error_msg: str):
+        """Handle API fetch error (called on main thread)"""
+        self._set_api_controls_enabled(True)
+        messagebox.showerror("Error", f"Failed to load trades from API:\n{error_msg}")
+        self.status_label.config(text="Failed to load from API")
 
     def update_markets_list(self):
         """Update the markets listbox while preserving selection if possible"""
@@ -573,6 +581,22 @@ class PredictionAnalyzerGUI:
             output.append(f"\nTotal Invested: ${summary['total_invested']:.2f}")
             output.append(f"Total Returned: ${summary['total_returned']:.2f}")
             output.append(f"ROI: {summary['roi']:.2f}%")
+
+            # Advanced metrics
+            metrics = calculate_advanced_metrics(self.filtered_trades)
+            output.append("\n" + "=" * 60)
+            output.append("ADVANCED METRICS")
+            output.append("=" * 60)
+            output.append(f"\nSharpe Ratio: {metrics['sharpe_ratio']:.4f}")
+            output.append(f"Sortino Ratio: {metrics['sortino_ratio']:.4f}")
+            output.append(f"Profit Factor: {metrics['profit_factor']:.2f}")
+            output.append(f"Expectancy: ${metrics['expectancy']:.4f}")
+            output.append(f"\nMax Drawdown: ${metrics['max_drawdown']:.2f} ({metrics['max_drawdown_pct']:.1f}%)")
+            output.append(f"Max DD Duration: {metrics['max_drawdown_duration_trades']} trades")
+            output.append(f"\nAvg Win: ${metrics['avg_win']:.2f}  |  Avg Loss: ${metrics['avg_loss']:.2f}")
+            output.append(f"Largest Win: ${metrics['largest_win']:.2f}  |  Largest Loss: ${metrics['largest_loss']:.2f}")
+            output.append(f"Max Win Streak: {metrics['max_win_streak']}  |  Max Loss Streak: {metrics['max_loss_streak']}")
+
             output.append("\n" + "=" * 60)
 
             self.summary_text.insert(tk.END, "\n".join(output))

@@ -35,14 +35,19 @@ def check_dependencies():
         missing.append("sqlalchemy")
 
     try:
-        import jose
+        import jwt
     except ImportError:
-        missing.append("python-jose[cryptography]")
+        missing.append("PyJWT")
 
     try:
         import passlib
     except ImportError:
-        missing.append("passlib[bcrypt]")
+        missing.append("passlib")
+
+    try:
+        import argon2
+    except ImportError:
+        missing.append("argon2-cffi")
 
     try:
         import pydantic_settings

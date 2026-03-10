@@ -27,22 +27,19 @@ stateDiagram-v2
     [*] --> NoDataLoaded: Application Start
 
     NoDataLoaded --> FileLoading: load_file()
-    NoDataLoaded --> APIAuthenticating: load_from_api()
+    NoDataLoaded --> APIFetching: load_from_api()
 
     FileLoading --> DataLoaded: File parsed successfully
     FileLoading --> NoDataLoaded: Parse error
 
-    APIAuthenticating --> APIFetching: Authentication successful
-    APIAuthenticating --> NoDataLoaded: Authentication failed
-
-    APIFetching --> DataLoaded: Trades fetched
-    APIFetching --> NoDataLoaded: Fetch error
+    APIFetching --> DataLoaded: Trades fetched (X-API-Key auth)
+    APIFetching --> NoDataLoaded: Fetch error or missing API key
 
     DataLoaded --> FiltersApplied: apply_filters()
     DataLoaded --> ChartGenerating: generate_chart()
     DataLoaded --> Exporting: export_data()
     DataLoaded --> FileLoading: load_file()
-    DataLoaded --> APIAuthenticating: load_from_api()
+    DataLoaded --> APIFetching: load_from_api()
 
     FiltersApplied --> DataLoaded: clear_filters()
     FiltersApplied --> FiltersApplied: apply_filters()
@@ -73,38 +70,34 @@ stateDiagram-v2
 
 **File:** `prediction_analyzer/utils/auth.py`
 
-Handles API authentication using Ethereum private key signing.
+Handles API authentication using Limitless API keys (`X-API-Key` header).
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Unauthenticated
+    [*] --> ResolvingKey: get_api_key()
 
-    Unauthenticated --> FetchingSigningMessage: get_signing_message()
+    ResolvingKey --> CheckArgument: Check explicit argument
 
-    FetchingSigningMessage --> SigningMessageReceived: API returns message
-    FetchingSigningMessage --> AuthError: Network/API error
+    CheckArgument --> KeyResolved: Argument provided (lmts_...)
+    CheckArgument --> CheckEnvVar: No argument
 
-    SigningMessageReceived --> SigningMessage: Sign with private key
+    CheckEnvVar --> KeyResolved: LIMITLESS_API_KEY set
+    CheckEnvVar --> NoKey: Env var not set
 
-    SigningMessage --> PostingCredentials: authenticate()
+    KeyResolved --> HeadersReady: get_auth_headers()
+    NoKey --> AuthError: Prompt user for key
 
-    PostingCredentials --> Authenticated: 200 OK + session cookie
-    PostingCredentials --> AuthError: 401/403/Network error
-
-    Authenticated --> SessionActive: Cookie stored
-
-    AuthError --> Unauthenticated: User retry
-
-    SessionActive --> [*]: Session expires/logout
+    HeadersReady --> [*]: Return {"X-API-Key": key}
+    AuthError --> [*]: Return None
 ```
 
 ### Authentication State Outputs
 
 | State | Output |
 |-------|--------|
-| `Unauthenticated` | No session |
-| `Authenticated` | `(session_cookie, address)` tuple |
-| `AuthError` | `(None, None)` tuple |
+| `KeyResolved` | API key string (`lmts_...`) |
+| `HeadersReady` | `{"X-API-Key": "lmts_..."}` dict |
+| `NoKey` | `None` |
 
 ---
 
@@ -465,7 +458,7 @@ stateDiagram-v2
 | Component | State Type | Persistence | Side Effects |
 |-----------|-----------|-------------|--------------|
 | GUI | Class instance | Session | UI updates, file I/O |
-| Auth | Transient | HTTP cookie | Network requests |
+| Auth | Transient | API key (env/arg) | Header construction |
 | Data Fetch | Transient | None | Network requests |
 | Filters | Pure functional | None | None |
 | PnL | Transient | None | Calculations only |
@@ -515,7 +508,7 @@ flowchart TB
 | Trigger | Component | Transition |
 |---------|-----------|------------|
 | Click "Load File" | GUI | NoDataLoaded → FileLoading |
-| Click "Load from API" | GUI | NoDataLoaded → APIAuthenticating |
+| Click "Load from API" | GUI | NoDataLoaded → APIFetching |
 | Click "Apply Filters" | GUI | DataLoaded → FiltersApplied |
 | Click "Clear Filters" | GUI | FiltersApplied → DataLoaded |
 | Select menu option | CLI | CurrentMenu → SelectedSubmenu |
@@ -523,8 +516,8 @@ flowchart TB
 ### System Events
 | Event | Component | Transition |
 |-------|-----------|------------|
-| HTTP 200 response | Auth | PostingCredentials → Authenticated |
-| HTTP error | Auth | PostingCredentials → AuthError |
+| API key resolved | Auth | ResolvingKey → KeyResolved |
+| No API key found | Auth | ResolvingKey → NoKey |
 | Last page fetched | DataFetch | CheckingMore → Complete |
 | File write success | Export | WritingFile → Success |
 

@@ -84,6 +84,49 @@ async def get_market_analysis(
     return MarketSummaryResponse(**summary)
 
 
+@router.post("/metrics")
+async def get_advanced_metrics(
+    filters: Optional[FilterParams] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate advanced trading metrics: Sharpe ratio, Sortino ratio,
+    max drawdown, profit factor, expectancy, and win/loss streaks.
+    """
+    from prediction_analyzer.metrics import calculate_advanced_metrics
+    from prediction_analyzer.trade_loader import Trade as CoreTrade
+
+    trades_data = analysis_service.get_filtered_trades(
+        db, user_id=current_user.id, filters=filters
+    )
+
+    if not trades_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No trades found. Upload some trades first."
+        )
+
+    # Convert DB trade records to core Trade objects for metrics calculation
+    core_trades = []
+    for t in trades_data:
+        core_trades.append(CoreTrade(
+            market=t.market_title or "",
+            market_slug=t.market_slug or "",
+            timestamp=t.timestamp,
+            price=t.price or 0.0,
+            shares=t.shares or 0.0,
+            cost=t.cost or 0.0,
+            type=t.trade_type or "",
+            side=t.side or "",
+            pnl=t.pnl or 0.0,
+            tx_hash=t.tx_hash or "",
+        ))
+
+    metrics = calculate_advanced_metrics(core_trades)
+    return metrics
+
+
 @router.post("/breakdown", response_model=List[MarketBreakdownItem])
 async def get_market_breakdown(
     filters: Optional[FilterParams] = None,

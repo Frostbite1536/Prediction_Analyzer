@@ -21,20 +21,38 @@ setup(
         "matplotlib>=3.7.0",
         "plotly>=5.20.0",
         "openpyxl>=3.1.0",
-        "requests>=2.28.0",
-        "eth-account>=0.8.0"
+        "requests>=2.28.0"
     ],
     extras_require={
+        "api": [
+            "fastapi>=0.109.0",
+            "uvicorn[standard]>=0.27.0",
+            "python-multipart>=0.0.6",
+            "sqlalchemy>=2.0.0",
+            "PyJWT>=2.8.0",
+            "passlib>=1.7.4",
+            "argon2-cffi>=23.1.0",
+            "pydantic>=2.5.0",
+            "pydantic-settings>=2.1.0",
+            "email-validator>=2.1.0",
+        ],
         "dev": [
             "pytest>=7.0.0",
             "pytest-cov>=4.0.0",
             "black>=22.0.0",
             "flake8>=5.0.0"
         ],
+        "mcp": [
+            "mcp>=1.0.0",
+            "pydantic>=2.5.0",
+            "starlette>=0.27.0",
+            "uvicorn>=0.20.0",
+        ],
     },
     entry_points={
         "console_scripts": [
             "prediction-analyzer=prediction_analyzer.__main__:main",
+            "prediction-mcp=prediction_mcp.server:main",
         ],
     },
     classifiers=[

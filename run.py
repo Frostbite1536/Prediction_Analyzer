@@ -4,7 +4,6 @@ Standalone runner for Prediction Analyzer
 This script allows you to run the package without installing it
 """
 import sys
-import subprocess
 from pathlib import Path
 
 def check_dependencies():
@@ -15,8 +14,7 @@ def check_dependencies():
         'matplotlib',
         'plotly',
         'openpyxl',
-        'requests',
-        'eth_account'
+        'requests'
     ]
 
     missing_packages = []

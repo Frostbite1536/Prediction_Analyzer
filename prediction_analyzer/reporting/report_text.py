@@ -2,40 +2,52 @@
 """
 Text-based report generation
 """
-from typing import List
+import logging
+import sys
+from typing import List, TextIO
 from datetime import datetime
 from ..trade_loader import Trade
 from ..pnl import calculate_market_pnl, calculate_global_pnl_summary
 
-def print_global_summary(trades: List[Trade]):
+logger = logging.getLogger(__name__)
+
+def print_global_summary(trades: List[Trade], stream: TextIO = None):
     """
-    Print a formatted global PnL summary to console
+    Print a formatted global PnL summary to a stream.
+
+    Args:
+        trades: List of Trade objects
+        stream: Output stream (defaults to sys.stderr to keep stdout clean)
     """
+    out = stream or sys.stderr
     summary = calculate_global_pnl_summary(trades)
     market_stats = calculate_market_pnl(trades)
 
-    print("\n" + "="*60)
-    print("💰 GLOBAL PORTFOLIO SUMMARY")
-    print("="*60)
-    print(f"Total Trades:          {summary['total_trades']}")
-    print(f"Total Volume:          ${summary['total_volume']:,.2f}")
-    print(f"Total Realized PnL:    ${summary['total_pnl']:,.2f}")
-    print(f"Win Rate:              {summary['win_rate']:.1f}%")
-    print(f"Avg PnL per Trade:     ${summary['avg_pnl_per_trade']:.2f}")
-    print("-" * 60)
+    def _print(text=""):
+        out.write(text + "\n")
+
+    _print("\n" + "="*60)
+    _print("GLOBAL PORTFOLIO SUMMARY")
+    _print("="*60)
+    _print(f"Total Trades:          {summary['total_trades']}")
+    _print(f"Total Volume:          ${summary['total_volume']:,.2f}")
+    _print(f"Total Realized PnL:    ${summary['total_pnl']:,.2f}")
+    _print(f"Win Rate:              {summary['win_rate']:.1f}%")
+    _print(f"Avg PnL per Trade:     ${summary['avg_pnl_per_trade']:.2f}")
+    _print("-" * 60)
 
     # Top markets by PnL
     sorted_markets = sorted(market_stats.items(), key=lambda x: x[1]['total_pnl'], reverse=True)
 
-    print("\n📊 TOP MARKETS BY PNL:")
-    print(f"{'Rank':<6} {'Market':<40} {'PnL':>12}")
-    print("-" * 60)
+    _print("\nTOP MARKETS BY PNL:")
+    _print(f"{'Rank':<6} {'Market':<40} {'PnL':>12}")
+    _print("-" * 60)
 
     for i, (slug, stats) in enumerate(sorted_markets[:10], 1):
         market_name = stats['market_name'][:37] + "..." if len(stats['market_name']) > 40 else stats['market_name']
-        print(f"{i:<6} {market_name:<40} ${stats['total_pnl']:>10,.2f}")
+        _print(f"{i:<6} {market_name:<40} ${stats['total_pnl']:>10,.2f}")
 
-    print("="*60 + "\n")
+    _print("="*60 + "\n")
 
 def generate_text_report(trades: List[Trade], filename: str = None):
     """
@@ -94,4 +106,4 @@ def generate_text_report(trades: List[Trade], filename: str = None):
     with open(filename, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines))
 
-    print(f"✅ Report saved: {filename}")
+    logger.info("Report saved: %s", filename)

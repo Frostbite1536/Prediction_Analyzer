@@ -4,7 +4,7 @@ Trade and TradeUpload models for storing user trading data
 """
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..database import Base
 
@@ -19,7 +19,7 @@ class TradeUpload(Base):
     file_type = Column(String(10), nullable=False)  # json, csv, xlsx
     trade_count = Column(Integer, default=0)
     file_hash = Column(String(64), nullable=True)  # SHA256 for dedup
-    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     user = relationship("User", back_populates="uploads")
@@ -49,7 +49,7 @@ class Trade(Base):
     pnl = Column(Float, default=0.0)
     tx_hash = Column(String(100), nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     user = relationship("User", back_populates="trades")
