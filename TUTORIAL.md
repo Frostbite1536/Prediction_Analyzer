@@ -396,12 +396,13 @@ ROI: 6.55%
 ============================================================
 ```
 
-When trades from multiple providers are loaded, you'll also see a per-source breakdown:
+When trades from multiple providers are loaded, you'll also see per-currency and per-source breakdowns. **Importantly, play-money currencies (MANA from Manifold) are never mixed into the real-money (USD/USDC) totals** -- they appear in a separate section:
 
 ```
-By Source:
-  limitless:   85 trades, PnL: $210.30
-  polymarket:  65 trades, PnL: $132.20
+PNL BY CURRENCY:
+  MANA       42 trades  PnL: M$1,250.00  Win Rate: 62.5%
+  USD        23 trades  PnL:    $185.40  Win Rate: 55.0%
+  USDC       85 trades  PnL:    $342.50  Win Rate: 58.0%
 ```
 
 **Key metrics to watch:**

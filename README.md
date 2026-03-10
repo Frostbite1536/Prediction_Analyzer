@@ -32,6 +32,7 @@ A complete modular analysis tool for prediction market traders. Analyze past tra
 - Advanced interactive charts with Plotly
 - Multi-market dashboards
 - Cross-provider portfolio analysis
+- Currency-separated PnL aggregation (real-money USD/USDC vs play-money MANA)
 - FIFO PnL computation for providers without native PnL
 - MCP server integration for Claude Code / Claude Desktop
 - FastAPI web server with JWT authentication

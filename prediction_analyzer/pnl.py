@@ -43,12 +43,56 @@ def calculate_pnl(trades: List[Trade]) -> pd.DataFrame:
 
     return df
 
+def _summarize_trades(trades: List[Trade]) -> Dict:
+    """Compute summary stats for a list of trades (single currency group)."""
+    df = pd.DataFrame([vars(t) for t in trades])
+
+    total_volume = df["cost"].sum()
+    total_pnl = df["pnl"].sum()
+    winning_trades = len(df[df["pnl"] > 0])
+    losing_trades = len(df[df["pnl"] < 0])
+    breakeven_trades = len(df[df["pnl"] == 0])
+    total_trades = len(df)
+
+    buy_trades = df[df["type"].isin(["Buy", "Market Buy", "Limit Buy"])]
+    sell_trades = df[df["type"].isin(["Sell", "Market Sell", "Limit Sell"])]
+    total_invested = buy_trades["cost"].sum() if len(buy_trades) > 0 else 0.0
+    total_returned = sell_trades["cost"].sum() if len(sell_trades) > 0 else 0.0
+
+    roi = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
+
+    trades_with_outcome = winning_trades + losing_trades
+    win_rate = (winning_trades / trades_with_outcome * 100) if trades_with_outcome > 0 else 0.0
+
+    return {
+        "total_trades": total_trades,
+        "total_volume": total_volume,
+        "total_pnl": total_pnl,
+        "win_rate": win_rate,
+        "avg_pnl_per_trade": total_pnl / total_trades if total_trades > 0 else 0,
+        "avg_pnl": total_pnl / total_trades if total_trades > 0 else 0,
+        "winning_trades": winning_trades,
+        "losing_trades": losing_trades,
+        "breakeven_trades": breakeven_trades,
+        "total_invested": total_invested,
+        "total_returned": total_returned,
+        "roi": roi,
+    }
+
+
 def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
     """
-    Calculate global PnL summary across all trades
+    Calculate global PnL summary across all trades.
+
+    When trades span multiple currencies (e.g. USD/USDC vs MANA), the
+    top-level totals only aggregate real-money currencies (USD, USDC).
+    Play-money currencies (MANA) are reported separately under
+    ``by_currency`` to avoid mixing incompatible units.
 
     Returns:
-        Dictionary with summary statistics
+        Dictionary with summary statistics.  Always contains a
+        ``by_currency`` key mapping each currency to its own summary
+        when more than one currency is present.
     """
     if not trades:
         return {
@@ -66,29 +110,35 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
             "avg_pnl": 0.0
         }
 
-    df = pd.DataFrame([vars(t) for t in trades])
+    # Group trades by currency
+    _REAL_MONEY = {"USD", "USDC"}
+    by_currency: Dict[str, List[Trade]] = {}
+    for t in trades:
+        cur = getattr(t, "currency", "USD")
+        by_currency.setdefault(cur, []).append(t)
 
-    total_volume = df["cost"].sum()
-    total_pnl = df["pnl"].sum()
-    winning_trades = len(df[df["pnl"] > 0])
-    losing_trades = len(df[df["pnl"] < 0])
-    breakeven_trades = len(df[df["pnl"] == 0])
-    total_trades = len(df)
+    currencies = set(by_currency.keys())
 
-    # Calculate total invested and returned
-    buy_trades = df[df["type"].isin(["Buy", "Market Buy", "Limit Buy"])]
-    sell_trades = df[df["type"].isin(["Sell", "Market Sell", "Limit Sell"])]
-    total_invested = buy_trades["cost"].sum() if len(buy_trades) > 0 else 0.0
-    total_returned = sell_trades["cost"].sum() if len(sell_trades) > 0 else 0.0
+    # Primary summary: only real-money trades go into top-level totals
+    real_money_trades = [t for t in trades if getattr(t, "currency", "USD") in _REAL_MONEY]
+    if real_money_trades:
+        result = _summarize_trades(real_money_trades)
+        result["currency"] = "USD"  # normalized label for real-money aggregate
+    else:
+        # All trades are play-money — use them for top-level so it's not empty
+        result = _summarize_trades(trades)
+        first_cur = next(iter(by_currency))
+        result["currency"] = first_cur
 
-    # Calculate ROI
-    roi = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
+    # Per-currency breakdown (always present when >1 currency)
+    if len(currencies) > 1:
+        result["by_currency"] = {}
+        for cur in sorted(currencies):
+            cur_summary = _summarize_trades(by_currency[cur])
+            cur_summary["currency"] = cur
+            result["by_currency"][cur] = cur_summary
 
-    # Win rate excludes breakeven trades from the denominator for accuracy
-    trades_with_outcome = winning_trades + losing_trades
-    win_rate = (winning_trades / trades_with_outcome * 100) if trades_with_outcome > 0 else 0.0
-
-    # Per-source breakdown
+    # Per-source breakdown (kept for backward compat)
     by_source = {}
     sources = set(getattr(t, "source", "limitless") for t in trades)
     if len(sources) > 1:
@@ -100,23 +150,8 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
                 "total_pnl": source_pnl,
                 "currency": getattr(source_trades[0], "currency", "USD") if source_trades else "USD",
             }
-
-    result = {
-        "total_trades": total_trades,
-        "total_volume": total_volume,
-        "total_pnl": total_pnl,
-        "win_rate": win_rate,
-        "avg_pnl_per_trade": total_pnl / total_trades if total_trades > 0 else 0,
-        "avg_pnl": total_pnl / total_trades if total_trades > 0 else 0,
-        "winning_trades": winning_trades,
-        "losing_trades": losing_trades,
-        "breakeven_trades": breakeven_trades,
-        "total_invested": total_invested,
-        "total_returned": total_returned,
-        "roi": roi,
-    }
-    if by_source:
         result["by_source"] = by_source
+
     return result
 
 def calculate_market_pnl(trades: List[Trade]) -> Dict[str, Dict]:

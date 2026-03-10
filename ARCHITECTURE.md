@@ -258,8 +258,9 @@ List[Trade]
               │                                               │
               ▼                                               ▼
     calculate_global_pnl_summary()              calculate_market_pnl_summary()
-    (includes per-source breakdown               (per-market statistics)
-     when multiple sources present)
+    (currency-separated: real-money              (per-market statistics)
+     USD/USDC vs play-money MANA;
+     by_currency + by_source breakdowns)
               │                                               │
               ▼                                               ▼
          Dict[stats]                                    Dict[stats]
@@ -341,16 +342,17 @@ Key functions:
 Calculates profit/loss metrics:
 
 - `calculate_pnl(trades)`: Returns DataFrame with cumulative PnL
-- `calculate_global_pnl_summary(trades)`: Aggregate statistics (includes `by_source` breakdown when multiple sources present)
+- `calculate_global_pnl_summary(trades)`: Aggregate statistics with currency separation -- top-level totals use real-money currencies (USD/USDC) only; play-money (MANA) reported separately under `by_currency`; also includes `by_source` breakdown
 - `calculate_market_pnl_summary(trades)`: Per-market statistics
 - `calculate_market_pnl(trades)`: Breakdown by market
 
 Metrics calculated:
-- Total PnL, Average PnL
+- Total PnL, Average PnL (currency-separated)
 - Win rate (excluding breakeven trades)
 - ROI percentage
 - Winning/Losing trade counts
 - Total invested/returned
+- Per-currency and per-source breakdowns
 
 ### Filters (`filters.py` + `trade_filter.py`)
 
