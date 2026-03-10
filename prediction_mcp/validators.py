@@ -27,7 +27,7 @@ _SIDE_NORMALIZE = {"yes": "YES", "no": "NO"}
 
 def validate_date(value: Optional[str], param_name: str) -> Optional[str]:
     """Validate a date string is in YYYY-MM-DD format."""
-    if value is None:
+    if not value:
         return None
     try:
         datetime.strptime(value, "%Y-%m-%d")

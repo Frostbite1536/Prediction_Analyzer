@@ -95,7 +95,7 @@ async def _handle_filter_trades(arguments: dict):
 
         session.active_filters = {
             k: v for k, v in arguments.items()
-            if v is not None and k != "clear"
+            if v is not None and v != "" and v != [] and k != "clear"
         }
 
     result = {
