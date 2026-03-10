@@ -83,12 +83,13 @@ async def _handle_export_trades(arguments: dict):
     if not output_path:
         raise ValueError("output_path is required")
 
-    # Prevent path traversal — resolve and verify the path stays under
-    # the current working directory or an absolute path the user chose.
-    resolved = os.path.realpath(output_path)
-    if ".." in os.path.relpath(resolved):
+    # Prevent path traversal — reject paths containing ".." components
+    # which could escape the intended directory.  Absolute paths are
+    # allowed (the user explicitly chose where to write).
+    # Check the raw path (before normpath resolves ..) to catch traversal.
+    if ".." in output_path.replace("\\", "/").split("/"):
         raise ValueError(
-            f"output_path must not traverse outside the working directory: {output_path}"
+            f"output_path must not contain '..': {output_path}"
         )
 
     validate_export_format(fmt)

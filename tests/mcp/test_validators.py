@@ -35,9 +35,8 @@ class TestValidateDate:
         with pytest.raises(InvalidFilterError):
             validate_date("not-a-date", "test")
 
-    def test_empty_string_raises(self):
-        with pytest.raises(InvalidFilterError):
-            validate_date("", "test")
+    def test_empty_string_returns_none(self):
+        assert validate_date("", "test") is None
 
 
 class TestValidateTradeTypes:

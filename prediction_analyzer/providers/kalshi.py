@@ -242,12 +242,14 @@ class KalshiProvider(MarketProvider):
             fixed = raw.get("no_price_fixed")
             legacy = raw.get("no_price")
 
-        if fixed is not None:
+        if fixed is not None and str(fixed).strip():
             try:
                 price = float(fixed)
             except (ValueError, TypeError):
-                price = 0.0
-        else:
+                # Corrupted _fixed field — fall through to legacy
+                fixed = None
+
+        if fixed is None or not str(fixed).strip():
             try:
                 price = float(legacy or 0) / 100.0
             except (ValueError, TypeError):
