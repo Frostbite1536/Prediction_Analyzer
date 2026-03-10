@@ -698,12 +698,12 @@ The server starts at `http://localhost:8000`. API docs are available at `http://
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/auth/register` | Create an account |
+| POST | `/api/v1/auth/signup` | Create an account |
 | POST | `/api/v1/auth/login` | Get JWT token |
 | GET | `/api/v1/trades/` | List your trades |
 | GET | `/api/v1/trades/?source=polymarket` | Filter by provider |
-| GET | `/api/v1/trades/providers` | List available providers |
-| POST | `/api/v1/trades/upload` | Upload trade file (auto-detects format) |
+| GET | `/api/v1/trades/providers` | List available providers (auth required) |
+| POST | `/api/v1/trades/upload` | Upload trade file (auto-detects format, 10 MB limit) |
 | GET | `/api/v1/trades/export/csv` | Export trades as CSV |
 | GET | `/api/v1/trades/export/json` | Export trades as JSON |
 | GET | `/api/v1/analysis/global-summary` | Global PnL |
@@ -712,19 +712,23 @@ The server starts at `http://localhost:8000`. API docs are available at `http://
 
 ### Authentication
 
-The web API uses its own JWT-based auth (separate from prediction market API keys):
+The web API uses its own JWT-based auth (separate from prediction market API keys).
+
+**Password requirements:** minimum 8 characters, maximum 100 characters.
 
 ```bash
 # Register
-curl -X POST http://localhost:8000/api/v1/auth/register \
+curl -X POST http://localhost:8000/api/v1/auth/signup \
   -H "Content-Type: application/json" \
-  -d '{"email": "you@example.com", "username": "trader", "password": "secure123"}'
+  -d '{"email": "you@example.com", "username": "trader", "password": "secure1234"}'
 
-# Login
-curl -X POST http://localhost:8000/api/v1/auth/login \
+# Login (JSON endpoint)
+curl -X POST http://localhost:8000/api/v1/auth/login/json \
   -H "Content-Type: application/json" \
-  -d '{"email": "you@example.com", "password": "secure123"}'
+  -d '{"email": "you@example.com", "password": "secure1234"}'
 ```
+
+**Production deployment:** Set the `SECRET_KEY` environment variable to a strong random string. In development, a random ephemeral key is auto-generated on startup.
 
 ---
 

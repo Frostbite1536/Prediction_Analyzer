@@ -108,7 +108,12 @@ POLYMARKET_WALLET=0xYourWalletAddress
 KALSHI_API_KEY_ID=your_key_id
 KALSHI_PRIVATE_KEY_PATH=kalshi_private_key.pem
 MANIFOLD_API_KEY=manifold_your_key_here
+
+# FastAPI web app (required for production, auto-generated in dev)
+SECRET_KEY=your-secure-random-string-here
 ```
+
+**Note:** The `SECRET_KEY` is used to sign JWT tokens for the web API. In development, a random ephemeral key is auto-generated on each startup. For production, you **must** set this to a stable, cryptographically random string (e.g. `python -c "import secrets; print(secrets.token_urlsafe(64))"`). The app will refuse to start in production mode without it.
 
 ## Troubleshooting
 
