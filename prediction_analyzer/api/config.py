@@ -4,14 +4,18 @@ API configuration settings
 """
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
     """Application settings with environment variable support"""
 
-    # JWT Configuration
+    # JWT Configuration — MUST be overridden via SECRET_KEY env var in production
     SECRET_KEY: str = "change-this-secret-key-in-production"
+    _DEFAULT_SECRET: str = "change-this-secret-key-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
@@ -33,4 +37,10 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     """Get cached settings instance"""
-    return Settings()
+    settings = Settings()
+    if settings.SECRET_KEY == settings._DEFAULT_SECRET:
+        logger.warning(
+            "SECRET_KEY is using the default value! "
+            "Set the SECRET_KEY environment variable to a secure random string in production."
+        )
+    return settings

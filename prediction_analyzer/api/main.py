@@ -2,6 +2,8 @@
 """
 FastAPI application - main entry point
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,6 +18,14 @@ from .routers import (
 )
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: initialize database on startup."""
+    init_db()
+    yield
+
 
 # Create FastAPI application
 app = FastAPI(
@@ -40,6 +50,7 @@ app = FastAPI(
     version=settings.APP_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS configuration
@@ -68,12 +79,6 @@ app.include_router(users_router, prefix=API_PREFIX)
 app.include_router(trades_router, prefix=API_PREFIX)
 app.include_router(analysis_router, prefix=API_PREFIX)
 app.include_router(charts_router, prefix=API_PREFIX)
-
-
-@app.on_event("startup")
-async def startup():
-    """Initialize database on startup"""
-    init_db()
 
 
 @app.get("/")
