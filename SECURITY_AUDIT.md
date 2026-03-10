@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-The codebase is well-structured with good separation of concerns, comprehensive test coverage (36 test files), and several security best practices already in place. This audit identifies **5 high-severity**, **8 medium-severity**, and **6 low-severity** findings across 6 audit categories.
+The codebase is well-structured with good separation of concerns, comprehensive test coverage (36 test files), and several security best practices already in place. This audit identifies **5 high-severity**, **9 medium-severity**, and **6 low-severity** findings across 6 audit categories.
 
 ---
 
@@ -52,6 +52,12 @@ The codebase is well-structured with good separation of concerns, comprehensive 
 |----|----------|------|---------|
 | CORS-1 | **GOOD** | `api/main.py:70-85` | CORS properly handles wildcard vs. explicit origins. When `ALLOWED_ORIGINS="*"`, credentials are disabled (per CORS spec). |
 | CORS-2 | **LOW** | `api/main.py:83-84` | `allow_methods=["*"]` and `allow_headers=["*"]` are overly permissive. Consider restricting to the methods/headers actually used. |
+
+### 2.2 Missing Security Headers
+
+| ID | Severity | File | Finding |
+|----|----------|------|---------|
+| HDR-1 | **MEDIUM** | `api/main.py` | No HTTP security headers middleware. Missing: `X-Frame-Options` (clickjacking), `X-Content-Type-Options: nosniff` (MIME sniffing), `Strict-Transport-Security` (HTTPS enforcement), `Content-Security-Policy`. Consider adding a middleware to inject these on all responses. |
 
 ### 2.2 Rate Limiting
 
@@ -176,7 +182,8 @@ The codebase is well-structured with good separation of concerns, comprehensive 
 
 ### Medium Priority (address in next release)
 
-1. **RATE-2/3**: Add key eviction to rate limiter; document single-worker limitation.
+1. **HDR-1**: Add security headers middleware (`X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`).
+2. **RATE-2/3**: Add key eviction to rate limiter; document single-worker limitation.
 2. **DEP-1**: Sync `argon2-cffi` and `email-validator` into `pyproject.toml` optional dependencies.
 3. **MODEL-2**: Add Pydantic field constraints for price, shares, cost.
 4. **PARSE-2**: Add `KeyError` handling in Manifold provider's `resolve_market_id()`.
