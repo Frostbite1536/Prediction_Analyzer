@@ -89,10 +89,30 @@ class LimitlessProvider(MarketProvider):
             pnl = float(raw.get("pnl") or 0)
             shares = float(raw.get("shares") or 0)
 
-        trade_type = raw.get("type") or raw.get("strategy") or "Buy"
+        # Determine trade direction (Buy/Sell).
+        # The Limitless API may return a category in "type" (e.g. "trade",
+        # "split", "merge", "conversion") rather than a direction.  Prefer
+        # "strategy" for direction, fall back to "action"/"side" fields,
+        # then to "type" only if it looks like a direction keyword.
+        _CATEGORY_TYPES = {"trade", "split", "merge", "conversion"}
+        raw_type = raw.get("type") or ""
+        strategy = raw.get("strategy") or ""
+        action = raw.get("action") or ""
+
+        if strategy:
+            trade_type = strategy
+        elif raw_type and raw_type.lower() not in _CATEGORY_TYPES:
+            trade_type = raw_type
+        elif action:
+            trade_type = action
+        else:
+            trade_type = "Buy"
+
         # Normalize underscore-separated types (e.g. "market_buy" -> "Market Buy")
         if "_" in trade_type:
             trade_type = trade_type.replace("_", " ").title()
+        elif trade_type.islower():
+            trade_type = trade_type.title()
 
         side = raw.get("side")
         if not side:

@@ -315,6 +315,125 @@ class TestWashSaleDetection:
 
 
 # ===========================================================================
+# Limitless provider: trade type mapping
+# ===========================================================================
+
+class TestLimitlessTradeTypeMapping:
+    """Limitless API may return category types (trade/split/merge) instead of
+    direction types (Buy/Sell). The provider must map correctly."""
+
+    def test_strategy_field_preferred_over_category_type(self):
+        """When API returns type='trade' and strategy='Buy', use strategy."""
+        from prediction_analyzer.providers.limitless import LimitlessProvider
+        provider = LimitlessProvider()
+        raw = {
+            "type": "trade",
+            "strategy": "Buy",
+            "market": {"title": "Test", "slug": "test"},
+            "collateralAmount": 5000000,
+            "outcomeTokenAmount": 10000000,
+            "outcomeIndex": 0,
+            "timestamp": 1704067200,
+        }
+        trade = provider.normalize_trade(raw)
+        assert trade.type == "Buy"
+
+    def test_strategy_sell(self):
+        """strategy='Sell' should produce type='Sell'."""
+        from prediction_analyzer.providers.limitless import LimitlessProvider
+        provider = LimitlessProvider()
+        raw = {
+            "type": "trade",
+            "strategy": "Sell",
+            "market": {"title": "Test", "slug": "test"},
+            "collateralAmount": 5000000,
+            "outcomeTokenAmount": 10000000,
+            "outcomeIndex": 0,
+            "timestamp": 1704067200,
+        }
+        trade = provider.normalize_trade(raw)
+        assert trade.type == "Sell"
+
+    def test_category_type_without_strategy_defaults_to_buy(self):
+        """If only type='trade' with no strategy, default to Buy."""
+        from prediction_analyzer.providers.limitless import LimitlessProvider
+        provider = LimitlessProvider()
+        raw = {
+            "type": "trade",
+            "market": {"title": "Test", "slug": "test"},
+            "collateralAmount": 5000000,
+            "outcomeTokenAmount": 10000000,
+            "outcomeIndex": 0,
+            "timestamp": 1704067200,
+        }
+        trade = provider.normalize_trade(raw)
+        assert trade.type == "Buy"
+
+    def test_split_merge_types_default_to_buy(self):
+        """Split/merge category types without strategy default to Buy."""
+        from prediction_analyzer.providers.limitless import LimitlessProvider
+        provider = LimitlessProvider()
+        for cat_type in ("split", "merge", "conversion"):
+            raw = {
+                "type": cat_type,
+                "market": {"title": "Test", "slug": "test"},
+                "collateralAmount": 1000000,
+                "outcomeTokenAmount": 1000000,
+                "outcomeIndex": 0,
+                "timestamp": 1704067200,
+            }
+            trade = provider.normalize_trade(raw)
+            assert trade.type == "Buy", f"type={cat_type} should default to Buy"
+
+    def test_legacy_strategy_only_format(self):
+        """Legacy file format with only strategy field (no type)."""
+        from prediction_analyzer.providers.limitless import LimitlessProvider
+        provider = LimitlessProvider()
+        raw = {
+            "strategy": "Buy",
+            "market": {"title": "Test", "slug": "test"},
+            "collateralAmount": 5000000,
+            "outcomeTokenAmount": 10000000,
+            "outcomeIndex": 0,
+            "timestamp": 1704067200,
+        }
+        trade = provider.normalize_trade(raw)
+        assert trade.type == "Buy"
+
+    def test_underscore_strategy_normalized(self):
+        """strategy='market_buy' should become 'Market Buy'."""
+        from prediction_analyzer.providers.limitless import LimitlessProvider
+        provider = LimitlessProvider()
+        raw = {
+            "strategy": "market_buy",
+            "market": {"title": "Test", "slug": "test"},
+            "collateralAmount": 5000000,
+            "outcomeTokenAmount": 10000000,
+            "outcomeIndex": 0,
+            "timestamp": 1704067200,
+        }
+        trade = provider.normalize_trade(raw)
+        assert trade.type == "Market Buy"
+
+    def test_micro_unit_conversion(self):
+        """API format amounts should be divided by 1_000_000."""
+        from prediction_analyzer.providers.limitless import LimitlessProvider
+        provider = LimitlessProvider()
+        raw = {
+            "strategy": "Buy",
+            "market": {"title": "Test", "slug": "test"},
+            "collateralAmount": 5000000,  # 5 USDC
+            "outcomeTokenAmount": 10000000,  # 10 shares
+            "outcomeIndex": 0,
+            "timestamp": 1704067200,
+        }
+        trade = provider.normalize_trade(raw)
+        assert trade.cost == pytest.approx(5.0)
+        assert trade.shares == pytest.approx(10.0)
+        assert trade.currency == "USDC"
+
+
+# ===========================================================================
 # Data completeness: total_trades_in_scope
 # ===========================================================================
 
