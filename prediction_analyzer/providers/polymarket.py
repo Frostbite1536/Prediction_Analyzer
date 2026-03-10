@@ -30,24 +30,27 @@ class PolymarketProvider(MarketProvider):
     currency = "USDC"
 
     def fetch_trades(self, api_key: str, page_limit: int = 100) -> List[Trade]:
-        """Fetch trades using the public Data API.
+        """Fetch trades using the public Data API with offset pagination.
 
         Args:
             api_key: Polymarket wallet address (0x...).
             page_limit: Trades per request (max 500).
         """
         all_trades: List[Trade] = []
+        seen_hashes: set = set()
         limit = min(page_limit, 500)
-
-        params: Dict[str, Any] = {
-            "user": api_key,
-            "limit": limit,
-            "type": "TRADE",
-        }
+        offset = 0
 
         logger.info("Downloading Polymarket trade history for %s...", api_key[:10])
 
         while True:
+            params: Dict[str, Any] = {
+                "user": api_key,
+                "limit": limit,
+                "offset": offset,
+                "type": "TRADE",
+            }
+
             try:
                 resp = requests.get(
                     f"{DATA_API_URL}/activity", params=params, timeout=15
@@ -62,6 +65,11 @@ class PolymarketProvider(MarketProvider):
                 break
 
             for raw in data:
+                tx_hash = raw.get("transactionHash")
+                if tx_hash and tx_hash in seen_hashes:
+                    continue
+                if tx_hash:
+                    seen_hashes.add(tx_hash)
                 all_trades.append(self.normalize_trade(raw))
 
             logger.info("Downloaded %d Polymarket trades so far", len(all_trades))
@@ -69,13 +77,15 @@ class PolymarketProvider(MarketProvider):
             if len(data) < limit:
                 break
 
-            # Paginate by narrowing timestamp window
-            oldest_ts = min(
-                (t.get("timestamp", 0) for t in data), default=0
-            )
-            if oldest_ts <= 0:
+            offset += limit
+
+            # Polymarket caps offset at 10000
+            if offset >= 10000:
+                logger.warning(
+                    "Reached Polymarket offset limit (10000). "
+                    "Some older trades may not be fetched."
+                )
                 break
-            params["end"] = oldest_ts - 1
 
         logger.info("Downloaded %d total Polymarket trades", len(all_trades))
         return all_trades

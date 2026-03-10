@@ -80,6 +80,8 @@ class KalshiProvider(MarketProvider):
             message,
             padding.PSS(
                 mgf=padding.MGF1(hashes.SHA256()),
+                # DIGEST_LENGTH (not MAX_LENGTH) per Kalshi's official docs.
+                # Matches their Node.js RSA_PSS_SALTLEN_DIGEST constant.
                 salt_length=padding.PSS.DIGEST_LENGTH,
             ),
             hashes.SHA256(),
@@ -137,6 +139,17 @@ class KalshiProvider(MarketProvider):
         except Exception as exc:
             logger.warning("Could not fetch Kalshi position PnL: %s", exc)
 
+        # Enrich market field with human-readable titles (tickers are cryptic)
+        try:
+            unique_tickers = list({t.market_slug for t in all_trades})
+            if unique_tickers:
+                logger.info("Fetching titles for %d Kalshi markets...", len(unique_tickers))
+                title_map = self._fetch_market_titles(unique_tickers)
+                for t in all_trades:
+                    t.market = title_map.get(t.market_slug, t.market_slug)
+        except Exception as exc:
+            logger.warning("Could not fetch Kalshi market titles: %s", exc)
+
         logger.info("Downloaded %d total Kalshi fills", len(all_trades))
         return all_trades
 
@@ -187,6 +200,26 @@ class KalshiProvider(MarketProvider):
                 if total > 0:
                     t.pnl = pnl_map[t.market_slug] * (t.shares / total)
 
+    def _fetch_market_titles(self, tickers: List[str]) -> Dict[str, str]:
+        """Batch-fetch human-readable titles for market tickers (public, no auth)."""
+        titles: Dict[str, str] = {}
+        for ticker in tickers:
+            if ticker in titles:
+                continue
+            try:
+                resp = requests.get(
+                    f"{self._base_url}/trade-api/v2/markets/{ticker}",
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    market = resp.json().get("market", {})
+                    titles[ticker] = market.get("title") or ticker
+                else:
+                    titles[ticker] = ticker
+            except Exception:
+                titles[ticker] = ticker
+        return titles
+
     def normalize_trade(self, raw: dict, **kwargs) -> Trade:
         """Convert Kalshi fill to Trade object.
 
@@ -197,24 +230,26 @@ class KalshiProvider(MarketProvider):
         """
         side_str = (raw.get("side") or "yes").upper()
 
+        # Determine price using field presence (not magnitude heuristic).
+        # _fixed fields are dollar strings (e.g. "0.5600") — use directly.
+        # Legacy integer-cent fields (e.g. 56) — always divide by 100.
         if side_str == "YES":
-            price_str = raw.get("yes_price_fixed") or str(
-                raw.get("yes_price", 0)
-            )
+            fixed = raw.get("yes_price_fixed")
+            legacy = raw.get("yes_price")
         else:
-            price_str = raw.get("no_price_fixed") or str(
-                raw.get("no_price", 0)
-            )
+            fixed = raw.get("no_price_fixed")
+            legacy = raw.get("no_price")
 
-        # Use _fixed fields; fall back to integer cents / 100
-        try:
-            price = float(price_str)
-        except (ValueError, TypeError):
-            price = 0.0
-
-        # If price looks like cents (> 1), convert to dollars
-        if price > 1:
-            price = price / 100.0
+        if fixed is not None:
+            try:
+                price = float(fixed)
+            except (ValueError, TypeError):
+                price = 0.0
+        else:
+            try:
+                price = float(legacy or 0) / 100.0
+            except (ValueError, TypeError):
+                price = 0.0
 
         count_str = raw.get("count_fp", str(raw.get("count", 0)))
         try:
