@@ -239,6 +239,80 @@ class TestWashSaleDetection:
         assert "wash_sales" not in result
         assert "wash_sale_disallowed_loss" not in result
 
+    def test_original_buy_not_flagged_as_wash_sale(self):
+        """The original buy that established the position must NOT trigger
+        a wash sale. Only REPLACEMENT purchases count."""
+        trades = [
+            # Buy on Feb 15, sell at loss on Mar 1 — only 14 days apart.
+            # No repurchase. The original buy should NOT be flagged.
+            _make_trade(timestamp=datetime(2024, 2, 15), type="Buy",
+                        price=0.70, shares=10, cost=7.0, side="YES"),
+            _make_trade(timestamp=datetime(2024, 3, 1), type="Sell",
+                        price=0.50, shares=10, cost=5.0, side="YES"),
+        ]
+        result = calculate_capital_gains(trades, tax_year=2024)
+        assert "wash_sales" not in result
+
+    def test_same_date_multi_market_losses_independent(self):
+        """Two losses on the same date in different markets should each
+        be independently checked for wash sales (not short-circuited)."""
+        trades = [
+            # Market A: loss with repurchase
+            _make_trade(timestamp=datetime(2024, 1, 1), type="Buy",
+                        price=0.80, shares=10, cost=8.0, side="YES",
+                        market_slug="market-a"),
+            _make_trade(timestamp=datetime(2024, 3, 1), type="Sell",
+                        price=0.50, shares=10, cost=5.0, side="YES",
+                        market_slug="market-a"),
+            _make_trade(timestamp=datetime(2024, 3, 10), type="Buy",
+                        price=0.55, shares=10, cost=5.5, side="YES",
+                        market_slug="market-a"),
+            # Market B: loss with repurchase, SAME SELL DATE
+            _make_trade(timestamp=datetime(2024, 1, 1), type="Buy",
+                        price=0.90, shares=10, cost=9.0, side="YES",
+                        market_slug="market-b", market="Market B"),
+            _make_trade(timestamp=datetime(2024, 3, 1), type="Sell",
+                        price=0.60, shares=10, cost=6.0, side="YES",
+                        market_slug="market-b", market="Market B"),
+            _make_trade(timestamp=datetime(2024, 3, 15), type="Buy",
+                        price=0.65, shares=10, cost=6.5, side="YES",
+                        market_slug="market-b", market="Market B"),
+        ]
+        result = calculate_capital_gains(trades, tax_year=2024)
+        assert "wash_sales" in result
+        # Both markets should be flagged — not just the first one
+        flagged_slugs = {ws["market_slug"] for ws in result["wash_sales"]}
+        assert "market-a" in flagged_slugs
+        assert "market-b" in flagged_slugs
+
+    def test_wash_sale_at_exactly_30_days(self):
+        """Repurchase at exactly 30 days should be flagged."""
+        trades = [
+            _make_trade(timestamp=datetime(2024, 1, 1), type="Buy",
+                        price=0.70, shares=10, cost=7.0, side="YES"),
+            _make_trade(timestamp=datetime(2024, 3, 1), type="Sell",
+                        price=0.50, shares=10, cost=5.0, side="YES"),
+            # Exactly 30 days later
+            _make_trade(timestamp=datetime(2024, 3, 31), type="Buy",
+                        price=0.55, shares=10, cost=5.5, side="YES"),
+        ]
+        result = calculate_capital_gains(trades, tax_year=2024)
+        assert "wash_sales" in result
+
+    def test_wash_sale_at_31_days_not_flagged(self):
+        """Repurchase at 31 days should NOT be flagged."""
+        trades = [
+            _make_trade(timestamp=datetime(2024, 1, 1), type="Buy",
+                        price=0.70, shares=10, cost=7.0, side="YES"),
+            _make_trade(timestamp=datetime(2024, 3, 1), type="Sell",
+                        price=0.50, shares=10, cost=5.0, side="YES"),
+            # 31 days later
+            _make_trade(timestamp=datetime(2024, 4, 1), type="Buy",
+                        price=0.55, shares=10, cost=5.5, side="YES"),
+        ]
+        result = calculate_capital_gains(trades, tax_year=2024)
+        assert "wash_sales" not in result
+
 
 # ===========================================================================
 # Data completeness: total_trades_in_scope
@@ -259,6 +333,19 @@ class TestDataCompleteness:
         ]
         result = calculate_capital_gains(trades, tax_year=2024)
         assert result["total_trades_in_scope"] == 3
+
+    def test_excess_sell_logs_warning(self, caplog):
+        """Selling more shares than available buy lots should log a warning."""
+        import logging
+        trades = [
+            _make_trade(timestamp=datetime(2024, 1, 1), type="Buy",
+                        price=0.50, shares=5, cost=2.5),
+            _make_trade(timestamp=datetime(2024, 6, 1), type="Sell",
+                        price=0.70, shares=10, cost=7.0),
+        ]
+        with caplog.at_level(logging.WARNING, logger="prediction_analyzer.tax"):
+            result = calculate_capital_gains(trades, tax_year=2024)
+            assert any("no matching buy lots" in msg for msg in caplog.messages)
 
     def test_total_trades_includes_all_years(self):
         """total_trades_in_scope includes trades from all years."""

@@ -135,7 +135,11 @@ def calculate_capital_gains(
 
                 # Update or remove lot
                 if cost_basis_method == "average":
-                    # For average, reduce total pool
+                    # For average cost, reduce all lots proportionally to
+                    # maintain the same weighted average cost per share.
+                    # Lots are sorted chronologically; as each lot's shares
+                    # reach zero it is removed, so _average_lot's min-date
+                    # naturally advances FIFO for holding period purposes.
                     total_shares = sum(l["shares"] for l in lots)
                     if total_shares > 0:
                         ratio = matched_shares / total_shares
@@ -149,6 +153,14 @@ def calculate_capital_gains(
                             lots.pop(0)
                         else:
                             lots.pop(-1)
+
+            # Warn if sell has shares with no matching buy lots
+            if remaining_shares > 1e-10 and in_tax_year:
+                logger.warning(
+                    "Tax report: %.4f shares of %s sold on %s have no matching buy lots "
+                    "(missing cost basis data)",
+                    remaining_shares, slug, trade.timestamp.strftime("%Y-%m-%d"),
+                )
 
         else:
             # Track unrecognized trade types so the caller knows
@@ -192,13 +204,18 @@ def calculate_capital_gains(
 
 
 def _average_lot(lots: List[Dict]) -> Dict:
-    """Create a synthetic lot representing the weighted average of all lots."""
+    """Create a synthetic lot representing the weighted average of all lots.
+
+    Cost per share is the pool-wide weighted average (all shares have equal
+    cost under average basis).  The holding period date uses the earliest
+    remaining lot, approximating FIFO per IRS Reg. 1.1012-1(e).
+    """
     total_shares = sum(l["shares"] for l in lots)
     if total_shares <= 0:
         return {"date": datetime(1970, 1, 1), "shares": 0, "price": 0, "cost_per_share": 0}
 
     weighted_cost = sum(l["shares"] * l["cost_per_share"] for l in lots) / total_shares
-    # Use earliest date for holding period calculation
+    # FIFO holding period: use the earliest lot's date (first lot consumed)
     earliest_date = min(l["date"] for l in lots)
 
     return {
@@ -216,14 +233,20 @@ def _detect_wash_sales(
     """Detect wash sales per IRS §1091.
 
     A wash sale occurs when a security is sold at a loss and a
-    "substantially identical" security is purchased within 30 days
+    "substantially identical" security is *repurchased* within 30 days
     before or after the sale.  For prediction markets, "substantially
-    identical" means the same market contract (market_slug + side).
+    identical" means the same market contract (market_slug), regardless
+    of YES/NO side.
 
-    This function flags loss transactions that have a matching buy
-    within the ±30 day window.  It does NOT adjust cost basis (that
-    requires the CPA to handle), but reports the disallowed loss amount
-    so the trader can file correctly.
+    Only buys that occur AFTER the sell (or within 30 days before it,
+    but not before the position was originally acquired) count as
+    replacement purchases.  The original buy that established the
+    position is NOT a wash sale trigger.
+
+    This function flags loss transactions that have a matching
+    repurchase within the ±30 day window.  It does NOT adjust cost
+    basis (that requires the CPA to handle), but reports the disallowed
+    loss amount so the trader can file correctly.
 
     Returns:
         List of wash sale records with details for each flagged loss.
@@ -231,14 +254,22 @@ def _detect_wash_sales(
     if not transactions:
         return []
 
-    # Build a lookup of buy dates per (market_slug, side)
-    buy_events: Dict[tuple, List[datetime]] = {}
+    # Build a lookup: for each loss transaction, we need to find buys
+    # that are REPLACEMENT purchases (not the original position buy).
+    # A replacement buy is one that occurs within ±30 days of the sell
+    # but is NOT the buy that was consumed to establish cost basis.
+    #
+    # Strategy: collect all buy timestamps per market_slug (across both
+    # sides). For each loss tx, find buys within ±30 days of the sell
+    # that occurred AFTER the acquisition date (i.e., they are new buys,
+    # not the original position).
+    buy_events: Dict[str, List[datetime]] = {}  # market_slug -> buy dates
     for trade in sorted_trades:
         if trade.type in _BUY_TYPES:
-            key = (trade.market_slug, trade.side)
-            buy_events.setdefault(key, []).append(trade.timestamp)
+            buy_events.setdefault(trade.market_slug, []).append(trade.timestamp)
 
     wash_sales = []
+    flagged_tx_ids: set = set()  # Track (slug, date_sold, date_acquired) to avoid duplicates
 
     for tx in transactions:
         # Only check loss transactions
@@ -247,27 +278,32 @@ def _detect_wash_sales(
 
         slug = tx["market_slug"]
         sell_date = datetime.strptime(tx["date_sold"], "%Y-%m-%d")
+        acquired_date = datetime.strptime(tx["date_acquired"], "%Y-%m-%d")
 
-        # Check all sides — a wash sale on the same market contract
-        # applies regardless of YES/NO side (same underlying market)
-        for side in ("YES", "NO"):
-            key = (slug, side)
-            buy_dates = buy_events.get(key, [])
+        # Unique identity for this transaction (handles same-date multi-market)
+        tx_id = (slug, tx["date_sold"], tx["date_acquired"])
+        if tx_id in flagged_tx_ids:
+            continue
 
-            for buy_date in buy_dates:
-                delta = abs((buy_date - sell_date).days)
-                if 0 < delta <= 30:
-                    wash_sales.append({
-                        "market": tx["market"],
-                        "market_slug": slug,
-                        "date_sold": tx["date_sold"],
-                        "date_repurchased": buy_date.strftime("%Y-%m-%d"),
-                        "disallowed_loss": sanitize_numeric(abs(tx["gain_loss"])),
-                        "shares": tx["shares"],
-                    })
-                    break  # One wash sale per loss transaction
+        buy_dates = buy_events.get(slug, [])
 
-            if wash_sales and wash_sales[-1]["date_sold"] == tx["date_sold"]:
-                break  # Already found a wash sale for this tx
+        for buy_date in buy_dates:
+            # Skip buys on or before the acquisition date — these are
+            # the original position buys, not replacement purchases
+            if buy_date.date() <= acquired_date.date():
+                continue
+
+            delta = abs((buy_date - sell_date).days)
+            if 0 < delta <= 30:
+                wash_sales.append({
+                    "market": tx["market"],
+                    "market_slug": slug,
+                    "date_sold": tx["date_sold"],
+                    "date_repurchased": buy_date.strftime("%Y-%m-%d"),
+                    "disallowed_loss": sanitize_numeric(abs(tx["gain_loss"])),
+                    "shares": tx["shares"],
+                })
+                flagged_tx_ids.add(tx_id)
+                break  # One wash sale per loss transaction
 
     return wash_sales
