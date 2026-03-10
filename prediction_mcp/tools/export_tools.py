@@ -5,6 +5,7 @@ Data export tools.
 Tools: export_trades
 """
 import logging
+import os
 
 from mcp import types
 
@@ -78,6 +79,14 @@ async def _handle_export_trades(arguments: dict):
         raise ValueError("format is required")
     if not output_path:
         raise ValueError("output_path is required")
+
+    # Prevent path traversal — resolve and verify the path stays under
+    # the current working directory or an absolute path the user chose.
+    resolved = os.path.realpath(output_path)
+    if ".." in os.path.relpath(resolved):
+        raise ValueError(
+            f"output_path must not traverse outside the working directory: {output_path}"
+        )
 
     validate_export_format(fmt)
 
