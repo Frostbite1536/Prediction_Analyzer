@@ -48,12 +48,13 @@ def export_to_excel(trades: List[Trade], filename: str = "trades_export.xlsx"):
             # Main trades sheet
             df.to_excel(writer, sheet_name='All Trades', index=False)
 
-            # Summary by market
-            summary = df.groupby('market').agg({
+            # Summary by market (group by slug for consistency with pnl.py)
+            summary = df.groupby('market_slug').agg({
                 'cost': 'sum',
                 'pnl': 'sum',
-                'market_slug': 'count'
-            }).rename(columns={'market_slug': 'trade_count'})
+                'market': 'first'
+            }).rename(columns={'market': 'market_name'})
+            summary['trade_count'] = df.groupby('market_slug').size()
             summary.to_excel(writer, sheet_name='Market Summary')
 
         logger.info("Trades exported to: %s", filename)

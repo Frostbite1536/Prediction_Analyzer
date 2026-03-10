@@ -134,8 +134,8 @@ class PolymarketProvider(MarketProvider):
                             except (json.JSONDecodeError, TypeError):
                                 pass
                     return market
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to fetch Polymarket market %s: %s", market_id, exc)
         return None
 
     def detect_file_format(self, records: List[dict]) -> bool:

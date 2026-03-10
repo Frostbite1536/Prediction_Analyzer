@@ -6,17 +6,14 @@ Data loading and market listing tools.
 
 Tools: load_trades, fetch_trades, list_markets, get_trade_details
 """
-import json
 import logging
 import os
-import tempfile
 
 from mcp import types
 
 from prediction_analyzer.trade_loader import load_trades as _load_trades
 from prediction_analyzer.trade_filter import get_unique_markets, filter_trades_by_market_slug
-from prediction_analyzer.utils.data import fetch_trade_history
-from prediction_analyzer.exceptions import TradeLoadError, NoTradesError, MarketNotFoundError, InvalidFilterError
+from prediction_analyzer.exceptions import TradeLoadError, NoTradesError, InvalidFilterError
 
 from ..state import session
 from ..errors import error_result, safe_tool

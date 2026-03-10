@@ -79,6 +79,7 @@ class LimitlessProvider(MarketProvider):
             market_slug = "unknown"
 
         # Convert from micro-units (USDC 6 decimals) if API format
+        has_pnl = "pnl" in raw and raw["pnl"] is not None
         if "collateralAmount" in raw:
             cost = float(raw.get("collateralAmount") or 0) / 1_000_000
             pnl = float(raw.get("pnl") or 0) / 1_000_000
@@ -118,7 +119,7 @@ class LimitlessProvider(MarketProvider):
             type=trade_type,
             side=side,
             pnl=pnl,
-            pnl_is_set=pnl != 0.0,
+            pnl_is_set=has_pnl,
             tx_hash=raw.get("tx_hash") or raw.get("transactionHash"),
             source="limitless",
             currency="USDC",
@@ -130,8 +131,8 @@ class LimitlessProvider(MarketProvider):
             resp = requests.get(f"{BASE_URL}/markets/{market_id}", timeout=10)
             if resp.status_code == 200:
                 return resp.json()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to fetch Limitless market %s: %s", market_id, exc)
         return None
 
     def detect_file_format(self, records: List[dict]) -> bool:

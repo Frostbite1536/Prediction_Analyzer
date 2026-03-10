@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS trades (
     type TEXT NOT NULL,
     side TEXT NOT NULL,
     pnl REAL NOT NULL DEFAULT 0.0,
+    pnl_is_set INTEGER NOT NULL DEFAULT 0,
     tx_hash TEXT,
     source TEXT NOT NULL DEFAULT 'limitless',
     currency TEXT NOT NULL DEFAULT 'USD'
@@ -60,7 +61,7 @@ class SessionStore:
         logger.info("Session store opened: %s", db_path)
 
     def _migrate(self):
-        """Add source/currency columns if they don't exist (schema upgrade)."""
+        """Add missing columns if they don't exist (schema upgrade)."""
         cur = self._conn.cursor()
         try:
             cur.execute("SELECT source FROM trades LIMIT 1")
@@ -69,6 +70,13 @@ class SessionStore:
             cur.execute("ALTER TABLE trades ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'")
             self._conn.commit()
             logger.info("Migrated persistence DB: added source/currency columns")
+
+        try:
+            cur.execute("SELECT pnl_is_set FROM trades LIMIT 1")
+        except sqlite3.OperationalError:
+            cur.execute("ALTER TABLE trades ADD COLUMN pnl_is_set INTEGER NOT NULL DEFAULT 0")
+            self._conn.commit()
+            logger.info("Migrated persistence DB: added pnl_is_set column")
 
     def save(self, session) -> None:
         """Persist session trades and metadata to SQLite."""
@@ -79,10 +87,12 @@ class SessionStore:
         for trade in session.trades:
             ts = trade.timestamp.isoformat() if hasattr(trade.timestamp, "isoformat") else str(trade.timestamp)
             cur.execute(
-                "INSERT INTO trades (market, market_slug, timestamp, price, shares, cost, type, side, pnl, tx_hash, source, currency) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO trades (market, market_slug, timestamp, price, shares, cost, type, side, pnl, pnl_is_set, tx_hash, source, currency) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (trade.market, trade.market_slug, ts, trade.price, trade.shares,
-                 trade.cost, trade.type, trade.side, trade.pnl, trade.tx_hash,
+                 trade.cost, trade.type, trade.side, trade.pnl,
+                 1 if trade.pnl_is_set else 0,
+                 trade.tx_hash,
                  getattr(trade, "source", "limitless"),
                  getattr(trade, "currency", "USD")),
             )
@@ -114,6 +124,7 @@ class SessionStore:
         trades = []
         row_keys = rows[0].keys() if rows else []
         for row in rows:
+            pnl_is_set = bool(row["pnl_is_set"]) if "pnl_is_set" in row_keys else (row["pnl"] != 0.0)
             trades.append(Trade(
                 market=row["market"],
                 market_slug=row["market_slug"],
@@ -124,6 +135,7 @@ class SessionStore:
                 type=row["type"],
                 side=row["side"],
                 pnl=row["pnl"],
+                pnl_is_set=pnl_is_set,
                 tx_hash=row["tx_hash"],
                 source=row["source"] if "source" in row_keys else "limitless",
                 currency=row["currency"] if "currency" in row_keys else "USD",

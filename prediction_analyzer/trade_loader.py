@@ -224,6 +224,7 @@ def load_trades(file_path: str) -> List[Trade]:
 
             # Convert from micro-units (USDC has 6 decimals)
             # If data comes from API (has collateralAmount), values are in micro-units
+            has_pnl = "pnl" in t and t["pnl"] is not None
             if "collateralAmount" in t:
                 # API data - convert from micro-units to regular units
                 raw_cost = float(t.get("collateralAmount") or 0) / 1_000_000
@@ -261,7 +262,7 @@ def load_trades(file_path: str) -> List[Trade]:
                 type=trade_type,
                 side=side,
                 pnl=raw_pnl,
-                pnl_is_set=raw_pnl != 0.0,
+                pnl_is_set=has_pnl,
                 tx_hash=t.get("tx_hash") or t.get("transactionHash")
             )
             trades.append(trade)

@@ -23,6 +23,11 @@ class TradeService:
     def db_trade_to_dataclass(self, db_trade: TradeModel) -> TradeDataclass:
         """Convert a SQLAlchemy Trade model to a Trade dataclass"""
         pnl_val = db_trade.pnl or 0.0
+        # Use the stored pnl_is_set flag if available; fall back to the sentinel
+        # heuristic only for legacy rows that lack the column.
+        pnl_is_set = getattr(db_trade, "pnl_is_set", None)
+        if pnl_is_set is None:
+            pnl_is_set = pnl_val != 0.0
         return TradeDataclass(
             market=db_trade.market,
             market_slug=db_trade.market_slug,
@@ -33,7 +38,7 @@ class TradeService:
             type=db_trade.type,
             side=db_trade.side,
             pnl=pnl_val,
-            pnl_is_set=pnl_val != 0.0,
+            pnl_is_set=bool(pnl_is_set),
             tx_hash=db_trade.tx_hash,
             source=getattr(db_trade, "source", "limitless"),
             currency=getattr(db_trade, "currency", "USD"),
