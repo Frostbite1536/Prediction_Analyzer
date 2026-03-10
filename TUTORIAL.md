@@ -1,6 +1,6 @@
 # Prediction Analyzer Tutorial
 
-A step-by-step guide to analyzing your Limitless Exchange prediction market trades.
+A step-by-step guide to analyzing your prediction market trades across Limitless Exchange, Polymarket, Kalshi, and Manifold Markets.
 
 ## Table of Contents
 
@@ -15,7 +15,8 @@ A step-by-step guide to analyzing your Limitless Exchange prediction market trad
 9. [Exporting Data](#9-exporting-data)
 10. [Using the Python API](#10-using-the-python-api)
 11. [Using the Web API](#11-using-the-web-api)
-12. [Tips for Traders](#12-tips-for-traders)
+12. [Using the MCP Server](#12-using-the-mcp-server)
+13. [Tips for Traders](#13-tips-for-traders)
 
 ---
 
@@ -24,7 +25,16 @@ A step-by-step guide to analyzing your Limitless Exchange prediction market trad
 ### Prerequisites
 
 - Python 3.8 or higher
-- A Limitless Exchange account (for live data fetching)
+- An account on one or more prediction market platforms
+
+### Supported Platforms
+
+| Platform | What You Need | Currency |
+|----------|---------------|----------|
+| Limitless Exchange | API key (`lmts_...`) | USDC |
+| Polymarket | Wallet address (`0x...`) | USDC |
+| Kalshi | RSA key pair | USD |
+| Manifold Markets | API key (`manifold_...`) | MANA |
 
 ### Installation
 
@@ -45,85 +55,117 @@ For detailed installation instructions, see [INSTALL.md](INSTALL.md).
 python run.py --help
 ```
 
-You should see the full list of CLI options. If you get import errors, run `pip install -r requirements.txt` again.
+You should see the full list of CLI options including the `--provider` flag. If you get import errors, run `pip install -r requirements.txt` again.
 
 ---
 
 ## 2. Setting Up API Access
 
-Prediction Analyzer connects to the Limitless Exchange API to download your trade history. Authentication uses API keys.
+Prediction Analyzer connects to multiple prediction market APIs. Set up credentials for the platforms you use.
 
-### Step 1: Generate an API Key
+### Limitless Exchange
 
 1. Go to [limitless.exchange](https://limitless.exchange)
 2. Connect your wallet and log in
 3. Click your profile icon (top right)
 4. Select **Api keys**
 5. Click **Generate** to create a new key
-6. Copy the key - it starts with `lmts_`
-
-### Step 2: Configure Your Key
-
-**Option A: Environment variable (recommended)**
+6. Copy the key -- it starts with `lmts_`
 
 ```bash
-# Linux/macOS
 export LIMITLESS_API_KEY="lmts_your_key_here"
-
-# Windows (Command Prompt)
-set LIMITLESS_API_KEY=lmts_your_key_here
-
-# Windows (PowerShell)
-$env:LIMITLESS_API_KEY = "lmts_your_key_here"
 ```
 
-For persistence, add it to a `.env` file (see `.env.example`):
+### Polymarket
+
+Polymarket uses a public Data API that only requires your wallet address:
+
+```bash
+export POLYMARKET_WALLET="0xYourEthereumWalletAddress"
+```
+
+No API key generation is needed -- just use the wallet address you trade with.
+
+### Kalshi
+
+Kalshi uses RSA key pair authentication with per-request RSA-PSS signing:
+
+1. Go to [kalshi.com](https://kalshi.com) > Settings > API Keys
+2. Generate an API key (you'll get a Key ID and a private key PEM file)
+3. Save the private key file securely
+
+```bash
+export KALSHI_API_KEY_ID="your_key_id"
+export KALSHI_PRIVATE_KEY_PATH="/path/to/kalshi_private_key.pem"
+```
+
+When using the CLI, pass both as a combined credential:
+```bash
+python run.py --fetch --provider kalshi --key "kalshi_KEY_ID:/path/to/key.pem"
+```
+
+### Manifold Markets
+
+1. Go to [manifold.markets](https://manifold.markets)
+2. Navigate to Profile > API Key
+3. Copy your key
+
+```bash
+export MANIFOLD_API_KEY="manifold_your_key_here"
+```
+
+### Using a .env File (Recommended)
+
+For persistence, copy `.env.example` to `.env` and fill in your credentials:
+
+```bash
+cp .env.example .env
+```
+
 ```
 LIMITLESS_API_KEY=lmts_your_key_here
+POLYMARKET_WALLET=0xYourWalletAddress
+KALSHI_API_KEY_ID=your_key_id
+KALSHI_PRIVATE_KEY_PATH=kalshi_private_key.pem
+MANIFOLD_API_KEY=manifold_your_key_here
 ```
-
-**Option B: Pass directly on the command line**
-
-```bash
-python run.py --fetch --key "lmts_your_key_here"
-```
-
-**Option C: Enter in the GUI**
-
-Paste the key into the "API Key" field in the GUI's Quick Actions panel.
 
 ### Security Notes
 
-- Never commit your API key to version control
-- API keys have full account access - treat them like passwords
-- Rotate keys periodically via the Limitless profile page
-- The `.gitignore` file already excludes `.env` files
+- Never commit API keys or private keys to version control
+- Treat API keys like passwords -- rotate them periodically
+- The `.gitignore` file already excludes `.env` files and `.pem` files
+- Kalshi private keys should have restricted file permissions (`chmod 600`)
 
 ---
 
 ## 3. Loading Your Trades
 
-There are two ways to get your trade data into the analyzer.
-
-### Method 1: Fetch from the Limitless API (Recommended)
+### Method 1: Fetch from API (Recommended)
 
 ```bash
-# Using environment variable
-export LIMITLESS_API_KEY="lmts_your_key_here"
-python run.py --fetch
+# Limitless (auto-detected from lmts_ prefix)
+python run.py --fetch --key "lmts_your_key_here"
 
-# Or pass key directly
+# Polymarket
+python run.py --fetch --provider polymarket --key "0xYourWallet"
+
+# Kalshi
+python run.py --fetch --provider kalshi --key "kalshi_KEY_ID:key.pem"
+
+# Manifold
+python run.py --fetch --provider manifold --key "manifold_your_key"
+
+# Auto-detect provider from key format
 python run.py --fetch --key "lmts_your_key_here"
 ```
-
-This downloads all your trade history and saves it to `limitless_trades.json` for future use.
 
 ### Method 2: Load from a File
 
 If you already have trade data exported:
 
 ```bash
-# JSON format
+# JSON format (auto-detects provider from field signatures)
 python run.py --file my_trades.json
 
 # CSV format
@@ -133,43 +175,67 @@ python run.py --file my_trades.csv
 python run.py --file my_trades.xlsx
 ```
 
-### Sample Data
+The analyzer auto-detects the provider format from file contents. You can load files from any supported platform without specifying the provider.
 
-A sample trade file is included for testing:
+### Trade Data Formats
 
-```bash
-python run.py --file data/example_trades.json
-```
+The analyzer understands trade data from all four platforms. Here are examples:
 
-### Trade Data Format
-
-The analyzer understands trade data in this format (JSON example):
-
+**Limitless Exchange (JSON):**
 ```json
 [
   {
-    "market": {
-      "title": "Will Bitcoin reach $100k by end of 2024?",
-      "slug": "btc-100k-2024"
-    },
+    "market": {"title": "Will Bitcoin reach $100k?", "slug": "btc-100k"},
     "timestamp": 1704067200,
     "strategy": "Buy",
     "outcomeIndex": 0,
     "outcomeTokenAmount": 100,
     "collateralAmount": 50,
-    "pnl": 0,
-    "blockTimestamp": 1704067200
+    "pnl": 0
   }
 ]
 ```
 
-Key fields:
-- `market.title` / `market.slug` - Market identification
-- `strategy` - "Buy" or "Sell" (also accepts "Market Buy", "Limit Sell", etc.)
-- `outcomeIndex` - 0 = YES, 1 = NO
-- `outcomeTokenAmount` - Number of shares (may be in micro-units from API)
-- `collateralAmount` - Cost in USDC (may be in micro-units from API)
-- `pnl` - Profit/loss for the trade
+**Polymarket (JSON):**
+```json
+[
+  {
+    "market": "Will ETH hit $5k?",
+    "asset": "21742633143463906290569050155826241533067272736897614950488156847949938836455",
+    "side": "BUY",
+    "size": "10.5",
+    "price": "0.65",
+    "timestamp": "2024-03-15T14:30:00Z"
+  }
+]
+```
+
+**Kalshi (JSON):**
+```json
+[
+  {
+    "ticker": "KXBTC-24DEC31-T100000",
+    "action": "buy",
+    "yes_price": 65,
+    "count": 10,
+    "created_time": "2024-03-15T14:30:00Z"
+  }
+]
+```
+
+**Manifold (JSON):**
+```json
+[
+  {
+    "contractId": "abc123",
+    "outcome": "YES",
+    "amount": 50,
+    "probBefore": 0.40,
+    "probAfter": 0.45,
+    "createdTime": 1710510600000
+  }
+]
+```
 
 ---
 
@@ -188,9 +254,10 @@ python run_gui.py
 The GUI has four main tabs:
 
 #### Quick Actions Panel (top)
-- **API Key field** - Paste your `lmts_` key here
-- **Load from API** - Download trades using the API key
-- **Load Trades File** - Browse for a local file
+- **Provider dropdown** - Select: auto, limitless, polymarket, kalshi, manifold
+- **API Key / Wallet field** - Paste your credential here
+- **Load from API** - Download trades using the selected provider
+- **Load Trades File** - Browse for a local file (auto-detects format)
 - **Global Summary** - Jump to the summary view
 - **Generate Dashboard** - Create a multi-market overview
 - **Export CSV / Export Excel** - Save your data
@@ -200,9 +267,10 @@ Shows aggregate statistics across all your trades:
 - Total trades, total PnL, average PnL per trade
 - Win/loss count and win rate
 - Total invested, total returned, ROI percentage
+- Per-provider breakdown (when trades from multiple providers are loaded)
 
 #### Tab 2: Market Analysis
-- Lists all markets you've traded
+- Lists all markets you've traded (with source provider shown)
 - Select a market to see its individual PnL summary
 - Generate Simple, Pro, or Enhanced charts per market
 
@@ -219,11 +287,12 @@ Information about chart types and a button to generate the multi-market dashboar
 
 ### GUI Workflow Example
 
-1. Paste your API key and click **Load from API**
-2. Check the **Global Summary** tab for your overall performance
-3. Go to **Market Analysis** -> select a market -> click **Pro Chart**
-4. Use **Filters** to focus on winning trades (`Min PnL: 0`)
-5. Export filtered results via **Export CSV**
+1. Select **polymarket** from the provider dropdown
+2. Paste your wallet address and click **Load from API**
+3. Check the **Global Summary** tab for your overall performance
+4. Go to **Market Analysis** > select a market > click **Pro Chart**
+5. Use **Filters** to focus on winning trades (`Min PnL: 0`)
+6. Export filtered results via **Export CSV**
 
 ---
 
@@ -242,7 +311,7 @@ python run.py --file trades.json
 This opens the interactive menu:
 ```
 === Prediction Market Trade Analyzer ===
-Loaded 150 trades across 12 markets
+Loaded 150 trades from limitless, polymarket
 
 [1] Global PnL Summary
 [2] Analyze Specific Market
@@ -264,8 +333,11 @@ python run.py --file trades.json --global
 # Analyze a specific market
 python run.py --file trades.json --market "btc-100k-2024" --chart pro
 
-# Generate dashboard across all markets
-python run.py --file trades.json --dashboard
+# Fetch from Polymarket + analyze
+python run.py --fetch --provider polymarket --key "0x..." --global --dashboard
+
+# Advanced metrics (Sharpe ratio, drawdowns, streaks)
+python run.py --file trades.json --metrics
 
 # Filter + export
 python run.py --file trades.json \
@@ -273,25 +345,21 @@ python run.py --file trades.json \
     --end-date 2024-12-31 \
     --min-pnl -50 \
     --export filtered.csv
-
-# Generate a text report
-python run.py --file trades.json --report
-
-# Fetch + analyze in one command
-python run.py --fetch --key "lmts_..." --global --dashboard
 ```
 
 ### All CLI Options
 
 | Flag | Description |
 |------|-------------|
-| `--file FILE` | Load trades from JSON/CSV/XLSX file |
-| `--fetch` | Fetch trades from Limitless Exchange API |
-| `--key KEY` | API key (`lmts_...`) or set `LIMITLESS_API_KEY` env var |
+| `--file FILE` | Load trades from JSON/CSV/XLSX file (auto-detects provider) |
+| `--fetch` | Fetch trades from prediction market API |
+| `--key KEY` | API key or credential (format depends on provider) |
+| `--provider PROV` | Provider: `auto`, `limitless`, `polymarket`, `kalshi`, `manifold` |
 | `--market SLUG` | Analyze a specific market by slug |
 | `--global` | Show global PnL summary |
 | `--chart TYPE` | Chart type: `simple`, `pro`, or `enhanced` |
 | `--dashboard` | Generate multi-market dashboard |
+| `--metrics` | Show advanced trading metrics |
 | `--start-date DATE` | Filter: start date (YYYY-MM-DD) |
 | `--end-date DATE` | Filter: end date (YYYY-MM-DD) |
 | `--type TYPE` | Filter: `Buy` or `Sell` |
@@ -328,6 +396,14 @@ ROI: 6.55%
 ============================================================
 ```
 
+When trades from multiple providers are loaded, you'll also see a per-source breakdown:
+
+```
+By Source:
+  limitless:   85 trades, PnL: $210.30
+  polymarket:  65 trades, PnL: $132.20
+```
+
 **Key metrics to watch:**
 - **Win Rate** - Percentage of trades that were profitable. Above 50% is good for binary prediction markets.
 - **ROI** - Return on investment. Measures efficiency of your capital.
@@ -341,11 +417,6 @@ Drill into individual markets to understand where you're making or losing money:
 python run.py --file trades.json --market "btc-100k-2024"
 ```
 
-This shows:
-- Market-specific PnL breakdown
-- Your trade history in that market
-- Inferred market outcome (if resolved)
-
 ---
 
 ## 7. Working with Filters
@@ -354,15 +425,11 @@ Filters let you slice your data to find patterns.
 
 ### Date Range Filtering
 
-Focus on a specific time period:
-
 ```bash
 python run.py --file trades.json --start-date 2024-07-01 --end-date 2024-09-30 --global
 ```
 
 ### Trade Type Filtering
-
-Analyze only your buys or sells:
 
 ```bash
 # Only buy trades
@@ -374,14 +441,9 @@ python run.py --file trades.json --type Sell --global
 
 ### PnL Filtering
 
-Find your best and worst trades:
-
 ```bash
 # Only profitable trades
 python run.py --file trades.json --min-pnl 0 --global
-
-# Only losses
-python run.py --file trades.json --max-pnl 0 --global
 
 # Big winners (> $50 profit)
 python run.py --file trades.json --min-pnl 50 --global
@@ -392,8 +454,6 @@ python run.py --file trades.json --max-pnl -50 --global
 
 ### Combining Filters
 
-Stack filters for precise analysis:
-
 ```bash
 # Profitable buy trades in Q3 2024
 python run.py --file trades.json \
@@ -402,6 +462,15 @@ python run.py --file trades.json \
     --type Buy \
     --min-pnl 0 \
     --global
+```
+
+### Source Filtering (Python API)
+
+```python
+from prediction_analyzer.trade_filter import filter_trades_by_source
+
+# Only Polymarket trades
+poly_trades = filter_trades_by_source(trades, "polymarket")
 ```
 
 ---
@@ -445,11 +514,9 @@ Best for: Tactical visualization of trade battles.
 python run.py --file trades.json --market "btc-100k-2024" --chart enhanced
 ```
 
-Advanced visualization showing position dynamics and P&L progression.
-
 ### Multi-Market Dashboard
 
-Best for: Portfolio overview across all markets.
+Best for: Portfolio overview across all markets and providers.
 
 ```bash
 python run.py --file trades.json --dashboard
@@ -471,6 +538,8 @@ Generates a Plotly dashboard with:
 python run.py --file trades.json --export my_trades.csv
 ```
 
+Exported CSV includes `source` and `currency` columns for multi-provider data.
+
 ### Excel Export
 
 ```bash
@@ -479,16 +548,12 @@ python run.py --file trades.json --export my_trades.xlsx
 
 ### Filtered Export
 
-Combine filters with export:
-
 ```bash
 # Export only profitable trades to Excel
 python run.py --file trades.json --min-pnl 0 --export winners.xlsx
 ```
 
 ### Text Report
-
-Generate a comprehensive text report:
 
 ```bash
 python run.py --file trades.json --report
@@ -506,7 +571,7 @@ For developers and advanced users who want to integrate the analyzer into their 
 from prediction_analyzer.trade_loader import load_trades
 from prediction_analyzer.pnl import calculate_global_pnl_summary
 
-# Load trades
+# Load trades (auto-detects provider format from file contents)
 trades = load_trades("trades.json")
 
 # Get summary
@@ -516,7 +581,28 @@ print(f"Win Rate: {summary['win_rate']:.1f}%")
 print(f"ROI: {summary['roi']:.2f}%")
 ```
 
-### Fetch Trades Programmatically
+### Fetch Trades from Any Provider
+
+```python
+from prediction_analyzer.providers import ProviderRegistry
+
+# List available providers
+print(ProviderRegistry.names())  # ['limitless', 'polymarket', 'kalshi', 'manifold']
+
+# Fetch from a specific provider
+provider = ProviderRegistry.get("polymarket")
+trades = provider.fetch_trades("0xYourWalletAddress")
+
+# Auto-detect provider from key
+provider = ProviderRegistry.detect_from_key("lmts_your_key")
+trades = provider.fetch_trades("lmts_your_key")
+
+# Apply FIFO PnL computation (for providers without native PnL)
+from prediction_analyzer.providers.pnl_calculator import compute_realized_pnl
+trades = compute_realized_pnl(trades)
+```
+
+### Legacy Limitless Fetch
 
 ```python
 from prediction_analyzer.utils.auth import get_api_key, get_auth_headers
@@ -524,8 +610,6 @@ from prediction_analyzer.utils.data import fetch_trade_history
 
 # API key from environment or explicit
 api_key = get_api_key()  # reads LIMITLESS_API_KEY env var
-# or: api_key = get_api_key("lmts_your_key")
-
 raw_trades = fetch_trade_history(api_key)
 ```
 
@@ -534,6 +618,7 @@ raw_trades = fetch_trade_history(api_key)
 ```python
 from prediction_analyzer.trade_filter import (
     filter_trades_by_market_slug,
+    filter_trades_by_source,
     get_unique_markets,
     group_trades_by_market
 )
@@ -548,6 +633,9 @@ for slug, title in markets.items():
 market_trades = filter_trades_by_market_slug(trades, "btc-100k-2024")
 summary = calculate_market_pnl_summary(market_trades)
 print(f"Market PnL: ${summary['total_pnl']:.2f}")
+
+# Filter by provider source
+poly_trades = filter_trades_by_source(trades, "polymarket")
 ```
 
 ### Filtering
@@ -612,14 +700,18 @@ The server starts at `http://localhost:8000`. API docs are available at `http://
 | POST | `/api/v1/auth/register` | Create an account |
 | POST | `/api/v1/auth/login` | Get JWT token |
 | GET | `/api/v1/trades/` | List your trades |
-| POST | `/api/v1/trades/upload` | Upload trade file |
+| GET | `/api/v1/trades/?source=polymarket` | Filter by provider |
+| GET | `/api/v1/trades/providers` | List available providers |
+| POST | `/api/v1/trades/upload` | Upload trade file (auto-detects format) |
+| GET | `/api/v1/trades/export/csv` | Export trades as CSV |
+| GET | `/api/v1/trades/export/json` | Export trades as JSON |
 | GET | `/api/v1/analysis/global-summary` | Global PnL |
 | GET | `/api/v1/analysis/market/{slug}` | Market summary |
 | GET | `/api/v1/charts/{type}/{slug}` | Generate chart |
 
 ### Authentication
 
-The web API uses its own JWT-based auth (separate from the Limitless API key):
+The web API uses its own JWT-based auth (separate from prediction market API keys):
 
 ```bash
 # Register
@@ -635,27 +727,93 @@ curl -X POST http://localhost:8000/api/v1/auth/login \
 
 ---
 
-## 12. Tips for Traders
+## 12. Using the MCP Server
+
+The MCP (Model Context Protocol) server lets you use Prediction Analyzer with Claude Code or Claude Desktop.
+
+### Starting the MCP Server
+
+```bash
+# stdio transport (for Claude Code / Claude Desktop)
+python -m prediction_mcp
+
+# HTTP/SSE transport (for web agents)
+python -m prediction_mcp --sse --port 8000
+
+# With SQLite session persistence
+python -m prediction_mcp --persist session.db
+```
+
+### Available MCP Tools (18 total)
+
+| Tool | Description |
+|------|-------------|
+| `load_trades` | Load trades from file (auto-detects provider format) |
+| `fetch_trades` | Fetch from API (supports all 4 providers with auto-detection) |
+| `list_markets` | List markets with trade counts and source providers |
+| `get_trade_details` | Paginated trade details with sorting |
+| `get_pnl_summary` | Global PnL analysis |
+| `get_market_pnl` | Per-market PnL |
+| `get_provider_breakdown` | Cross-provider analysis |
+| `filter_trades` | Apply date/type/PnL filters |
+| `clear_filters` | Reset all filters |
+| `generate_chart` | Create market charts |
+| `generate_dashboard` | Multi-market dashboard |
+| `export_csv` | Export to CSV |
+| `export_report` | Generate text report |
+| `get_open_positions` | Unrealized position analysis |
+| `get_portfolio_summary` | Portfolio metrics |
+| `get_concentration` | Concentration risk analysis |
+| `get_tax_report` | Tax-year trade summary |
+
+### Claude Desktop Configuration
+
+Add to your Claude Desktop MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "prediction-analyzer": {
+      "command": "python",
+      "args": ["-m", "prediction_mcp"],
+      "cwd": "/path/to/Prediction_Analyzer"
+    }
+  }
+}
+```
+
+---
+
+## 13. Tips for Traders
 
 ### Analyze Your Edge
 
 1. **Check win rate by market type** - Are you better at crypto, politics, or sports predictions?
 2. **Compare buy vs sell performance** - Filter by type to see if your entries or exits are the problem.
 3. **Look at time patterns** - Filter by date ranges to see if you perform better at certain times.
+4. **Compare across providers** - Use `--metrics` to see if you perform differently on different platforms.
 
 ### Common Patterns to Watch
 
 - **High win rate but low ROI** - You're winning often but with small positions. Consider sizing up on high-conviction trades.
 - **Low win rate but positive PnL** - Your winners are bigger than your losers. Keep cutting losses early.
 - **Declining PnL over time** - Use date filters to spot when performance started dropping.
+- **Provider-specific edge** - Some traders perform better on certain platforms due to liquidity or market selection.
 
 ### Workflow Suggestion
 
-1. Fetch your latest trades: `python run.py --fetch`
+1. Fetch your latest trades: `python run.py --fetch --key "lmts_..."`
 2. Check global summary: `python run.py --file limitless_trades.json --global`
 3. Generate dashboard: `python run.py --file limitless_trades.json --dashboard`
 4. Drill into underperforming markets with pro charts
 5. Export filtered data for external analysis if needed
+
+### Multi-Provider Workflow
+
+1. Fetch from each platform you use
+2. Load all trade files together for cross-platform analysis
+3. Use the provider breakdown to compare performance across platforms
+4. Focus your capital on the platform where your edge is strongest
 
 ### Keeping Data Fresh
 
@@ -667,3 +825,7 @@ python run.py --fetch --global --dashboard
 ```
 
 This downloads the latest data and immediately shows your updated stats.
+
+## License
+
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
