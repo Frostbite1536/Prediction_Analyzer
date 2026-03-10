@@ -53,7 +53,8 @@ class ManifoldProvider(MarketProvider):
                     }
                 else:
                     metadata[cid] = {"question": "Unknown", "slug": cid}
-            except Exception:
+            except Exception as exc:
+                logger.warning("Failed to fetch Manifold market metadata %s: %s", cid, exc)
                 metadata[cid] = {"question": "Unknown", "slug": cid}
         return metadata
 
@@ -133,7 +134,7 @@ class ManifoldProvider(MarketProvider):
             price=fill_price,
             shares=shares,
             cost=abs(amount),
-            type="Buy" if amount > 0 else ("Sell" if amount < 0 else "Buy"),
+            type="Buy" if amount >= 0 else "Sell",
             side=(raw.get("outcome") or "YES").upper(),
             pnl=0.0,  # Must compute client-side
             pnl_is_set=False,
@@ -149,8 +150,8 @@ class ManifoldProvider(MarketProvider):
                 resp = requests.get(f"{BASE_URL}{endpoint}", timeout=10)
                 if resp.status_code == 200:
                     return resp.json()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to fetch Manifold market %s via %s: %s", market_id, endpoint, exc)
         return None
 
     def detect_file_format(self, records: List[dict]) -> bool:

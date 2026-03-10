@@ -2,6 +2,7 @@
 """
 Advanced filtering functions for trades
 """
+import math
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from .trade_loader import Trade
@@ -65,8 +66,7 @@ def filter_by_date(trades: List[Trade], start: Optional[str] = None, end: Option
         # End date should include the entire day (use strict less-than midnight next day)
         end_dt = datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)
     elif isinstance(end, datetime):
-        # Add 1 day for consistency with string behavior (entire day inclusive)
-        end_dt = _normalize_datetime(end) + timedelta(days=1)
+        end_dt = _normalize_datetime(end)
 
     filtered = []
     for t in trades:
@@ -128,12 +128,21 @@ def filter_by_pnl(trades: List[Trade], min_pnl: Optional[float] = None, max_pnl:
 
     Args:
         trades: List of Trade objects
-        min_pnl: Minimum PnL threshold
-        max_pnl: Maximum PnL threshold
+        min_pnl: Minimum PnL threshold (must be finite)
+        max_pnl: Maximum PnL threshold (must be finite)
 
     Returns:
         Filtered list of trades
+
+    Raises:
+        ValueError: If min_pnl or max_pnl is NaN or Infinity
     """
+    # Guard against NaN/Infinity: comparisons with NaN always return False,
+    # which would silently return all trades instead of filtering.
+    for name, val in [("min_pnl", min_pnl), ("max_pnl", max_pnl)]:
+        if val is not None and isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+            raise ValueError(f"{name} must be a finite number, got {val}")
+
     filtered = []
     for t in trades:
         pnl = t.pnl

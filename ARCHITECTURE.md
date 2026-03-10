@@ -322,7 +322,7 @@ class MarketProvider(ABC):
 
 ### FIFO PnL Calculator (`providers/pnl_calculator.py`)
 
-For providers that don't supply per-trade PnL (Polymarket, Manifold), the FIFO calculator matches buy/sell pairs per (market_slug, side, source) key and computes realized PnL. Only updates trades where `pnl == 0.0`.
+For providers that don't supply per-trade PnL (Polymarket, Manifold), the FIFO calculator matches buy/sell pairs per (market_slug, side, source) key and computes realized PnL. Only updates trades where `pnl_is_set` is `False`, preserving provider-supplied PnL (including legitimate zero/breakeven values).
 
 ### Trade Loader (`trade_loader.py`)
 

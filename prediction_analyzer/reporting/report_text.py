@@ -59,7 +59,7 @@ def print_global_summary(trades: List[Trade], stream: TextIO = None):
 
     for i, (slug, stats) in enumerate(sorted_markets[:10], 1):
         market_name = stats['market_name'][:37] + "..." if len(stats['market_name']) > 40 else stats['market_name']
-        _print(f"{i:<6} {market_name:<40} ${stats['total_pnl']:>10,.2f}")
+        _print(f"{i:<6} {market_name:<40} {cur_symbol}{stats['total_pnl']:>10,.2f}")
 
     _print("="*60 + "\n")
 
@@ -124,7 +124,7 @@ def generate_text_report(trades: List[Trade], filename: str = None):
         market_name = stats['market_name'][:42]
         lines.append(
             f"{market_name:<45} {stats['trade_count']:>8} "
-            f"${stats['total_volume']:>10,.2f} ${stats['total_pnl']:>10,.2f}"
+            f"{cur_symbol}{stats['total_volume']:>10,.2f} {cur_symbol}{stats['total_pnl']:>10,.2f}"
         )
 
     lines.append("")

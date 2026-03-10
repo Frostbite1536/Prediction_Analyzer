@@ -22,7 +22,7 @@ def export_to_csv(trades: List[Trade], filename: str = "trades_export.csv"):
         raise NoTradesError("No trades to export.")
 
     try:
-        df = pd.DataFrame([vars(t) for t in trades])
+        df = pd.DataFrame([t.to_dict() for t in trades])
         df.to_csv(filename, index=False)
         logger.info("Trades exported to: %s", filename)
         return True
@@ -42,18 +42,19 @@ def export_to_excel(trades: List[Trade], filename: str = "trades_export.xlsx"):
         raise NoTradesError("No trades to export.")
 
     try:
-        df = pd.DataFrame([vars(t) for t in trades])
+        df = pd.DataFrame([t.to_dict() for t in trades])
 
         with pd.ExcelWriter(filename, engine='openpyxl') as writer:
             # Main trades sheet
             df.to_excel(writer, sheet_name='All Trades', index=False)
 
-            # Summary by market
-            summary = df.groupby('market').agg({
+            # Summary by market (group by slug for consistency with pnl.py)
+            summary = df.groupby('market_slug').agg({
                 'cost': 'sum',
                 'pnl': 'sum',
-                'market_slug': 'count'
-            }).rename(columns={'market_slug': 'trade_count'})
+                'market': 'first'
+            }).rename(columns={'market': 'market_name'})
+            summary['trade_count'] = df.groupby('market_slug').size()
             summary.to_excel(writer, sheet_name='Market Summary')
 
         logger.info("Trades exported to: %s", filename)
@@ -76,11 +77,7 @@ def export_to_json(trades: List[Trade], filename: str = "trades_export.json"):
         raise NoTradesError("No trades to export.")
 
     try:
-        trades_dict = [vars(t) for t in trades]
-        # Convert datetime to string
-        for t in trades_dict:
-            if hasattr(t['timestamp'], 'isoformat'):
-                t['timestamp'] = t['timestamp'].isoformat()
+        trades_dict = [t.to_dict() for t in trades]
 
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(trades_dict, f, indent=2)

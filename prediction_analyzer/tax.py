@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 
 VALID_METHODS = {"fifo", "lifo", "average"}
 LONG_TERM_THRESHOLD = timedelta(days=365)
+WASH_SALE_WINDOW = timedelta(days=30)
+
+_BUY_TYPES = {"Buy", "Market Buy", "Limit Buy"}
+_SELL_TYPES = {"Sell", "Market Sell", "Limit Sell", "Claim", "Won", "Loss"}
 
 
 def calculate_capital_gains(
@@ -36,7 +40,7 @@ def calculate_capital_gains(
 
     # Filter to sells in the tax year
     year_start = datetime(tax_year, 1, 1)
-    year_end = datetime(tax_year, 12, 31, 23, 59, 59)
+    year_end = datetime(tax_year + 1, 1, 1)
 
     # Build buy lots per market
     buy_lots: Dict[str, List[Dict]] = {}  # market_slug -> list of {date, shares, price, cost}
@@ -46,11 +50,16 @@ def calculate_capital_gains(
     short_term_losses = 0.0
     long_term_gains = 0.0
     long_term_losses = 0.0
+    total_fees = 0.0
+    skipped_types: Dict[str, int] = {}  # trade types not recognized
 
     for trade in sorted_trades:
         slug = trade.market_slug
 
-        if trade.type in ("Buy", "Market Buy", "Limit Buy"):
+        if trade.type in _BUY_TYPES:
+            # Track fees (fee is already included in cost for Kalshi;
+            # other providers bundle fees into cost implicitly)
+            total_fees += getattr(trade, "fee", 0.0)
             # Add to buy lots
             buy_lots.setdefault(slug, []).append({
                 "date": trade.timestamp,
@@ -59,11 +68,18 @@ def calculate_capital_gains(
                 "cost_per_share": (trade.cost / trade.shares) if trade.shares > 0 else 0.0,
             })
 
-        elif trade.type in ("Sell", "Market Sell", "Limit Sell"):
-            # Only process sells within the tax year
-            if trade.timestamp < year_start or trade.timestamp > year_end:
-                continue
+        elif trade.type in _SELL_TYPES:
+            # Track fees
+            sell_fee = getattr(trade, "fee", 0.0)
+            total_fees += sell_fee
 
+            # Determine if this sell falls within the tax year
+            in_tax_year = year_start <= trade.timestamp < year_end
+
+            # ALWAYS consume buy lots to keep FIFO/LIFO state correct,
+            # even for sells outside the tax year.  Otherwise, lots
+            # already sold in prior years would be double-counted as
+            # cost basis for later sells.
             lots = buy_lots.get(slug, [])
             remaining_shares = trade.shares
             proceeds_per_share = (trade.cost / trade.shares) if trade.shares > 0 else 0.0
@@ -77,43 +93,53 @@ def calculate_capital_gains(
                     lot = _average_lot(lots)
 
                 matched_shares = min(remaining_shares, lot["shares"])
-                cost_basis = matched_shares * lot["cost_per_share"]
-                proceeds = matched_shares * proceeds_per_share
-                gain_loss = proceeds - cost_basis
 
-                # Determine holding period
-                holding_delta = trade.timestamp - lot["date"]
-                is_long_term = holding_delta >= LONG_TERM_THRESHOLD
-                holding_period = "long_term" if is_long_term else "short_term"
+                # Only record transaction details for sells in the tax year
+                if in_tax_year:
+                    cost_basis = matched_shares * lot["cost_per_share"]
+                    proceeds = matched_shares * proceeds_per_share
+                    gain_loss = proceeds - cost_basis
 
-                transactions.append({
-                    "market": trade.market,
-                    "market_slug": slug,
-                    "date_acquired": lot["date"].strftime("%Y-%m-%d"),
-                    "date_sold": trade.timestamp.strftime("%Y-%m-%d"),
-                    "shares": sanitize_numeric(matched_shares),
-                    "proceeds": sanitize_numeric(proceeds),
-                    "cost_basis": sanitize_numeric(cost_basis),
-                    "gain_loss": sanitize_numeric(gain_loss),
-                    "holding_period": holding_period,
-                })
+                    # Determine holding period
+                    holding_delta = trade.timestamp - lot["date"]
+                    is_long_term = holding_delta >= LONG_TERM_THRESHOLD
+                    holding_period = "long_term" if is_long_term else "short_term"
 
-                if is_long_term:
-                    if gain_loss >= 0:
-                        long_term_gains += gain_loss
+                    tx = {
+                        "market": trade.market,
+                        "market_slug": slug,
+                        "date_acquired": lot["date"].strftime("%Y-%m-%d"),
+                        "date_sold": trade.timestamp.strftime("%Y-%m-%d"),
+                        "shares": sanitize_numeric(matched_shares),
+                        "proceeds": sanitize_numeric(proceeds),
+                        "cost_basis": sanitize_numeric(cost_basis),
+                        "gain_loss": sanitize_numeric(gain_loss),
+                        "holding_period": holding_period,
+                    }
+                    if sell_fee > 0:
+                        tx["fee"] = sanitize_numeric(sell_fee)
+                    transactions.append(tx)
+
+                    if is_long_term:
+                        if gain_loss >= 0:
+                            long_term_gains += gain_loss
+                        else:
+                            long_term_losses += abs(gain_loss)
                     else:
-                        long_term_losses += abs(gain_loss)
-                else:
-                    if gain_loss >= 0:
-                        short_term_gains += gain_loss
-                    else:
-                        short_term_losses += abs(gain_loss)
+                        if gain_loss >= 0:
+                            short_term_gains += gain_loss
+                        else:
+                            short_term_losses += abs(gain_loss)
 
                 remaining_shares -= matched_shares
 
                 # Update or remove lot
                 if cost_basis_method == "average":
-                    # For average, reduce total pool
+                    # For average cost, reduce all lots proportionally to
+                    # maintain the same weighted average cost per share.
+                    # Lots are sorted chronologically; as each lot's shares
+                    # reach zero it is removed, so _average_lot's min-date
+                    # naturally advances FIFO for holding period purposes.
                     total_shares = sum(l["shares"] for l in lots)
                     if total_shares > 0:
                         ratio = matched_shares / total_shares
@@ -128,29 +154,68 @@ def calculate_capital_gains(
                         else:
                             lots.pop(-1)
 
+            # Warn if sell has shares with no matching buy lots
+            if remaining_shares > 1e-10 and in_tax_year:
+                logger.warning(
+                    "Tax report: %.4f shares of %s sold on %s have no matching buy lots "
+                    "(missing cost basis data)",
+                    remaining_shares, slug, trade.timestamp.strftime("%Y-%m-%d"),
+                )
+
+        else:
+            # Track unrecognized trade types so the caller knows
+            skipped_types[trade.type] = skipped_types.get(trade.type, 0) + 1
+
+    if skipped_types:
+        logger.warning(
+            "Tax report skipped %d trades with unrecognized types: %s",
+            sum(skipped_types.values()), skipped_types,
+        )
+
+    # Detect wash sales
+    wash_sales = _detect_wash_sales(transactions, sorted_trades)
+
     net_gain_loss = (short_term_gains - short_term_losses + long_term_gains - long_term_losses)
 
-    return {
+    result = {
         "tax_year": tax_year,
         "method": cost_basis_method,
+        "total_trades_in_scope": len(sorted_trades),
         "short_term_gains": sanitize_numeric(short_term_gains),
         "short_term_losses": sanitize_numeric(short_term_losses),
         "long_term_gains": sanitize_numeric(long_term_gains),
         "long_term_losses": sanitize_numeric(long_term_losses),
         "net_gain_loss": sanitize_numeric(net_gain_loss),
+        "total_fees": sanitize_numeric(total_fees),
         "transaction_count": len(transactions),
         "transactions": transactions,
     }
 
+    if wash_sales:
+        result["wash_sales"] = wash_sales
+        result["wash_sale_disallowed_loss"] = sanitize_numeric(
+            sum(ws["disallowed_loss"] for ws in wash_sales)
+        )
+
+    if skipped_types:
+        result["skipped_trade_types"] = skipped_types
+
+    return result
+
 
 def _average_lot(lots: List[Dict]) -> Dict:
-    """Create a synthetic lot representing the weighted average of all lots."""
+    """Create a synthetic lot representing the weighted average of all lots.
+
+    Cost per share is the pool-wide weighted average (all shares have equal
+    cost under average basis).  The holding period date uses the earliest
+    remaining lot, approximating FIFO per IRS Reg. 1.1012-1(e).
+    """
     total_shares = sum(l["shares"] for l in lots)
     if total_shares <= 0:
         return {"date": datetime(1970, 1, 1), "shares": 0, "price": 0, "cost_per_share": 0}
 
     weighted_cost = sum(l["shares"] * l["cost_per_share"] for l in lots) / total_shares
-    # Use earliest date for holding period calculation
+    # FIFO holding period: use the earliest lot's date (first lot consumed)
     earliest_date = min(l["date"] for l in lots)
 
     return {
@@ -159,3 +224,86 @@ def _average_lot(lots: List[Dict]) -> Dict:
         "price": weighted_cost,
         "cost_per_share": weighted_cost,
     }
+
+
+def _detect_wash_sales(
+    transactions: List[Dict],
+    sorted_trades: List[Trade],
+) -> List[Dict]:
+    """Detect wash sales per IRS §1091.
+
+    A wash sale occurs when a security is sold at a loss and a
+    "substantially identical" security is *repurchased* within 30 days
+    before or after the sale.  For prediction markets, "substantially
+    identical" means the same market contract (market_slug), regardless
+    of YES/NO side.
+
+    Only buys that occur AFTER the sell (or within 30 days before it,
+    but not before the position was originally acquired) count as
+    replacement purchases.  The original buy that established the
+    position is NOT a wash sale trigger.
+
+    This function flags loss transactions that have a matching
+    repurchase within the ±30 day window.  It does NOT adjust cost
+    basis (that requires the CPA to handle), but reports the disallowed
+    loss amount so the trader can file correctly.
+
+    Returns:
+        List of wash sale records with details for each flagged loss.
+    """
+    if not transactions:
+        return []
+
+    # Build a lookup: for each loss transaction, we need to find buys
+    # that are REPLACEMENT purchases (not the original position buy).
+    # A replacement buy is one that occurs within ±30 days of the sell
+    # but is NOT the buy that was consumed to establish cost basis.
+    #
+    # Strategy: collect all buy timestamps per market_slug (across both
+    # sides). For each loss tx, find buys within ±30 days of the sell
+    # that occurred AFTER the acquisition date (i.e., they are new buys,
+    # not the original position).
+    buy_events: Dict[str, List[datetime]] = {}  # market_slug -> buy dates
+    for trade in sorted_trades:
+        if trade.type in _BUY_TYPES:
+            buy_events.setdefault(trade.market_slug, []).append(trade.timestamp)
+
+    wash_sales = []
+    flagged_tx_ids: set = set()  # Track (slug, date_sold, date_acquired) to avoid duplicates
+
+    for tx in transactions:
+        # Only check loss transactions
+        if tx["gain_loss"] >= 0:
+            continue
+
+        slug = tx["market_slug"]
+        sell_date = datetime.strptime(tx["date_sold"], "%Y-%m-%d")
+        acquired_date = datetime.strptime(tx["date_acquired"], "%Y-%m-%d")
+
+        # Unique identity for this transaction (handles same-date multi-market)
+        tx_id = (slug, tx["date_sold"], tx["date_acquired"])
+        if tx_id in flagged_tx_ids:
+            continue
+
+        buy_dates = buy_events.get(slug, [])
+
+        for buy_date in buy_dates:
+            # Skip buys on or before the acquisition date — these are
+            # the original position buys, not replacement purchases
+            if buy_date.date() <= acquired_date.date():
+                continue
+
+            delta = abs((buy_date - sell_date).days)
+            if 0 < delta <= 30:
+                wash_sales.append({
+                    "market": tx["market"],
+                    "market_slug": slug,
+                    "date_sold": tx["date_sold"],
+                    "date_repurchased": buy_date.strftime("%Y-%m-%d"),
+                    "disallowed_loss": sanitize_numeric(abs(tx["gain_loss"])),
+                    "shares": tx["shares"],
+                })
+                flagged_tx_ids.add(tx_id)
+                break  # One wash sale per loss transaction
+
+    return wash_sales

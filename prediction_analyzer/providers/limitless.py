@@ -79,6 +79,7 @@ class LimitlessProvider(MarketProvider):
             market_slug = "unknown"
 
         # Convert from micro-units (USDC 6 decimals) if API format
+        has_pnl = "pnl" in raw and raw["pnl"] is not None
         if "collateralAmount" in raw:
             cost = float(raw.get("collateralAmount") or 0) / 1_000_000
             pnl = float(raw.get("pnl") or 0) / 1_000_000
@@ -88,10 +89,30 @@ class LimitlessProvider(MarketProvider):
             pnl = float(raw.get("pnl") or 0)
             shares = float(raw.get("shares") or 0)
 
-        trade_type = raw.get("type") or raw.get("strategy") or "Buy"
+        # Determine trade direction (Buy/Sell).
+        # The Limitless API may return a category in "type" (e.g. "trade",
+        # "split", "merge", "conversion") rather than a direction.  Prefer
+        # "strategy" for direction, fall back to "action"/"side" fields,
+        # then to "type" only if it looks like a direction keyword.
+        _CATEGORY_TYPES = {"trade", "split", "merge", "conversion"}
+        raw_type = raw.get("type") or ""
+        strategy = raw.get("strategy") or ""
+        action = raw.get("action") or ""
+
+        if strategy:
+            trade_type = strategy
+        elif raw_type and raw_type.lower() not in _CATEGORY_TYPES:
+            trade_type = raw_type
+        elif action:
+            trade_type = action
+        else:
+            trade_type = "Buy"
+
         # Normalize underscore-separated types (e.g. "market_buy" -> "Market Buy")
         if "_" in trade_type:
             trade_type = trade_type.replace("_", " ").title()
+        elif trade_type.islower():
+            trade_type = trade_type.title()
 
         side = raw.get("side")
         if not side:
@@ -118,7 +139,7 @@ class LimitlessProvider(MarketProvider):
             type=trade_type,
             side=side,
             pnl=pnl,
-            pnl_is_set=pnl != 0.0,
+            pnl_is_set=has_pnl,
             tx_hash=raw.get("tx_hash") or raw.get("transactionHash"),
             source="limitless",
             currency="USDC",
@@ -130,8 +151,8 @@ class LimitlessProvider(MarketProvider):
             resp = requests.get(f"{BASE_URL}/markets/{market_id}", timeout=10)
             if resp.status_code == 200:
                 return resp.json()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to fetch Limitless market %s: %s", market_id, exc)
         return None
 
     def detect_file_format(self, records: List[dict]) -> bool:

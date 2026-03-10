@@ -199,6 +199,7 @@ class KalshiProvider(MarketProvider):
                 total = sell_shares[t.market_slug]
                 if total > 0:
                     t.pnl = pnl_map[t.market_slug] * (t.shares / total)
+                    t.pnl_is_set = True
 
     def _fetch_market_titles(self, tickers: List[str]) -> Dict[str, str]:
         """Batch-fetch human-readable titles for market tickers (public, no auth)."""
@@ -216,7 +217,8 @@ class KalshiProvider(MarketProvider):
                     titles[ticker] = market.get("title") or ticker
                 else:
                     titles[ticker] = ticker
-            except Exception:
+            except Exception as exc:
+                logger.warning("Failed to fetch Kalshi title for %s: %s", ticker, exc)
                 titles[ticker] = ticker
         return titles
 
@@ -285,6 +287,7 @@ class KalshiProvider(MarketProvider):
             tx_hash=raw.get("fill_id") or raw.get("order_id"),
             source="kalshi",
             currency="USD",
+            fee=fee,
         )
 
     def fetch_market_details(self, market_id: str) -> Optional[Dict[str, Any]]:
@@ -295,8 +298,8 @@ class KalshiProvider(MarketProvider):
             )
             if resp.status_code == 200:
                 return resp.json().get("market")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to fetch Kalshi market %s: %s", market_id, exc)
         return None
 
     def detect_file_format(self, records: List[dict]) -> bool:

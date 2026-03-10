@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,18 +10,17 @@ readme = "README.md"
 authors = [
     {name = "Your Name", email = "you@example.com"}
 ]
-license = {text = "AGPL-3.0-or-later"}
+license = "AGPL-3.0-or-later"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "pandas>=1.5.0",
     "numpy>=1.23.0",
@@ -65,3 +64,6 @@ prediction-mcp = "prediction_mcp.server:main"
 Homepage = "https://github.com/yourusername/prediction_analyzer"
 Documentation = "https://github.com/yourusername/prediction_analyzer/wiki"
 Repository = "https://github.com/yourusername/prediction_analyzer"
+
+[tool.setuptools.packages.find]
+include = ["prediction_analyzer*", "prediction_mcp*"]

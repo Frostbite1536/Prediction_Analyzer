@@ -105,7 +105,7 @@ def group_trades_by_market(trades: List[Trade]) -> dict:
     """
     trades_by_market = {}
     for trade in trades:
-        key = trade.market_slug or trade.market or "unknown"
+        key = trade.market_slug
         if key not in trades_by_market:
             trades_by_market[key] = []
         trades_by_market[key].append(trade)

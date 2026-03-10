@@ -68,8 +68,8 @@ def calculate_open_positions(
                 current_price = float(details["lastPrice"])
             elif details and "price" in details:
                 current_price = float(details["price"])
-        except Exception:
-            logger.debug("Could not fetch price for %s", slug)
+        except Exception as exc:
+            logger.warning("Could not fetch price for %s: %s", slug, exc)
 
         unrealized_pnl = None
         if current_price is not None:

@@ -49,6 +49,7 @@ class Trade:
     tx_hash: Optional[str] = None
     source: str = "limitless"  # "limitless", "polymarket", "kalshi", "manifold"
     currency: str = "USD"  # "USD", "USDC", "MANA"
+    fee: float = 0.0  # Trading fee (available from Kalshi; other providers bundle into cost)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a JSON-serializable dictionary."""
@@ -66,6 +67,7 @@ class Trade:
             "tx_hash": self.tx_hash,
             "source": self.source,
             "currency": self.currency,
+            "fee": sanitize_numeric(self.fee),
         }
 
 
@@ -136,6 +138,7 @@ def _parse_timestamp(value) -> datetime:
             return dt
         return result
     except Exception:
+        logger.warning("Could not parse timestamp value %r; defaulting to epoch", value)
         return datetime(1970, 1, 1)
 
 
@@ -224,6 +227,7 @@ def load_trades(file_path: str) -> List[Trade]:
 
             # Convert from micro-units (USDC has 6 decimals)
             # If data comes from API (has collateralAmount), values are in micro-units
+            has_pnl = "pnl" in t and t["pnl"] is not None
             if "collateralAmount" in t:
                 # API data - convert from micro-units to regular units
                 raw_cost = float(t.get("collateralAmount") or 0) / 1_000_000
@@ -261,7 +265,7 @@ def load_trades(file_path: str) -> List[Trade]:
                 type=trade_type,
                 side=side,
                 pnl=raw_pnl,
-                pnl_is_set=raw_pnl != 0.0,
+                pnl_is_set=has_pnl,
                 tx_hash=t.get("tx_hash") or t.get("transactionHash")
             )
             trades.append(trade)
