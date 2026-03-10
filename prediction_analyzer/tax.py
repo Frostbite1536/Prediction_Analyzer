@@ -36,7 +36,7 @@ def calculate_capital_gains(
 
     # Filter to sells in the tax year
     year_start = datetime(tax_year, 1, 1)
-    year_end = datetime(tax_year, 12, 31, 23, 59, 59)
+    year_end = datetime(tax_year + 1, 1, 1)
 
     # Build buy lots per market
     buy_lots: Dict[str, List[Dict]] = {}  # market_slug -> list of {date, shares, price, cost}
@@ -60,10 +60,13 @@ def calculate_capital_gains(
             })
 
         elif trade.type in ("Sell", "Market Sell", "Limit Sell"):
-            # Only process sells within the tax year
-            if trade.timestamp < year_start or trade.timestamp > year_end:
-                continue
+            # Determine if this sell falls within the tax year
+            in_tax_year = year_start <= trade.timestamp < year_end
 
+            # ALWAYS consume buy lots to keep FIFO/LIFO state correct,
+            # even for sells outside the tax year.  Otherwise, lots
+            # already sold in prior years would be double-counted as
+            # cost basis for later sells.
             lots = buy_lots.get(slug, [])
             remaining_shares = trade.shares
             proceeds_per_share = (trade.cost / trade.shares) if trade.shares > 0 else 0.0
@@ -77,37 +80,40 @@ def calculate_capital_gains(
                     lot = _average_lot(lots)
 
                 matched_shares = min(remaining_shares, lot["shares"])
-                cost_basis = matched_shares * lot["cost_per_share"]
-                proceeds = matched_shares * proceeds_per_share
-                gain_loss = proceeds - cost_basis
 
-                # Determine holding period
-                holding_delta = trade.timestamp - lot["date"]
-                is_long_term = holding_delta >= LONG_TERM_THRESHOLD
-                holding_period = "long_term" if is_long_term else "short_term"
+                # Only record transaction details for sells in the tax year
+                if in_tax_year:
+                    cost_basis = matched_shares * lot["cost_per_share"]
+                    proceeds = matched_shares * proceeds_per_share
+                    gain_loss = proceeds - cost_basis
 
-                transactions.append({
-                    "market": trade.market,
-                    "market_slug": slug,
-                    "date_acquired": lot["date"].strftime("%Y-%m-%d"),
-                    "date_sold": trade.timestamp.strftime("%Y-%m-%d"),
-                    "shares": sanitize_numeric(matched_shares),
-                    "proceeds": sanitize_numeric(proceeds),
-                    "cost_basis": sanitize_numeric(cost_basis),
-                    "gain_loss": sanitize_numeric(gain_loss),
-                    "holding_period": holding_period,
-                })
+                    # Determine holding period
+                    holding_delta = trade.timestamp - lot["date"]
+                    is_long_term = holding_delta >= LONG_TERM_THRESHOLD
+                    holding_period = "long_term" if is_long_term else "short_term"
 
-                if is_long_term:
-                    if gain_loss >= 0:
-                        long_term_gains += gain_loss
+                    transactions.append({
+                        "market": trade.market,
+                        "market_slug": slug,
+                        "date_acquired": lot["date"].strftime("%Y-%m-%d"),
+                        "date_sold": trade.timestamp.strftime("%Y-%m-%d"),
+                        "shares": sanitize_numeric(matched_shares),
+                        "proceeds": sanitize_numeric(proceeds),
+                        "cost_basis": sanitize_numeric(cost_basis),
+                        "gain_loss": sanitize_numeric(gain_loss),
+                        "holding_period": holding_period,
+                    })
+
+                    if is_long_term:
+                        if gain_loss >= 0:
+                            long_term_gains += gain_loss
+                        else:
+                            long_term_losses += abs(gain_loss)
                     else:
-                        long_term_losses += abs(gain_loss)
-                else:
-                    if gain_loss >= 0:
-                        short_term_gains += gain_loss
-                    else:
-                        short_term_losses += abs(gain_loss)
+                        if gain_loss >= 0:
+                            short_term_gains += gain_loss
+                        else:
+                            short_term_losses += abs(gain_loss)
 
                 remaining_shares -= matched_shares
 
