@@ -136,6 +136,7 @@ def _parse_timestamp(value) -> datetime:
             return dt
         return result
     except Exception:
+        logger.warning("Could not parse timestamp value %r; defaulting to epoch", value)
         return datetime(1970, 1, 1)
 
 

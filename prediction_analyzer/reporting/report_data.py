@@ -22,7 +22,7 @@ def export_to_csv(trades: List[Trade], filename: str = "trades_export.csv"):
         raise NoTradesError("No trades to export.")
 
     try:
-        df = pd.DataFrame([vars(t) for t in trades])
+        df = pd.DataFrame([t.to_dict() for t in trades])
         df.to_csv(filename, index=False)
         logger.info("Trades exported to: %s", filename)
         return True
@@ -42,7 +42,7 @@ def export_to_excel(trades: List[Trade], filename: str = "trades_export.xlsx"):
         raise NoTradesError("No trades to export.")
 
     try:
-        df = pd.DataFrame([vars(t) for t in trades])
+        df = pd.DataFrame([t.to_dict() for t in trades])
 
         with pd.ExcelWriter(filename, engine='openpyxl') as writer:
             # Main trades sheet

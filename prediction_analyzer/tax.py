@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 VALID_METHODS = {"fifo", "lifo", "average"}
 LONG_TERM_THRESHOLD = timedelta(days=365)
 
+_BUY_TYPES = {"Buy", "Market Buy", "Limit Buy"}
+_SELL_TYPES = {"Sell", "Market Sell", "Limit Sell", "Claim", "Won", "Loss"}
+
 
 def calculate_capital_gains(
     trades: List[Trade],
@@ -46,11 +49,12 @@ def calculate_capital_gains(
     short_term_losses = 0.0
     long_term_gains = 0.0
     long_term_losses = 0.0
+    skipped_types: Dict[str, int] = {}  # trade types not recognized
 
     for trade in sorted_trades:
         slug = trade.market_slug
 
-        if trade.type in ("Buy", "Market Buy", "Limit Buy"):
+        if trade.type in _BUY_TYPES:
             # Add to buy lots
             buy_lots.setdefault(slug, []).append({
                 "date": trade.timestamp,
@@ -59,7 +63,7 @@ def calculate_capital_gains(
                 "cost_per_share": (trade.cost / trade.shares) if trade.shares > 0 else 0.0,
             })
 
-        elif trade.type in ("Sell", "Market Sell", "Limit Sell"):
+        elif trade.type in _SELL_TYPES:
             # Determine if this sell falls within the tax year
             in_tax_year = year_start <= trade.timestamp < year_end
 
@@ -134,9 +138,19 @@ def calculate_capital_gains(
                         else:
                             lots.pop(-1)
 
+        else:
+            # Track unrecognized trade types so the caller knows
+            skipped_types[trade.type] = skipped_types.get(trade.type, 0) + 1
+
+    if skipped_types:
+        logger.warning(
+            "Tax report skipped %d trades with unrecognized types: %s",
+            sum(skipped_types.values()), skipped_types,
+        )
+
     net_gain_loss = (short_term_gains - short_term_losses + long_term_gains - long_term_losses)
 
-    return {
+    result = {
         "tax_year": tax_year,
         "method": cost_basis_method,
         "short_term_gains": sanitize_numeric(short_term_gains),
@@ -147,6 +161,11 @@ def calculate_capital_gains(
         "transaction_count": len(transactions),
         "transactions": transactions,
     }
+
+    if skipped_types:
+        result["skipped_trade_types"] = skipped_types
+
+    return result
 
 
 def _average_lot(lots: List[Dict]) -> Dict:
