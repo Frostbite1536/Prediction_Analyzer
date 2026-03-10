@@ -48,6 +48,8 @@ class Trade(Base):
     side = Column(String(10), nullable=False)  # YES or NO
     pnl = Column(Float, default=0.0)
     tx_hash = Column(String(100), nullable=True)
+    source = Column(String(50), nullable=False, default="limitless", index=True)
+    currency = Column(String(10), nullable=False, default="USD")
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -59,6 +61,7 @@ class Trade(Base):
     __table_args__ = (
         Index("ix_trades_user_market", "user_id", "market_slug"),
         Index("ix_trades_user_timestamp", "user_id", "timestamp"),
+        Index("ix_trades_user_source", "user_id", "source"),
     )
 
     def __repr__(self):

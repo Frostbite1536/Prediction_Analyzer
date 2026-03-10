@@ -18,6 +18,9 @@ PyJWT>=2.8.0
 passlib>=1.7.4
 argon2-cffi>=23.1.0
 
+# Kalshi RSA-PSS signing
+cryptography>=41.0.0
+
 # Validation
 pydantic>=2.5.0
 pydantic-settings>=2.1.0

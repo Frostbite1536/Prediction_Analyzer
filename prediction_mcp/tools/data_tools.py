@@ -31,6 +31,7 @@ def get_tool_definitions() -> list[types.Tool]:
             name="load_trades",
             description=(
                 "Load prediction market trades from a file (JSON, CSV, or XLSX). "
+                "Auto-detects provider format (Limitless, Polymarket, Kalshi, Manifold). "
                 "The loaded trades are stored in session memory for subsequent analysis. "
                 "Call this before using any analysis, chart, or export tools."
             ),
@@ -48,16 +49,27 @@ def get_tool_definitions() -> list[types.Tool]:
         types.Tool(
             name="fetch_trades",
             description=(
-                "Fetch trades from Limitless Exchange API using an API key. "
-                "Downloads full trade history and stores in session memory. "
-                "API keys start with 'lmts_'."
+                "Fetch trades from a prediction market API. "
+                "Supports Limitless (lmts_...), Polymarket (0x...), "
+                "Kalshi (kalshi_...), and Manifold (manifold_...). "
+                "Provider is auto-detected from key format, or specify explicitly."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "api_key": {
                         "type": "string",
-                        "description": 'Limitless API key (starts with "lmts_")',
+                        "description": (
+                            "API key or credential. Format varies by provider: "
+                            "Limitless: lmts_..., Polymarket: 0x... (wallet address), "
+                            "Kalshi: kalshi_<KEY_ID>:<PEM_PATH>, Manifold: manifold_..."
+                        ),
+                    },
+                    "provider": {
+                        "type": "string",
+                        "enum": ["auto", "limitless", "polymarket", "kalshi", "manifold"],
+                        "description": "Provider name or 'auto' to detect from key format (default: auto)",
+                        "default": "auto",
                     },
                     "page_limit": {
                         "type": "integer",
@@ -72,7 +84,7 @@ def get_tool_definitions() -> list[types.Tool]:
             name="list_markets",
             description=(
                 "List all unique prediction markets in the currently loaded trades. "
-                "Returns market slugs, titles, and trade counts. "
+                "Returns market slugs, titles, trade counts, and source providers. "
                 "Trades must be loaded first with 'load_trades' or 'fetch_trades'."
             ),
             inputSchema={
@@ -149,11 +161,17 @@ async def _handle_load_trades(arguments: dict):
     session.active_filters.clear()
     session.source = f"file:{file_path}"
 
+    # Detect sources from loaded trades
+    loaded_sources = list({t.source for t in trades})
+    for src in loaded_sources:
+        if src not in session.sources:
+            session.sources.append(src)
+
     markets = get_unique_markets(trades)
     result = {
         "trade_count": len(trades),
         "markets": sorted(markets.values()),
-        "source": session.source,
+        "sources": session.sources,
     }
     return [types.TextContent(type="text", text=to_json_text(result))]
 
@@ -161,38 +179,50 @@ async def _handle_load_trades(arguments: dict):
 @safe_tool
 async def _handle_fetch_trades(arguments: dict):
     api_key = arguments.get("api_key", "")
+    provider_name = arguments.get("provider", "auto")
     page_limit = arguments.get("page_limit", 100)
 
     if not api_key:
         return error_result(ValueError("api_key is required")).content
 
-    raw_trades = fetch_trade_history(api_key, page_limit=page_limit)
+    from prediction_analyzer.providers import ProviderRegistry
 
-    if not raw_trades:
-        raise TradeLoadError("No trades returned from API")
+    # Resolve provider
+    if provider_name == "auto":
+        provider = ProviderRegistry.detect_from_key(api_key)
+        if not provider:
+            # Fall back to legacy Limitless path
+            provider = ProviderRegistry.get("limitless")
+    else:
+        provider = ProviderRegistry.get(provider_name)
 
-    tmp = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False, encoding="utf-8"
-    )
-    json.dump(raw_trades, tmp, default=str)
-    tmp.close()
+    # Use provider to fetch trades directly (no temp file needed)
+    trades = provider.fetch_trades(api_key, page_limit=page_limit)
 
-    try:
-        trades = _load_trades(tmp.name)
-    finally:
-        os.unlink(tmp.name)
+    if not trades:
+        raise TradeLoadError(f"No trades returned from {provider.display_name} API")
 
-    session.trades = trades
-    session.filtered_trades = list(trades)
+    # Apply PnL computation for providers that don't supply it
+    if provider.name in ("kalshi", "manifold", "polymarket"):
+        from prediction_analyzer.providers.pnl_calculator import compute_realized_pnl
+        trades = compute_realized_pnl(trades)
+
+    session.trades.extend(trades)
+    session.filtered_trades = list(session.trades)
     session.active_filters.clear()
-    key_prefix = api_key[:8] + "..." if len(api_key) > 8 else api_key
-    session.source = f"api:{key_prefix}"
+    if provider.name not in session.sources:
+        session.sources.append(provider.name)
+
+    key_prefix = api_key[:10] + "..." if len(api_key) > 10 else api_key
+    session.source = f"api:{provider.name}:{key_prefix}"
 
     markets = get_unique_markets(trades)
     result = {
         "trade_count": len(trades),
+        "total_session_trades": len(session.trades),
         "markets": sorted(markets.values()),
-        "source": session.source,
+        "provider": provider.name,
+        "sources": session.sources,
     }
     return [types.TextContent(type="text", text=to_json_text(result))]
 
@@ -206,11 +236,13 @@ async def _handle_list_markets(arguments: dict):
 
     result = []
     for slug, title in sorted(markets.items()):
-        trade_count = len(filter_trades_by_market_slug(session.trades, slug))
+        market_trades = filter_trades_by_market_slug(session.trades, slug)
+        sources = list({t.source for t in market_trades})
         result.append({
             "slug": slug,
             "title": title,
-            "trade_count": trade_count,
+            "trade_count": len(market_trades),
+            "sources": sources,
         })
 
     return [types.TextContent(type="text", text=to_json_text(result))]

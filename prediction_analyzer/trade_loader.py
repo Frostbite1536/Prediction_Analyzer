@@ -46,6 +46,8 @@ class Trade:
     side: str  # "YES" or "NO"
     pnl: float = 0.0
     tx_hash: Optional[str] = None
+    source: str = "limitless"  # "limitless", "polymarket", "kalshi", "manifold"
+    currency: str = "USD"  # "USD", "USDC", "MANA"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a JSON-serializable dictionary."""
@@ -60,6 +62,8 @@ class Trade:
             "side": self.side,
             "pnl": sanitize_numeric(self.pnl),
             "tx_hash": self.tx_hash,
+            "source": self.source,
+            "currency": self.currency,
         }
 
 
@@ -184,6 +188,18 @@ def load_trades(file_path: str) -> List[Trade]:
         else:
             raise ValueError("Unsupported file type. Use JSON, CSV, or XLSX.")
 
+        # Auto-detect provider from file format
+        try:
+            from .providers import ProviderRegistry
+            sample = raw_trades[:5] if raw_trades else []
+            provider = ProviderRegistry.detect_from_file(sample)
+            if provider and provider.name != "limitless":
+                logger.info("Auto-detected file format: %s", provider.display_name)
+                return [provider.normalize_trade(t) for t in raw_trades]
+        except Exception as exc:
+            logger.debug("Provider auto-detection skipped: %s", exc)
+
+        # Default: Limitless / generic parsing (backward compat)
         for t in raw_trades:
             # Handle both old and new format for market data
             # Also handle null values properly

@@ -18,14 +18,28 @@ class SessionState:
     trades: List[Trade] = field(default_factory=list)
     filtered_trades: List[Trade] = field(default_factory=list)
     active_filters: Dict[str, Any] = field(default_factory=dict)
-    source: Optional[str] = None  # "file:<path>" or "api:<key_prefix>"
+    sources: List[str] = field(default_factory=list)  # e.g. ["limitless", "polymarket"]
+
+    # Legacy compat property
+    @property
+    def source(self) -> Optional[str]:
+        """Return first source or None (backward compat)."""
+        return self.sources[0] if self.sources else None
+
+    @source.setter
+    def source(self, value: Optional[str]):
+        """Set source (backward compat — wraps single value in list)."""
+        if value is None:
+            self.sources.clear()
+        elif value not in self.sources:
+            self.sources.append(value)
 
     def clear(self):
         """Reset all session state."""
         self.trades.clear()
         self.filtered_trades.clear()
         self.active_filters.clear()
-        self.source = None
+        self.sources.clear()
 
     @property
     def trade_count(self) -> int:

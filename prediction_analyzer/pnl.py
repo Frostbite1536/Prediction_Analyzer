@@ -88,7 +88,20 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
     trades_with_outcome = winning_trades + losing_trades
     win_rate = (winning_trades / trades_with_outcome * 100) if trades_with_outcome > 0 else 0.0
 
-    return {
+    # Per-source breakdown
+    by_source = {}
+    sources = set(getattr(t, "source", "limitless") for t in trades)
+    if len(sources) > 1:
+        for source in sources:
+            source_trades = [t for t in trades if getattr(t, "source", "limitless") == source]
+            source_pnl = sum(t.pnl for t in source_trades)
+            by_source[source] = {
+                "total_trades": len(source_trades),
+                "total_pnl": source_pnl,
+                "currency": getattr(source_trades[0], "currency", "USD") if source_trades else "USD",
+            }
+
+    result = {
         "total_trades": total_trades,
         "total_volume": total_volume,
         "total_pnl": total_pnl,
@@ -100,8 +113,11 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
         "breakeven_trades": breakeven_trades,
         "total_invested": total_invested,
         "total_returned": total_returned,
-        "roi": roi
+        "roi": roi,
     }
+    if by_source:
+        result["by_source"] = by_source
+    return result
 
 def calculate_market_pnl(trades: List[Trade]) -> Dict[str, Dict]:
     """

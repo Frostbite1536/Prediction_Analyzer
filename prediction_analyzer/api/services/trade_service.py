@@ -32,7 +32,9 @@ class TradeService:
             type=db_trade.type,
             side=db_trade.side,
             pnl=db_trade.pnl,
-            tx_hash=db_trade.tx_hash
+            tx_hash=db_trade.tx_hash,
+            source=getattr(db_trade, "source", "limitless"),
+            currency=getattr(db_trade, "currency", "USD"),
         )
 
     def db_trades_to_dataclass(self, db_trades: List[TradeModel]) -> List[TradeDataclass]:
@@ -115,7 +117,9 @@ class TradeService:
                     type=trade.type,
                     side=trade.side,
                     pnl=trade.pnl,
-                    tx_hash=trade.tx_hash
+                    tx_hash=trade.tx_hash,
+                    source=getattr(trade, "source", "limitless"),
+                    currency=getattr(trade, "currency", "USD"),
                 )
                 db.add(db_trade)
 
@@ -132,7 +136,8 @@ class TradeService:
         user_id: int,
         limit: int = 100,
         offset: int = 0,
-        market_slug: Optional[str] = None
+        market_slug: Optional[str] = None,
+        source: Optional[str] = None,
     ) -> Tuple[List[TradeModel], int]:
         """
         Get trades for a user with pagination
@@ -143,6 +148,7 @@ class TradeService:
             limit: Maximum number of trades to return
             offset: Number of trades to skip
             market_slug: Optional filter by market
+            source: Optional filter by provider (limitless, polymarket, kalshi, manifold)
 
         Returns:
             Tuple of (trades list, total count)
@@ -151,6 +157,8 @@ class TradeService:
 
         if market_slug:
             query = query.filter(TradeModel.market_slug == market_slug)
+        if source:
+            query = query.filter(TradeModel.source == source)
 
         total = query.count()
         trades = query.order_by(TradeModel.timestamp.desc()).offset(offset).limit(limit).all()

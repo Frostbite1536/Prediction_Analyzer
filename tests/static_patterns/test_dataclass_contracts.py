@@ -48,12 +48,12 @@ class TestTradeDataclassStructure:
             f"Missing optional fields: {optional_fields - field_names}"
 
     def test_trade_field_count(self):
-        """Trade should have exactly 10 fields."""
+        """Trade should have exactly 12 fields."""
         from prediction_analyzer.trade_loader import Trade
 
         field_count = len(fields(Trade))
-        assert field_count == 10, \
-            f"Expected 10 fields, got {field_count}. Fields were added or removed."
+        assert field_count == 12, \
+            f"Expected 12 fields, got {field_count}. Fields were added or removed."
 
 
 class TestTradeFieldTypes:

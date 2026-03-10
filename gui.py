@@ -146,16 +146,26 @@ class PredictionAnalyzerGUI:
         control_frame = ttk.LabelFrame(parent, text="Quick Actions", padding="10")
         control_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
+        # Provider selector
+        ttk.Label(control_frame, text="Provider:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        self.provider_var = tk.StringVar(value="auto")
+        provider_combo = ttk.Combobox(
+            control_frame, textvariable=self.provider_var,
+            values=["auto", "limitless", "polymarket", "kalshi", "manifold"],
+            state="readonly", width=12
+        )
+        provider_combo.grid(row=0, column=1, sticky=tk.W, padx=5, pady=2)
+
         # API key input section
-        ttk.Label(control_frame, text="API Key:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
-        self.api_key_entry = ttk.Entry(control_frame, width=40, show="*")
-        self.api_key_entry.grid(row=0, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=2)
+        ttk.Label(control_frame, text="API Key / Wallet:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=2)
+        self.api_key_entry = ttk.Entry(control_frame, width=35, show="*")
+        self.api_key_entry.grid(row=0, column=3, sticky=(tk.W, tk.E), padx=5, pady=2)
 
         ttk.Button(
             control_frame,
             text="Load from API",
             command=self.load_from_api
-        ).grid(row=0, column=3, padx=5, pady=2)
+        ).grid(row=0, column=4, padx=5, pady=2)
 
         # Action buttons row
         ttk.Button(
@@ -436,27 +446,50 @@ class PredictionAnalyzerGUI:
 
     def load_from_api(self):
         """Load trades from API using API key (runs in background thread)"""
-        api_key = get_api_key(self.api_key_entry.get().strip())
+        from prediction_analyzer.utils.auth import detect_provider_from_key
+
+        api_key_raw = self.api_key_entry.get().strip()
+        provider_name = self.provider_var.get()
+
+        api_key = get_api_key(api_key_raw, provider=provider_name if provider_name != "auto" else "limitless")
 
         if not api_key:
             messagebox.showwarning(
                 "Missing API Key",
-                "Please enter your Limitless API key (lmts_...).\n\n"
-                "You can also set the LIMITLESS_API_KEY environment variable.\n\n"
-                "Generate a key at: limitless.exchange -> profile -> Api keys"
+                "Please enter your API key or wallet address.\n\n"
+                "Supported formats:\n"
+                "  Limitless: lmts_...\n"
+                "  Polymarket: 0x... (wallet address)\n"
+                "  Kalshi: kalshi_<KEY_ID>:<PEM_PATH>\n"
+                "  Manifold: manifold_...\n\n"
+                "Or set the appropriate environment variable."
             )
             return
 
+        # Auto-detect provider if needed
+        if provider_name == "auto":
+            provider_name = detect_provider_from_key(api_key)
+
         # Disable buttons while fetching
-        self.status_label.config(text="Fetching trades from API...")
+        self.status_label.config(text=f"Fetching trades from {provider_name}...")
         self._set_api_controls_enabled(False)
 
         def _fetch_worker():
             """Background thread for API fetch"""
             try:
-                raw_trades = fetch_trade_history(api_key)
-                # Schedule result handling on main thread
-                self.root.after(0, lambda: self._on_api_fetch_complete(raw_trades))
+                if provider_name == "limitless":
+                    # Legacy path
+                    raw_trades = fetch_trade_history(api_key)
+                    self.root.after(0, lambda: self._on_api_fetch_complete(raw_trades))
+                else:
+                    # Provider system
+                    from prediction_analyzer.providers import ProviderRegistry
+                    from prediction_analyzer.providers.pnl_calculator import compute_realized_pnl
+                    provider = ProviderRegistry.get(provider_name)
+                    trades = provider.fetch_trades(api_key)
+                    if provider_name in ("kalshi", "manifold", "polymarket"):
+                        trades = compute_realized_pnl(trades)
+                    self.root.after(0, lambda: self._on_provider_fetch_complete(trades, provider_name))
             except Exception as e:
                 self.root.after(0, lambda: self._on_api_fetch_error(str(e)))
 
@@ -512,6 +545,31 @@ class PredictionAnalyzerGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to process trades:\n{str(e)}")
             self.status_label.config(text="Failed to process API data")
+
+    def _on_provider_fetch_complete(self, trades, provider_name: str):
+        """Handle successful provider fetch (called on main thread)"""
+        self._set_api_controls_enabled(True)
+
+        if not trades:
+            messagebox.showinfo("No Trades", f"No trades found from {provider_name}.")
+            self.status_label.config(text="No trades found")
+            return
+
+        self.all_trades = trades
+        self.filtered_trades = self.all_trades.copy()
+        self.current_file_path = None
+
+        self.status_label.config(
+            text=f"Loaded from {provider_name} ({len(self.all_trades)} trades)"
+        )
+
+        self.update_markets_list()
+        self.update_summary_display()
+
+        messagebox.showinfo(
+            "Success",
+            f"Successfully loaded {len(self.all_trades)} trades from {provider_name}"
+        )
 
     def _on_api_fetch_error(self, error_msg: str):
         """Handle API fetch error (called on main thread)"""

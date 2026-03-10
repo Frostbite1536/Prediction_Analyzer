@@ -16,7 +16,7 @@ class TestToolAggregation:
 
     def test_list_tools_returns_all(self):
         tools = asyncio.run(list_tools())
-        assert len(tools) == 17
+        assert len(tools) == 18
         names = [t.name for t in tools]
         assert "load_trades" in names
         assert "get_tax_report" in names

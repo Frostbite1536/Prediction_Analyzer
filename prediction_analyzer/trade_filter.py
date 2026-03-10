@@ -43,6 +43,10 @@ def filter_trades_by_market_slug(trades: List[Trade], market_slug: str) -> List[
     """Filter trades by exact market slug match"""
     return [t for t in trades if t.market_slug == market_slug]
 
+def filter_trades_by_source(trades: List[Trade], source: str) -> List[Trade]:
+    """Filter trades by provider source (e.g. 'limitless', 'polymarket', 'kalshi', 'manifold')"""
+    return [t for t in trades if t.source == source]
+
 def deduplicate_trades(trades: List[Trade]) -> List[Trade]:
     """
     Remove exact duplicate trades based on unique identifiers.

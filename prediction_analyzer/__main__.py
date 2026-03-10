@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from .trade_loader import load_trades, save_trades
-from .utils.auth import get_api_key
+from .utils.auth import get_api_key, detect_provider_from_key
 from .utils.data import fetch_trade_history
 from .core.interactive import interactive_menu
 from .reporting.report_text import print_global_summary, generate_text_report
@@ -20,6 +20,9 @@ from .trade_filter import filter_trades_by_market_slug, get_unique_markets
 from .filters import filter_by_date, filter_by_trade_type, filter_by_pnl
 from .reporting.report_data import export_to_csv, export_to_excel
 from .config import DEFAULT_TRADE_FILE
+
+VALID_PROVIDERS = ["limitless", "polymarket", "kalshi", "manifold", "auto"]
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -37,8 +40,13 @@ Examples:
   python -m prediction_analyzer --file trades.json --market "ETH-USD" --chart pro
   python -m prediction_analyzer --file trades.json --market "ETH-USD" --chart enhanced
 
-  # Fetch trades from API (or set LIMITLESS_API_KEY env var)
+  # Fetch trades from Limitless API (or set LIMITLESS_API_KEY env var)
   python -m prediction_analyzer --fetch --key "lmts_YOUR_API_KEY"
+
+  # Fetch from other providers
+  python -m prediction_analyzer --fetch --provider polymarket --key "0xYourWallet"
+  python -m prediction_analyzer --fetch --provider kalshi --key "kalshi_KEY_ID:key.pem"
+  python -m prediction_analyzer --fetch --provider manifold --key "manifold_YOUR_KEY"
 
   # Filter and export
   python -m prediction_analyzer --file trades.json --start-date 2024-01-01 --export trades.csv
@@ -49,7 +57,10 @@ Examples:
     data_group = parser.add_argument_group('Data Source')
     data_group.add_argument('--file', '-f', type=str, help='Path to trades JSON/CSV/XLSX file')
     data_group.add_argument('--fetch', action='store_true', help='Fetch live trades from API')
-    data_group.add_argument('--key', '-k', type=str, help='Limitless API key (lmts_...) or set LIMITLESS_API_KEY env var')
+    data_group.add_argument('--key', '-k', type=str,
+                            help='API key/credential (format depends on provider)')
+    data_group.add_argument('--provider', '-p', choices=VALID_PROVIDERS, default='auto',
+                            help='Prediction market provider (default: auto-detect from key)')
 
     # Analysis options
     analysis_group = parser.add_argument_group('Analysis')
@@ -82,58 +93,81 @@ Examples:
     trades = []
 
     if args.fetch:
-        # Fetch from API
-        api_key = get_api_key(args.key)
+        # Determine provider
+        provider_name = args.provider
+
+        # Resolve API key from args or env
+        api_key = get_api_key(args.key, provider=provider_name if provider_name != "auto" else "limitless")
         if not api_key:
-            print("❌ API key required. Pass --key lmts_... or set LIMITLESS_API_KEY env var")
+            print("Error: API key required. Pass --key <KEY> or set the appropriate env var:")
+            print("  Limitless:   LIMITLESS_API_KEY=lmts_...")
+            print("  Polymarket:  POLYMARKET_WALLET=0x...")
+            print("  Kalshi:      KALSHI_API_KEY_ID=... + KALSHI_PRIVATE_KEY_PATH=...")
+            print("  Manifold:    MANIFOLD_API_KEY=manifold_...")
             sys.exit(1)
 
-        print("🔐 Fetching trades with API key...")
+        # Auto-detect provider if needed
+        if provider_name == "auto":
+            provider_name = detect_provider_from_key(api_key)
 
-        raw_trades = fetch_trade_history(api_key)
-        save_trades(raw_trades, DEFAULT_TRADE_FILE)
+        print(f"Fetching trades from {provider_name}...")
 
-        # Convert to Trade objects
-        trades = load_trades(DEFAULT_TRADE_FILE)
+        if provider_name == "limitless":
+            # Legacy path for backward compat
+            raw_trades = fetch_trade_history(api_key)
+            save_trades(raw_trades, DEFAULT_TRADE_FILE)
+            trades = load_trades(DEFAULT_TRADE_FILE)
+        else:
+            # Use provider system
+            from .providers import ProviderRegistry
+            provider = ProviderRegistry.get(provider_name)
+            trades = provider.fetch_trades(api_key)
+
+            # Apply PnL computation
+            if provider_name in ("kalshi", "manifold", "polymarket"):
+                from .providers.pnl_calculator import compute_realized_pnl
+                trades = compute_realized_pnl(trades)
 
     elif args.file:
         # Load from file
         trades = load_trades(args.file)
         if not trades:
-            print(f"❌ Failed to load trades from {args.file}")
+            print(f"Error: Failed to load trades from {args.file}")
             sys.exit(1)
 
     elif Path(DEFAULT_TRADE_FILE).exists():
         # Try default file
-        print(f"📂 Loading from default file: {DEFAULT_TRADE_FILE}")
+        print(f"Loading from default file: {DEFAULT_TRADE_FILE}")
         trades = load_trades(DEFAULT_TRADE_FILE)
 
     else:
-        print("❌ No trade data available.")
-        print("   Use --file to load from a file, or --fetch with --key (or LIMITLESS_API_KEY) to download from API")
+        print("Error: No trade data available.")
+        print("   Use --file to load from a file, or --fetch with --key to download from API")
         parser.print_help()
         sys.exit(1)
 
     if not trades:
-        print("❌ No trades to analyze")
+        print("Error: No trades to analyze")
         sys.exit(1)
 
-    print(f"✅ Loaded {len(trades)} trades\n")
+    # Show source summary
+    sources = list({t.source for t in trades})
+    print(f"Loaded {len(trades)} trades from {', '.join(sources)}\n")
 
     # Apply filters
     original_count = len(trades)
 
     if args.start_date or args.end_date:
         trades = filter_by_date(trades, args.start_date, args.end_date)
-        print(f"🔍 Date filter: {len(trades)}/{original_count} trades")
+        print(f"Date filter: {len(trades)}/{original_count} trades")
 
     if args.type:
         trades = filter_by_trade_type(trades, args.type)
-        print(f"🔍 Type filter: {len(trades)}/{original_count} trades")
+        print(f"Type filter: {len(trades)}/{original_count} trades")
 
     if args.min_pnl is not None or args.max_pnl is not None:
         trades = filter_by_pnl(trades, args.min_pnl, args.max_pnl)
-        print(f"🔍 PnL filter: {len(trades)}/{original_count} trades")
+        print(f"PnL filter: {len(trades)}/{original_count} trades")
 
     if len(trades) != original_count:
         print()
@@ -155,7 +189,7 @@ Examples:
         elif args.export.endswith('.xlsx'):
             export_to_excel(trades, args.export)
         else:
-            print("❌ Export file must be .csv or .xlsx")
+            print("Error: Export file must be .csv or .xlsx")
 
     if args.dashboard:
         markets = get_unique_markets(trades)
@@ -171,7 +205,7 @@ Examples:
         market_trades = filter_trades_by_market_slug(trades, args.market)
 
         if not market_trades:
-            print(f"❌ No trades found for market: {args.market}")
+            print(f"Error: No trades found for market: {args.market}")
             sys.exit(1)
 
         market_name = market_trades[0].market

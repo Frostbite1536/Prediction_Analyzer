@@ -19,6 +19,8 @@ class TradeBase(BaseModel):
     side: str  # YES or NO
     pnl: float = 0.0
     tx_hash: Optional[str] = None
+    source: str = "limitless"  # "limitless", "polymarket", "kalshi", "manifold"
+    currency: str = "USD"  # "USD", "USDC", "MANA"
 
 
 class TradeCreate(TradeBase):

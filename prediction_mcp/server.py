@@ -49,7 +49,8 @@ app = Server(
     version="1.0.0",
     instructions=(
         "Prediction Analyzer MCP Server. "
-        "Load prediction market trades from files or the Limitless Exchange API, "
+        "Load prediction market trades from files or APIs "
+        "(Limitless Exchange, Polymarket, Kalshi, Manifold Markets), "
         "then run PnL analyses, generate charts, filter trades, and export data. "
         "Start by loading trades with 'load_trades' or 'fetch_trades'."
     ),
