@@ -118,6 +118,7 @@ class LimitlessProvider(MarketProvider):
             type=trade_type,
             side=side,
             pnl=pnl,
+            pnl_is_set=pnl != 0.0,
             tx_hash=raw.get("tx_hash") or raw.get("transactionHash"),
             source="limitless",
             currency="USDC",

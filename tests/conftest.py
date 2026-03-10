@@ -46,6 +46,9 @@ def sample_trade_factory():
             "tx_hash": None
         }
         defaults.update(kwargs)
+        # Auto-set pnl_is_set if pnl was explicitly provided and not already set
+        if "pnl_is_set" not in kwargs and "pnl" in kwargs:
+            defaults["pnl_is_set"] = True
         return Trade(**defaults)
     return _create_trade
 

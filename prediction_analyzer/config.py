@@ -81,4 +81,4 @@ def get_trade_style(trade_type: str, side: str) -> tuple:
 
 
 # Analysis Parameters
-PRICE_RESOLUTION_THRESHOLD = 0.5
+PRICE_RESOLUTION_THRESHOLD = 0.85

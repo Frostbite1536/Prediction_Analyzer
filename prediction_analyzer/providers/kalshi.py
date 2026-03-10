@@ -281,6 +281,7 @@ class KalshiProvider(MarketProvider):
             type=action,
             side=side_str,
             pnl=0.0,  # Filled in later from positions endpoint
+            pnl_is_set=False,
             tx_hash=raw.get("fill_id") or raw.get("order_id"),
             source="kalshi",
             currency="USD",

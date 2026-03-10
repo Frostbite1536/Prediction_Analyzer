@@ -22,6 +22,8 @@ def create_sample_trade(**kwargs):
         'pnl': 0.0
     }
     defaults.update(kwargs)
+    if 'pnl_is_set' not in kwargs and 'pnl' in kwargs:
+        defaults['pnl_is_set'] = True
     return Trade(**defaults)
 
 def test_trade_creation():

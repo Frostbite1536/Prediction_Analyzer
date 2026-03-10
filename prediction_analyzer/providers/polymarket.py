@@ -107,6 +107,7 @@ class PolymarketProvider(MarketProvider):
             type=(raw.get("side") or "BUY").title(),  # "BUY" → "Buy"
             side=(raw.get("outcome") or "Yes").upper(),  # "Yes" → "YES"
             pnl=0.0,  # Data API does not provide per-trade PnL
+            pnl_is_set=False,
             tx_hash=raw.get("transactionHash"),
             source="polymarket",
             currency="USDC",

@@ -95,18 +95,18 @@ def get_unique_markets(trades: List[Trade]) -> dict:
 
 def group_trades_by_market(trades: List[Trade]) -> dict:
     """
-    Group trades by market name
+    Group trades by market slug for consistency with calculate_market_pnl.
 
     Args:
         trades: List of Trade objects
 
     Returns:
-        Dict mapping market_name -> list of trades for that market
+        Dict mapping market_slug -> list of trades for that market
     """
     trades_by_market = {}
     for trade in trades:
-        market_name = trade.market or trade.market_slug or "Unknown Market"
-        if market_name not in trades_by_market:
-            trades_by_market[market_name] = []
-        trades_by_market[market_name].append(trade)
+        key = trade.market_slug or trade.market or "unknown"
+        if key not in trades_by_market:
+            trades_by_market[key] = []
+        trades_by_market[key].append(trade)
     return trades_by_market

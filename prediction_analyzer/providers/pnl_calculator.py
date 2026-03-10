@@ -3,10 +3,13 @@
 FIFO PnL computation for providers that don't supply per-trade PnL
 (Kalshi, Manifold, Polymarket).
 """
+import logging
 from typing import List, Dict
 from collections import defaultdict, deque
 
 from ..trade_loader import Trade
+
+logger = logging.getLogger(__name__)
 
 
 def compute_realized_pnl(trades: List[Trade]) -> List[Trade]:
@@ -55,10 +58,17 @@ def compute_realized_pnl(trades: List[Trade]) -> List[Trade]:
                 if queue[0][1] <= 1e-10:
                     queue.popleft()
 
+            if remaining > 0:
+                logger.warning(
+                    "Unmatched sell shares: %.6f shares for %s (market=%s, side=%s)",
+                    remaining, trade.type, trade.market_slug, trade.side,
+                )
+
             # Only set PnL if trade doesn't already have one from the provider
-            if trade.pnl == 0.0:
+            if not trade.pnl_is_set:
                 matched_shares = trade.shares - remaining
                 sell_revenue = matched_shares * trade.price
                 trade.pnl = sell_revenue - total_buy_cost
+                trade.pnl_is_set = True
 
     return trades

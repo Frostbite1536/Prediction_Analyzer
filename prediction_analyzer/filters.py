@@ -30,9 +30,9 @@ def _normalize_datetime(dt) -> datetime:
     if hasattr(dt, 'to_pydatetime'):
         dt = dt.to_pydatetime()
 
-    # Handle timezone-aware datetime - convert to naive (assume UTC)
+    # Handle timezone-aware datetime - convert to UTC then strip tzinfo
     if isinstance(dt, datetime) and dt.tzinfo is not None:
-        return dt.replace(tzinfo=None)
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
     return dt
 
@@ -65,7 +65,8 @@ def filter_by_date(trades: List[Trade], start: Optional[str] = None, end: Option
         # End date should include the entire day (use strict less-than midnight next day)
         end_dt = datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)
     elif isinstance(end, datetime):
-        end_dt = _normalize_datetime(end)
+        # Add 1 day for consistency with string behavior (entire day inclusive)
+        end_dt = _normalize_datetime(end) + timedelta(days=1)
 
     filtered = []
     for t in trades:
@@ -100,7 +101,8 @@ def filter_by_trade_type(trades: List[Trade], types: Optional[List[str]] = None)
         if trade_type in types:
             return True
         for base in types:
-            if trade_type.endswith(base) or trade_type.startswith(base + " "):
+            # Match "Market Buy", "Limit Buy" etc. but not "Rebuy"
+            if trade_type.endswith(" " + base) or trade_type.startswith(base + " "):
                 return True
         return False
     return [t for t in trades if _matches(t.type)]

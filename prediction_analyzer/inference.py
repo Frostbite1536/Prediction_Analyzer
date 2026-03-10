@@ -47,10 +47,6 @@ def detect_market_resolution(trades: List[Trade]) -> Optional[str]:
     """
     # Look for explicit resolution indicators in trade data
     for trade in reversed(trades):  # Check most recent first
-        # Check if trade has resolution info
-        if hasattr(trade, 'resolution'):
-            return trade.resolution
-
         # Check for claim/result events
         if trade.type in ["Claim", "Won", "Loss"]:
             return trade.side

@@ -136,6 +136,7 @@ class ManifoldProvider(MarketProvider):
             type="Buy" if amount > 0 else ("Sell" if amount < 0 else "Buy"),
             side=(raw.get("outcome") or "YES").upper(),
             pnl=0.0,  # Must compute client-side
+            pnl_is_set=False,
             tx_hash=raw.get("id"),
             source="manifold",
             currency="MANA",

@@ -6,6 +6,7 @@ from typing import List, Dict
 import pandas as pd
 import numpy as np
 from .trade_loader import Trade
+from .inference import detect_market_resolution
 
 def calculate_pnl(trades: List[Trade]) -> pd.DataFrame:
     """
@@ -54,17 +55,19 @@ def _summarize_trades(trades: List[Trade]) -> Dict:
         }
     df = pd.DataFrame([vars(t) for t in trades])
 
-    total_volume = df["cost"].sum()
-    total_pnl = df["pnl"].sum()
-    winning_trades = len(df[df["pnl"] > 0])
-    losing_trades = len(df[df["pnl"] < 0])
-    breakeven_trades = len(df[df["pnl"] == 0])
-    total_trades = len(df)
-
     buy_trades = df[df["type"].isin(["Buy", "Market Buy", "Limit Buy"])]
     sell_trades = df[df["type"].isin(["Sell", "Market Sell", "Limit Sell"])]
     total_invested = buy_trades["cost"].sum() if len(buy_trades) > 0 else 0.0
     total_returned = sell_trades["cost"].sum() if len(sell_trades) > 0 else 0.0
+    total_volume = total_invested + total_returned
+    total_pnl = df["pnl"].sum()
+    total_trades = len(df)
+
+    # Only count wins/losses among trades that have PnL set
+    settled = df[df["pnl_is_set"] == True]
+    winning_trades = len(settled[settled["pnl"] > 0])
+    losing_trades = len(settled[settled["pnl"] < 0])
+    breakeven_trades = len(settled[settled["pnl"] == 0])
 
     roi = (total_pnl / total_invested * 100) if total_invested > 0 else 0.0
 
@@ -217,10 +220,13 @@ def calculate_market_pnl_summary(trades: List[Trade]) -> Dict:
     df = pd.DataFrame([vars(t) for t in trades])
 
     total_pnl = df["pnl"].sum()
-    winning_trades = len(df[df["pnl"] > 0])
-    losing_trades = len(df[df["pnl"] < 0])
-    breakeven_trades = len(df[df["pnl"] == 0])
     total_trades = len(df)
+
+    # Only count wins/losses among trades that have PnL set
+    settled = df[df["pnl_is_set"] == True]
+    winning_trades = len(settled[settled["pnl"] > 0])
+    losing_trades = len(settled[settled["pnl"] < 0])
+    breakeven_trades = len(settled[settled["pnl"] == 0])
 
     # Calculate total invested and returned
     buy_trades = df[df["type"].isin(["Buy", "Market Buy", "Limit Buy"])]
@@ -235,10 +241,8 @@ def calculate_market_pnl_summary(trades: List[Trade]) -> Dict:
     trades_with_outcome = winning_trades + losing_trades
     win_rate = (winning_trades / trades_with_outcome * 100) if trades_with_outcome > 0 else 0.0
 
-    # Try to infer market outcome if available
-    market_outcome = None
-    if hasattr(trades[0], 'outcome') and trades[0].outcome:
-        market_outcome = trades[0].outcome
+    # Try to infer market outcome from trade data
+    market_outcome = detect_market_resolution(trades)
 
     return {
         "market_title": market_title,
