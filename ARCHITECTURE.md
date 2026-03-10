@@ -131,17 +131,18 @@ prediction_mcp/              # MCP server package
 ├── server.py                # MCP server (stdio + SSE transports)
 ├── state.py                 # Session state (multi-source, backward compat)
 ├── persistence.py           # SQLite persistence (source/currency columns)
-├── errors.py                # Error handling utilities
-├── serializers.py           # JSON serialization helpers
-├── validators.py            # Input validation
+├── errors.py                # Error handling with @safe_tool decorator + recovery hints
+├── serializers.py           # JSON serialization (NaN/Infinity/datetime safe)
+├── validators.py            # Input validation (enums, dates, NaN guards, case normalization)
+├── _apply_filters.py        # Shared filter application helper
 └── tools/                   # MCP tool modules (18 tools total)
     ├── __init__.py
     ├── data_tools.py        # load_trades, fetch_trades, list_markets, get_trade_details
-    ├── analysis_tools.py    # get_pnl_summary, get_market_pnl, get_provider_breakdown
-    ├── filter_tools.py      # filter_trades, clear_filters
+    ├── analysis_tools.py    # get_global_summary, get_market_summary, get_advanced_metrics, get_market_breakdown, get_provider_breakdown
+    ├── filter_tools.py      # filter_trades (with clear=true to reset)
     ├── chart_tools.py       # generate_chart, generate_dashboard
-    ├── export_tools.py      # export_csv, export_report
-    ├── portfolio_tools.py   # get_open_positions, get_portfolio_summary, get_concentration
+    ├── export_tools.py      # export_trades (csv/xlsx/json, path traversal guard)
+    ├── portfolio_tools.py   # get_open_positions, get_concentration_risk, get_drawdown_analysis, compare_periods
     └── tax_tools.py         # get_tax_report
 
 Root Directory:
@@ -178,6 +179,7 @@ class Trade:
     type: str             # "Buy" or "Sell" (or variants)
     side: str             # "YES" or "NO"
     pnl: float            # Profit/loss (default: 0.0)
+    pnl_is_set: bool      # True when pnl was explicitly set by provider
     tx_hash: str          # Transaction hash (optional)
     source: str           # Provider: "limitless", "polymarket", "kalshi", "manifold"
     currency: str         # "USD", "USDC", or "MANA"
@@ -407,7 +409,7 @@ Model Context Protocol server providing 18 tools across 7 modules:
 - **Transport**: stdio (Claude Code) or HTTP/SSE (web agents)
 - **State**: In-memory session with optional SQLite persistence
 - **Multi-source**: Session tracks multiple provider sources simultaneously
-- **Tools**: data (4), analysis (3), filter (2), chart (2), export (2), portfolio (3), tax (1)
+- **Tools**: data (4), analysis (5), filter (1), chart (2), export (1), portfolio (4), tax (1)
 
 Key features:
 - `fetch_trades` tool accepts `provider` parameter with auto-detection
@@ -604,12 +606,12 @@ tests/
 │   ├── test_serializers.py        # Serializer tests
 │   ├── test_validators.py         # Validator tests
 │   ├── test_errors.py             # Error handling tests
-│   └── test_llm_inputs.py         # LLM input edge cases
+│   └── test_llm_inputs.py         # LLM input edge cases (wrong names, case, NaN)
 └── static_patterns/               # Static analysis tests
     ├── test_api_contracts.py      # API contract validation
     ├── test_config_integrity.py   # Configuration tests
     ├── test_data_integrity.py     # Data handling tests
-    ├── test_dataclass_contracts.py # Dataclass validation (12 fields)
+    ├── test_dataclass_contracts.py # Dataclass validation (13 fields)
     ├── test_edge_cases.py         # Edge case handling
     ├── test_filter_contracts.py   # Filter function tests
     ├── test_imports.py            # Import validation
@@ -619,7 +621,7 @@ tests/
 
 Run tests with:
 ```bash
-pytest                    # Run all 455 tests
+pytest                    # Run all tests
 pytest --cov=prediction_analyzer  # With coverage
 ```
 

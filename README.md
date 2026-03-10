@@ -294,14 +294,18 @@ prediction_mcp/              # MCP server for Claude integration
 ├── server.py                # MCP server entry point (stdio + SSE)
 ├── state.py                 # Session state (multi-source)
 ├── persistence.py           # SQLite session persistence
-└── tools/                   # MCP tool modules
-    ├── data_tools.py        # load_trades, fetch_trades, list_markets
-    ├── analysis_tools.py    # PnL summaries, provider breakdown
-    ├── filter_tools.py      # Trade filtering
-    ├── chart_tools.py       # Chart generation
-    ├── export_tools.py      # Data export
-    ├── portfolio_tools.py   # Portfolio analysis
-    └── tax_tools.py         # Tax reporting
+├── errors.py                # @safe_tool decorator + recovery hints
+├── serializers.py           # JSON serialization (NaN/Infinity safe)
+├── validators.py            # Input validation + case normalization
+├── _apply_filters.py        # Shared filter application helper
+└── tools/                   # MCP tool modules (18 tools)
+    ├── data_tools.py        # load_trades, fetch_trades, list_markets, get_trade_details
+    ├── analysis_tools.py    # get_global_summary, get_market_summary, get_advanced_metrics, get_market_breakdown, get_provider_breakdown
+    ├── filter_tools.py      # filter_trades (with clear=true)
+    ├── chart_tools.py       # generate_chart, generate_dashboard
+    ├── export_tools.py      # export_trades (csv/xlsx/json)
+    ├── portfolio_tools.py   # get_open_positions, get_concentration_risk, get_drawdown_analysis, compare_periods
+    └── tax_tools.py         # get_tax_report
 
 Root directory:
 ├── run.py                   # CLI launcher
@@ -310,7 +314,7 @@ Root directory:
 ├── gui.py                   # GUI application (Tkinter, multi-provider)
 ├── requirements.txt         # Dependencies
 ├── .env.example             # Environment variable template (all providers)
-└── tests/                   # Test suite (455 tests)
+└── tests/                   # Test suite
 ```
 
 ## Testing
