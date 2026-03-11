@@ -57,6 +57,10 @@ chart_*.png
 pro_chart_*.html
 enhanced_chart_*.html
 global_dashboard.html
+charts_output/
+
+# Type checking
+.mypy_cache/
 
 # SQLite database
 *.db

@@ -414,12 +414,14 @@ Four chart types with different use cases:
 
 ### MCP Server (`prediction_mcp/`)
 
-Model Context Protocol server providing 18 tools across 7 modules:
+Model Context Protocol server implementing all three MCP primitives:
 
 - **Transport**: stdio (Claude Code) or HTTP/SSE (web agents)
 - **State**: In-memory session with optional SQLite persistence
 - **Multi-source**: Session tracks multiple provider sources simultaneously
-- **Tools**: data (4), analysis (5), filter (1), chart (2), export (1), portfolio (4), tax (1)
+- **Tools**: 18 tools across 7 modules — data (4), analysis (5), filter (1), chart (2), export (1), portfolio (4), tax (1)
+- **Resources**: Dynamic resources exposing session state — `prediction://trades/summary`, `prediction://trades/markets`, `prediction://trades/filters`
+- **Prompts**: 3 prompt templates — `analyze_portfolio` (with risk/performance/tax focus), `compare_periods`, `daily_report`
 
 Key features:
 - `fetch_trades` tool accepts `provider` parameter with auto-detection

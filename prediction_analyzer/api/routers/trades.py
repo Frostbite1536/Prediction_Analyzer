@@ -240,7 +240,7 @@ async def export_trades_json(
     filename += ".json"
 
     return StreamingResponse(
-        iter([json.dumps(trades_data, indent=2)]),
+        iter([json.dumps(trades_data, indent=2, default=str)]),
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )

@@ -46,6 +46,9 @@ class AuthService:
             Encoded JWT token string
         """
         to_encode = data.copy()
+        # JWT 'sub' claim must be a string per RFC 7519 / PyJWT >=2.9
+        if "sub" in to_encode:
+            to_encode["sub"] = str(to_encode["sub"])
         if expires_delta:
             expire = datetime.now(timezone.utc) + expires_delta
         else:
@@ -83,9 +86,10 @@ class AuthService:
                 issuer="prediction-analyzer",
                 audience="prediction-analyzer-api",
             )
-            user_id: int = payload.get("sub")
-            if user_id is None:
+            raw_sub = payload.get("sub")
+            if raw_sub is None:
                 return None
+            user_id = int(raw_sub)
             return TokenData(user_id=user_id)
         except (jwt.InvalidTokenError, jwt.DecodeError, jwt.ExpiredSignatureError):
             return None

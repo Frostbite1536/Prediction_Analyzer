@@ -1,0 +1,46 @@
+[
+  {
+    "market": "Will the US enter a recession in 2024?",
+    "slug": "us-recession-2024",
+    "side": "No",
+    "type": "BUY",
+    "shares": 150.0,
+    "price": 0.72,
+    "amount": 108.0,
+    "timestamp": "2024-02-15T10:30:00Z",
+    "transactionHash": "0xabc123def456789012345678901234567890abcd"
+  },
+  {
+    "market": "Will the US enter a recession in 2024?",
+    "slug": "us-recession-2024",
+    "side": "No",
+    "type": "SELL",
+    "shares": 150.0,
+    "price": 0.85,
+    "amount": 127.5,
+    "timestamp": "2024-06-20T14:15:00Z",
+    "transactionHash": "0xdef456789012345678901234567890abcdef1234"
+  },
+  {
+    "market": "Who will win the 2024 US Presidential Election?",
+    "slug": "2024-us-presidential-election",
+    "side": "Yes",
+    "type": "BUY",
+    "shares": 200.0,
+    "price": 0.55,
+    "amount": 110.0,
+    "timestamp": "2024-03-01T09:00:00Z",
+    "transactionHash": "0x1234567890abcdef1234567890abcdef12345678"
+  },
+  {
+    "market": "Who will win the 2024 US Presidential Election?",
+    "slug": "2024-us-presidential-election",
+    "side": "Yes",
+    "type": "SELL",
+    "shares": 100.0,
+    "price": 0.62,
+    "amount": 62.0,
+    "timestamp": "2024-07-10T11:45:00Z",
+    "transactionHash": "0xabcdef1234567890abcdef1234567890abcdef12"
+  }
+]

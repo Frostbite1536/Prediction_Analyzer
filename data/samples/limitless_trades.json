@@ -1,0 +1,41 @@
+[
+  {
+    "market": {
+      "title": "Will Ethereum merge to PoS by Q2 2024?",
+      "slug": "eth-pos-q2-2024"
+    },
+    "timestamp": 1706140800,
+    "strategy": "Buy",
+    "outcomeIndex": 0,
+    "outcomeTokenAmount": 200,
+    "collateralAmount": 120,
+    "pnl": 0,
+    "blockTimestamp": 1706140800
+  },
+  {
+    "market": {
+      "title": "Will Ethereum merge to PoS by Q2 2024?",
+      "slug": "eth-pos-q2-2024"
+    },
+    "timestamp": 1711324800,
+    "strategy": "Sell",
+    "outcomeIndex": 0,
+    "outcomeTokenAmount": 200,
+    "collateralAmount": 160,
+    "pnl": 40,
+    "blockTimestamp": 1711324800
+  },
+  {
+    "market": {
+      "title": "US inflation below 3% in March 2024?",
+      "slug": "us-inflation-march-2024"
+    },
+    "timestamp": 1708819200,
+    "strategy": "Buy",
+    "outcomeIndex": 1,
+    "outcomeTokenAmount": 100,
+    "collateralAmount": 35,
+    "pnl": -35,
+    "blockTimestamp": 1708819200
+  }
+]

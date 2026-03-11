@@ -68,6 +68,237 @@ async def list_tools() -> list[types.Tool]:
     return tools
 
 
+# ---------------------------------------------------------------------------
+# MCP Resources — expose session data for direct LLM reading
+# ---------------------------------------------------------------------------
+
+@app.list_resources()
+async def list_resources() -> list[types.Resource]:
+    """List available resources based on current session state."""
+    from .state import session
+    resources: list[types.Resource] = []
+
+    if session.has_trades:
+        resources.append(types.Resource(
+            uri="prediction://trades/summary",
+            name="Trade Summary",
+            description=(
+                f"Summary of {session.trade_count} loaded trades "
+                f"from {', '.join(session.sources) or 'unknown'} providers."
+            ),
+            mimeType="application/json",
+        ))
+        resources.append(types.Resource(
+            uri="prediction://trades/markets",
+            name="Market List",
+            description="List of all unique markets in the current session.",
+            mimeType="application/json",
+        ))
+        if session.active_filters:
+            resources.append(types.Resource(
+                uri="prediction://trades/filters",
+                name="Active Filters",
+                description="Currently applied trade filters.",
+                mimeType="application/json",
+            ))
+
+    return resources
+
+
+@app.read_resource()
+async def read_resource(uri: str) -> str:
+    """Read a resource by URI."""
+    from .state import session
+    from .serializers import to_json_text, sanitize_dict
+    from prediction_analyzer.trade_filter import get_unique_markets, filter_trades_by_market_slug
+    from prediction_analyzer.pnl import calculate_global_pnl_summary
+
+    if uri == "prediction://trades/summary":
+        if not session.has_trades:
+            return to_json_text({"error": "No trades loaded"})
+        summary = calculate_global_pnl_summary(session.trades)
+        return to_json_text(sanitize_dict(summary))
+
+    elif uri == "prediction://trades/markets":
+        if not session.has_trades:
+            return to_json_text({"error": "No trades loaded"})
+        markets = get_unique_markets(session.trades)
+        result = []
+        for slug, title in sorted(markets.items()):
+            market_trades = filter_trades_by_market_slug(session.trades, slug)
+            result.append({
+                "slug": slug,
+                "title": title,
+                "trade_count": len(market_trades),
+                "sources": list({t.source for t in market_trades}),
+            })
+        return to_json_text(result)
+
+    elif uri == "prediction://trades/filters":
+        return to_json_text(session.active_filters or {})
+
+    raise ValueError(f"Unknown resource URI: {uri}")
+
+
+# ---------------------------------------------------------------------------
+# MCP Prompts — pre-built templates for common analysis workflows
+# ---------------------------------------------------------------------------
+
+@app.list_prompts()
+async def list_prompts() -> list[types.Prompt]:
+    """List available prompt templates."""
+    return [
+        types.Prompt(
+            name="analyze_portfolio",
+            description=(
+                "Comprehensive portfolio analysis: global summary, "
+                "top/bottom markets, risk metrics, and actionable insights."
+            ),
+            arguments=[
+                types.PromptArgument(
+                    name="focus",
+                    description="Optional focus area: 'risk', 'performance', or 'tax'",
+                    required=False,
+                ),
+            ],
+        ),
+        types.Prompt(
+            name="compare_periods",
+            description=(
+                "Compare trading performance between two date ranges. "
+                "Useful for month-over-month or pre/post strategy change analysis."
+            ),
+            arguments=[
+                types.PromptArgument(
+                    name="period1_start",
+                    description="Start date of first period (YYYY-MM-DD)",
+                    required=True,
+                ),
+                types.PromptArgument(
+                    name="period1_end",
+                    description="End date of first period (YYYY-MM-DD)",
+                    required=True,
+                ),
+                types.PromptArgument(
+                    name="period2_start",
+                    description="Start date of second period (YYYY-MM-DD)",
+                    required=True,
+                ),
+                types.PromptArgument(
+                    name="period2_end",
+                    description="End date of second period (YYYY-MM-DD)",
+                    required=True,
+                ),
+            ],
+        ),
+        types.Prompt(
+            name="daily_report",
+            description="Generate a daily trading summary for today or a specific date.",
+            arguments=[
+                types.PromptArgument(
+                    name="date",
+                    description="Date to report on (YYYY-MM-DD). Defaults to today.",
+                    required=False,
+                ),
+            ],
+        ),
+    ]
+
+
+@app.get_prompt()
+async def get_prompt(name: str, arguments: dict | None = None) -> types.GetPromptResult:
+    """Return a prompt template with user arguments filled in."""
+    args = arguments or {}
+
+    if name == "analyze_portfolio":
+        focus = args.get("focus", "performance")
+        focus_instructions = {
+            "risk": (
+                "Focus on risk analysis: run get_advanced_metrics for Sharpe ratio, max drawdown, "
+                "and Sortino ratio. Then run get_concentration_risk and get_drawdown_analysis. "
+                "Flag any markets with outsized position sizes or unrealized losses."
+            ),
+            "tax": (
+                "Focus on tax implications: run get_tax_report with FIFO method. "
+                "Summarize short-term vs long-term gains. Note any wash sale concerns "
+                "and suggest tax-loss harvesting opportunities."
+            ),
+            "performance": (
+                "Focus on trading performance: run get_global_summary for overall stats, "
+                "then get_market_breakdown to find best/worst markets. Run get_advanced_metrics "
+                "for risk-adjusted returns. Provide actionable recommendations."
+            ),
+        }
+        return types.GetPromptResult(
+            description=f"Portfolio analysis focused on {focus}",
+            messages=[
+                types.PromptMessage(
+                    role="user",
+                    content=types.TextContent(
+                        type="text",
+                        text=(
+                            "Analyze my prediction market portfolio. "
+                            f"{focus_instructions.get(focus, focus_instructions['performance'])}\n\n"
+                            "Structure your response with:\n"
+                            "1. Executive Summary (2-3 sentences)\n"
+                            "2. Key Metrics table\n"
+                            "3. Top 3 and Bottom 3 markets\n"
+                            "4. Risk Assessment\n"
+                            "5. Recommendations"
+                        ),
+                    ),
+                ),
+            ],
+        )
+
+    elif name == "compare_periods":
+        return types.GetPromptResult(
+            description="Period comparison analysis",
+            messages=[
+                types.PromptMessage(
+                    role="user",
+                    content=types.TextContent(
+                        type="text",
+                        text=(
+                            f"Compare my trading performance between two periods:\n"
+                            f"- Period 1: {args['period1_start']} to {args['period1_end']}\n"
+                            f"- Period 2: {args['period2_start']} to {args['period2_end']}\n\n"
+                            "For each period, run get_global_summary with the date filters, "
+                            "then get_advanced_metrics. Compare win rate, total PnL, ROI, "
+                            "Sharpe ratio, and max drawdown.\n\n"
+                            "Present results in a side-by-side comparison table and explain "
+                            "what changed between the periods."
+                        ),
+                    ),
+                ),
+            ],
+        )
+
+    elif name == "daily_report":
+        date = args.get("date", "today")
+        return types.GetPromptResult(
+            description=f"Daily trading report for {date}",
+            messages=[
+                types.PromptMessage(
+                    role="user",
+                    content=types.TextContent(
+                        type="text",
+                        text=(
+                            f"Generate a daily trading report for {date}.\n\n"
+                            "1. Use get_global_summary with start_date and end_date set to "
+                            f"'{date}' to get the day's stats\n"
+                            "2. Use get_trade_details to list individual trades from that day\n"
+                            "3. Summarize: trades executed, net PnL, win rate\n"
+                            "4. Note any notable wins or losses"
+                        ),
+                    ),
+                ),
+            ],
+        )
+
+    raise ValueError(f"Unknown prompt: {name}")
+
+
 # Optional session store for SQLite persistence (set by main())
 _session_store = None
 

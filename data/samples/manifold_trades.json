@@ -1,0 +1,38 @@
+[
+  {
+    "contractId": "manifold-abc123",
+    "question": "Will GPT-5 be released before July 2024?",
+    "slug": "will-gpt5-be-released-before-july-2024",
+    "outcome": "YES",
+    "shares": 250.0,
+    "amount": 100.0,
+    "probBefore": 0.35,
+    "probAfter": 0.38,
+    "createdTime": 1709251200000,
+    "isSell": false
+  },
+  {
+    "contractId": "manifold-abc123",
+    "question": "Will GPT-5 be released before July 2024?",
+    "slug": "will-gpt5-be-released-before-july-2024",
+    "outcome": "YES",
+    "shares": 250.0,
+    "amount": 120.0,
+    "probBefore": 0.38,
+    "probAfter": 0.35,
+    "createdTime": 1714521600000,
+    "isSell": true
+  },
+  {
+    "contractId": "manifold-def456",
+    "question": "Will Bitcoin hit $100k in 2024?",
+    "slug": "will-bitcoin-hit-100k-in-2024",
+    "outcome": "NO",
+    "shares": 500.0,
+    "amount": 200.0,
+    "probBefore": 0.25,
+    "probAfter": 0.22,
+    "createdTime": 1706745600000,
+    "isSell": false
+  }
+]
