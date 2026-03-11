@@ -5,12 +5,12 @@ Input validation helpers for MCP tool parameters.
 Validates and normalizes tool inputs before passing them to the
 core library functions. Raises InvalidFilterError for bad inputs.
 """
+
 import math
 from datetime import datetime
 from typing import Optional, List, Dict
 
 from prediction_analyzer.exceptions import InvalidFilterError, MarketNotFoundError
-
 
 VALID_TRADE_TYPES = {"Buy", "Sell"}
 VALID_SIDES = {"YES", "NO"}
@@ -33,9 +33,7 @@ def validate_date(value: Optional[str], param_name: str) -> Optional[str]:
         datetime.strptime(value, "%Y-%m-%d")
         return value
     except ValueError:
-        raise InvalidFilterError(
-            f"Invalid {param_name}: '{value}'. Expected format: YYYY-MM-DD"
-        )
+        raise InvalidFilterError(f"Invalid {param_name}: '{value}'. Expected format: YYYY-MM-DD")
 
 
 def validate_trade_types(types: Optional[List[str]]) -> Optional[List[str]]:
@@ -45,7 +43,9 @@ def validate_trade_types(types: Optional[List[str]]) -> Optional[List[str]]:
     """
     if types is None:
         return None
-    normalized = [_TRADE_TYPE_NORMALIZE.get(t.lower(), t) if isinstance(t, str) else t for t in types]
+    normalized = [
+        _TRADE_TYPE_NORMALIZE.get(t.lower(), t) if isinstance(t, str) else t for t in types
+    ]
     invalid = [t for t in normalized if t not in VALID_TRADE_TYPES]
     if invalid:
         raise InvalidFilterError(
@@ -64,9 +64,7 @@ def validate_sides(sides: Optional[List[str]]) -> Optional[List[str]]:
     normalized = [_SIDE_NORMALIZE.get(s.lower(), s) if isinstance(s, str) else s for s in sides]
     invalid = [s for s in normalized if s not in VALID_SIDES]
     if invalid:
-        raise InvalidFilterError(
-            f"Invalid sides: {invalid}. Valid values: {sorted(VALID_SIDES)}"
-        )
+        raise InvalidFilterError(f"Invalid sides: {invalid}. Valid values: {sorted(VALID_SIDES)}")
     return normalized
 
 
@@ -98,9 +96,7 @@ def validate_positive_int(value: Optional[int], param_name: str) -> Optional[int
                 f"Invalid {param_name}: {value}. Must be a positive integer, not NaN/Infinity."
             )
     if not isinstance(value, int) or value < 1:
-        raise InvalidFilterError(
-            f"Invalid {param_name}: {value}. Must be a positive integer."
-        )
+        raise InvalidFilterError(f"Invalid {param_name}: {value}. Must be a positive integer.")
     return value
 
 

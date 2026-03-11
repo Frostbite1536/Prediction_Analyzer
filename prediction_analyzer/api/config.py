@@ -2,10 +2,12 @@
 """
 API configuration settings
 """
+
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 import logging
 import os
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +47,10 @@ def get_settings() -> Settings:
                 "SECRET_KEY must be set to a secure random string in production. "
                 "Set the SECRET_KEY environment variable before starting the server."
             )
+        # Generate a random key for dev so the hardcoded default is never used
+        settings.SECRET_KEY = secrets.token_urlsafe(64)
         logger.warning(
-            "SECRET_KEY is using the default value! "
-            "Set the SECRET_KEY environment variable to a secure random string in production."
+            "SECRET_KEY was not set — generated a random ephemeral key for development. "
+            "Set the SECRET_KEY environment variable to a stable value in production."
         )
     return settings

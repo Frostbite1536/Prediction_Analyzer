@@ -2,6 +2,7 @@
 """
 Advanced filtering functions for trades
 """
+
 import math
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
@@ -28,7 +29,7 @@ def _normalize_datetime(dt) -> datetime:
         return datetime.fromtimestamp(dt, tz=timezone.utc).replace(tzinfo=None)
 
     # Handle pandas Timestamp
-    if hasattr(dt, 'to_pydatetime'):
+    if hasattr(dt, "to_pydatetime"):
         dt = dt.to_pydatetime()
 
     # Handle timezone-aware datetime - convert to UTC then strip tzinfo
@@ -38,7 +39,9 @@ def _normalize_datetime(dt) -> datetime:
     return dt
 
 
-def filter_by_date(trades: List[Trade], start: Optional[str] = None, end: Optional[str] = None) -> List[Trade]:
+def filter_by_date(
+    trades: List[Trade], start: Optional[str] = None, end: Optional[str] = None
+) -> List[Trade]:
     """
     Filter trades between start and end dates
 
@@ -82,6 +85,7 @@ def filter_by_date(trades: List[Trade], start: Optional[str] = None, end: Option
         filtered.append(t)
     return filtered
 
+
 def filter_by_trade_type(trades: List[Trade], types: Optional[List[str]] = None) -> List[Trade]:
     """
     Filter trades by type (Buy/Sell)
@@ -95,6 +99,7 @@ def filter_by_trade_type(trades: List[Trade], types: Optional[List[str]] = None)
     """
     if not types:
         return trades
+
     # Match variant types: "Buy" also matches "Market Buy", "Limit Buy", etc.
     # Use word-boundary check to avoid matching "Buyback" when filtering for "Buy"
     def _matches(trade_type: str) -> bool:
@@ -105,7 +110,9 @@ def filter_by_trade_type(trades: List[Trade], types: Optional[List[str]] = None)
             if trade_type.endswith(" " + base) or trade_type.startswith(base + " "):
                 return True
         return False
+
     return [t for t in trades if _matches(t.type)]
+
 
 def filter_by_side(trades: List[Trade], sides: Optional[List[str]] = None) -> List[Trade]:
     """
@@ -122,7 +129,10 @@ def filter_by_side(trades: List[Trade], sides: Optional[List[str]] = None) -> Li
         return trades
     return [t for t in trades if t.side in sides]
 
-def filter_by_pnl(trades: List[Trade], min_pnl: Optional[float] = None, max_pnl: Optional[float] = None) -> List[Trade]:
+
+def filter_by_pnl(
+    trades: List[Trade], min_pnl: Optional[float] = None, max_pnl: Optional[float] = None
+) -> List[Trade]:
     """
     Filter trades by PnL thresholds
 

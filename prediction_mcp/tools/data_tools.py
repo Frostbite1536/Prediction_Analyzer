@@ -18,7 +18,12 @@ from prediction_analyzer.exceptions import TradeLoadError, NoTradesError, Invali
 from ..state import session
 from ..errors import error_result, safe_tool
 from ..serializers import to_json_text, serialize_trades
-from ..validators import validate_sort_field, validate_sort_order, validate_positive_int, validate_market_slug
+from ..validators import (
+    validate_sort_field,
+    validate_sort_order,
+    validate_positive_int,
+    validate_market_slug,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +210,7 @@ async def _handle_fetch_trades(arguments: dict):
     # Apply PnL computation for providers that don't supply it
     if provider.name in ("kalshi", "manifold", "polymarket"):
         from prediction_analyzer.providers.pnl_calculator import compute_realized_pnl
+
         trades = compute_realized_pnl(trades)
 
     # Deduplicate by tx_hash to prevent inflation on repeated fetches
@@ -241,12 +247,14 @@ async def _handle_list_markets(arguments: dict):
     for slug, title in sorted(markets.items()):
         market_trades = filter_trades_by_market_slug(session.trades, slug)
         sources = list({t.source for t in market_trades})
-        result.append({
-            "slug": slug,
-            "title": title,
-            "trade_count": len(market_trades),
-            "sources": sources,
-        })
+        result.append(
+            {
+                "slug": slug,
+                "title": title,
+                "trade_count": len(market_trades),
+                "sources": sources,
+            }
+        )
 
     return [types.TextContent(type="text", text=to_json_text(result))]
 
@@ -273,7 +281,7 @@ async def _handle_get_trade_details(arguments: dict):
     trades = sorted(trades, key=lambda t: getattr(t, sort_by, 0), reverse=reverse)
 
     total = len(trades)
-    trades = trades[offset:offset + limit]
+    trades = trades[offset : offset + limit]
 
     result = {
         "trades": serialize_trades(trades),

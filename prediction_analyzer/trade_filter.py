@@ -2,9 +2,11 @@
 """
 Trade filtering and deduplication utilities
 """
+
 from typing import List
 from difflib import get_close_matches
 from .trade_loader import Trade
+
 
 def filter_trades(trades: List[Trade], market_name: str, fuzzy: bool = True) -> List[Trade]:
     """
@@ -39,13 +41,16 @@ def filter_trades(trades: List[Trade], market_name: str, fuzzy: bool = True) -> 
     filtered = [t for t in trades if t.market == market_name or t.market_slug == market_name]
     return filtered
 
+
 def filter_trades_by_market_slug(trades: List[Trade], market_slug: str) -> List[Trade]:
     """Filter trades by exact market slug match"""
     return [t for t in trades if t.market_slug == market_slug]
 
+
 def filter_trades_by_source(trades: List[Trade], source: str) -> List[Trade]:
     """Filter trades by provider source (e.g. 'limitless', 'polymarket', 'kalshi', 'manifold')"""
     return [t for t in trades if t.source == source]
+
 
 def deduplicate_trades(trades: List[Trade]) -> List[Trade]:
     """
@@ -59,19 +64,19 @@ def deduplicate_trades(trades: List[Trade]) -> List[Trade]:
 
     for t in trades:
         # Format timestamp consistently
-        ts_str = t.timestamp.isoformat() if hasattr(t.timestamp, 'isoformat') else str(t.timestamp)
+        ts_str = t.timestamp.isoformat() if hasattr(t.timestamp, "isoformat") else str(t.timestamp)
 
         # Create identifier from key fields
         # Include BOTH market name and slug to prevent false duplicates
         # when slug is "unknown" (default) for different markets
         identifier = (
-            t.market,       # Include market name
+            t.market,  # Include market name
             t.market_slug,  # Include slug
             ts_str,
             t.price,
             t.shares,
             t.type,
-            t.side
+            t.side,
         )
 
         if identifier not in seen:
@@ -79,6 +84,7 @@ def deduplicate_trades(trades: List[Trade]) -> List[Trade]:
             unique_trades.append(t)
 
     return unique_trades
+
 
 def get_unique_markets(trades: List[Trade]) -> dict:
     """
@@ -92,6 +98,7 @@ def get_unique_markets(trades: List[Trade]) -> dict:
         if t.market_slug and t.market:
             markets[t.market_slug] = t.market
     return markets
+
 
 def group_trades_by_market(trades: List[Trade]) -> dict:
     """

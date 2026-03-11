@@ -2,6 +2,7 @@
 """
 Pydantic schemas for request/response validation
 """
+
 from .user import UserCreate, UserLogin, UserResponse, UserUpdate
 from .auth import Token, TokenData
 from .trade import (

@@ -5,6 +5,7 @@ Shared fixtures and configuration for static pattern tests.
 These tests are designed to run BEFORE implementing new features to ensure
 existing patterns and contracts are maintained.
 """
+
 import pytest
 from datetime import datetime, timedelta
 from typing import List
@@ -25,13 +26,14 @@ def sample_trade() -> Trade:
         type="Buy",
         side="YES",
         pnl=0.0,
-        tx_hash="0x123abc"
+        tx_hash="0x123abc",
     )
 
 
 @pytest.fixture
 def sample_trade_factory():
     """Factory function to create trades with custom attributes."""
+
     def _create_trade(**kwargs) -> Trade:
         defaults = {
             "market": "Test Market",
@@ -43,13 +45,14 @@ def sample_trade_factory():
             "type": "Buy",
             "side": "YES",
             "pnl": 0.0,
-            "tx_hash": None
+            "tx_hash": None,
         }
         defaults.update(kwargs)
         # Auto-set pnl_is_set if pnl was explicitly provided and not already set
         if "pnl_is_set" not in kwargs and "pnl" in kwargs:
             defaults["pnl_is_set"] = True
         return Trade(**defaults)
+
     return _create_trade
 
 
@@ -63,7 +66,7 @@ def sample_trades_list(sample_trade_factory) -> List[Trade]:
             side="YES",
             price=45.0,
             cost=4.5,
-            pnl=10.0
+            pnl=10.0,
         ),
         sample_trade_factory(
             timestamp=datetime(2024, 3, 15, 14, 30, 0),
@@ -71,7 +74,7 @@ def sample_trades_list(sample_trade_factory) -> List[Trade]:
             side="YES",
             price=55.0,
             cost=5.5,
-            pnl=-5.0
+            pnl=-5.0,
         ),
         sample_trade_factory(
             timestamp=datetime(2024, 6, 1, 9, 0, 0),
@@ -79,7 +82,7 @@ def sample_trades_list(sample_trade_factory) -> List[Trade]:
             side="NO",
             price=30.0,
             cost=3.0,
-            pnl=15.0
+            pnl=15.0,
         ),
         sample_trade_factory(
             timestamp=datetime(2024, 9, 1, 16, 45, 0),
@@ -87,7 +90,7 @@ def sample_trades_list(sample_trade_factory) -> List[Trade]:
             side="NO",
             price=70.0,
             cost=7.0,
-            pnl=0.0
+            pnl=0.0,
         ),
         sample_trade_factory(
             timestamp=datetime(2024, 12, 1, 11, 15, 0),
@@ -95,7 +98,7 @@ def sample_trades_list(sample_trade_factory) -> List[Trade]:
             side="YES",
             price=50.0,
             cost=5.0,
-            pnl=-8.0
+            pnl=-8.0,
         ),
     ]
 
@@ -157,11 +160,7 @@ def multi_market_trades(sample_trade_factory) -> List[Trade]:
 @pytest.fixture
 def all_trade_types(sample_trade_factory) -> List[Trade]:
     """Create trades with all possible trade types."""
-    trade_types = [
-        "Buy", "Sell",
-        "Market Buy", "Market Sell",
-        "Limit Buy", "Limit Sell"
-    ]
+    trade_types = ["Buy", "Sell", "Market Buy", "Market Sell", "Limit Buy", "Limit Sell"]
     return [sample_trade_factory(type=t) for t in trade_types]
 
 

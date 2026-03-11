@@ -2,6 +2,7 @@
 """
 Simple chart generation for novice users
 """
+
 import logging
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -16,7 +17,14 @@ logger = logging.getLogger(__name__)
 # Default output directory: charts_output/ under project root
 _DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "charts_output"
 
-def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None, output_dir: Optional[str] = None, show: bool = True):
+
+def generate_simple_chart(
+    trades: List[Trade],
+    market_name: str,
+    resolved_outcome: str = None,
+    output_dir: Optional[str] = None,
+    show: bool = True,
+):
     """
     Generate a simple 2-panel chart showing price and exposure
 
@@ -74,21 +82,29 @@ def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcom
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
     # Clean title (remove emojis)
-    safe_title = market_name.encode('ascii', 'ignore').decode('ascii')
+    safe_title = market_name.encode("ascii", "ignore").decode("ascii")
     title_text = f"{safe_title}"
     if resolved_outcome:
         title_text += f"\nResolved: {resolved_outcome} | PnL: ${final_pnl:+.2f}"
-    fig.suptitle(title_text, fontsize=14, fontweight='bold')
+    fig.suptitle(title_text, fontsize=14, fontweight="bold")
 
     # Plot 1: Price with trade bubbles
-    ax1.plot(times, prices, color='#1f77b4', alpha=0.5, linewidth=2, label='Price')
+    ax1.plot(times, prices, color="#1f77b4", alpha=0.5, linewidth=2, label="Price")
 
     # Add trade markers
     for t in sorted_trades:
         color, marker, _ = get_trade_style(t.type, t.side)
         size = min(max(t.cost * 2, 20), 500)
-        ax1.scatter(t.timestamp, t.price, s=size, c=color, marker=marker,
-                   alpha=0.8, edgecolors='black', linewidths=0.5)
+        ax1.scatter(
+            t.timestamp,
+            t.price,
+            s=size,
+            c=color,
+            marker=marker,
+            alpha=0.8,
+            edgecolors="black",
+            linewidths=0.5,
+        )
 
     ax1.set_ylabel("Price (¢)", fontsize=11)
     ax1.set_ylim(-5, 105)
@@ -96,15 +112,15 @@ def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcom
     ax1.legend()
 
     # Plot 2: Net exposure
-    ax2.fill_between(times, exposures, 0, color='orange', alpha=0.3)
-    ax2.plot(times, exposures, color='orange', linewidth=2, label='Net Cash Invested')
+    ax2.fill_between(times, exposures, 0, color="orange", alpha=0.3)
+    ax2.plot(times, exposures, color="orange", linewidth=2, label="Net Cash Invested")
     ax2.set_ylabel("Net Cash ($)", fontsize=11)
     ax2.set_xlabel("Time", fontsize=11)
     ax2.grid(True, alpha=0.3)
     ax2.legend()
 
     # Format x-axis
-    ax2.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))
+    ax2.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
     fig.autofmt_xdate()
 
     plt.tight_layout()
@@ -114,7 +130,7 @@ def generate_simple_chart(trades: List[Trade], market_name: str, resolved_outcom
     out.mkdir(parents=True, exist_ok=True)
     safe_market_name = _sanitize_filename(market_name, max_length=30)
     filepath = out / f"chart_{safe_market_name}.png"
-    plt.savefig(str(filepath), dpi=150, bbox_inches='tight')
+    plt.savefig(str(filepath), dpi=150, bbox_inches="tight")
     logger.info("Chart saved: %s", filepath)
     if show:
         plt.show()

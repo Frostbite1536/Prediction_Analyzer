@@ -9,6 +9,7 @@ Filters should always:
 3. Not modify the original trades
 4. Handle edge cases gracefully
 """
+
 import pytest
 from datetime import datetime, timedelta
 
@@ -74,11 +75,7 @@ class TestFilterByDateContracts:
         """Date range should filter to trades within range."""
         from prediction_analyzer.filters import filter_by_date
 
-        result = filter_by_date(
-            trades_spanning_year,
-            start="2024-03-01",
-            end="2024-08-31"
-        )
+        result = filter_by_date(trades_spanning_year, start="2024-03-01", end="2024-08-31")
         for trade in result:
             assert trade.timestamp >= datetime(2024, 3, 1)
             assert trade.timestamp <= datetime(2024, 8, 31, 23, 59, 59)
@@ -146,10 +143,7 @@ class TestFilterByTradeTypeContracts:
         """Non-existent type should return empty list."""
         from prediction_analyzer.filters import filter_by_trade_type
 
-        result = filter_by_trade_type(
-            sample_trades_list,
-            types=["NonExistentType"]
-        )
+        result = filter_by_trade_type(sample_trades_list, types=["NonExistentType"])
         assert result == []
 
 
@@ -293,7 +287,7 @@ class TestFilterChaining:
             filter_by_date,
             filter_by_trade_type,
             filter_by_side,
-            filter_by_pnl
+            filter_by_pnl,
         )
 
         result = sample_trades_list

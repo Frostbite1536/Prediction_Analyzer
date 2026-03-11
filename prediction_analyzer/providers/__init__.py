@@ -4,6 +4,7 @@ Multi-market provider system for prediction market data.
 
 Supports: Limitless Exchange, Polymarket, Kalshi, Manifold Markets.
 """
+
 from .base import MarketProvider, ProviderRegistry
 from .limitless import LimitlessProvider
 from .polymarket import PolymarketProvider

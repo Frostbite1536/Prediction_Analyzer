@@ -2,6 +2,7 @@
 """
 Trade loading functionality - supports JSON, CSV, XLSX
 """
+
 import json
 import logging
 import pandas as pd
@@ -14,6 +15,11 @@ import re
 from .exceptions import TradeLoadError
 
 logger = logging.getLogger(__name__)
+
+# Sentinel cap for infinite values — used throughout the codebase to replace
+# float('inf') with a finite number safe for JSON serialization and display.
+INF_CAP = 999999.99
+
 
 def sanitize_numeric(value: float) -> float:
     """
@@ -29,13 +35,14 @@ def sanitize_numeric(value: float) -> float:
         if math.isnan(value):
             return 0.0
         if math.isinf(value):
-            return 999999.99 if value > 0 else -999999.99
+            return INF_CAP if value > 0 else -INF_CAP
     return value
 
 
 @dataclass
 class Trade:
     """Data class representing a single trade"""
+
     market: str
     market_slug: str
     timestamp: datetime
@@ -56,7 +63,11 @@ class Trade:
         return {
             "market": self.market,
             "market_slug": self.market_slug,
-            "timestamp": self.timestamp.isoformat() if hasattr(self.timestamp, "isoformat") else str(self.timestamp),
+            "timestamp": (
+                self.timestamp.isoformat()
+                if hasattr(self.timestamp, "isoformat")
+                else str(self.timestamp)
+            ),
             "price": sanitize_numeric(self.price),
             "shares": sanitize_numeric(self.shares),
             "cost": sanitize_numeric(self.cost),
@@ -91,7 +102,7 @@ def _parse_timestamp(value) -> datetime:
         return value
 
     # If it's a pandas Timestamp
-    if hasattr(value, 'to_pydatetime'):
+    if hasattr(value, "to_pydatetime"):
         dt = value.to_pydatetime()
         if dt.tzinfo is not None:
             return dt.astimezone(timezone.utc).replace(tzinfo=None)
@@ -102,7 +113,7 @@ def _parse_timestamp(value) -> datetime:
         try:
             # Handle RFC 3339/ISO 8601 format (e.g., "2024-01-15T10:30:00Z")
             # Replace 'Z' with '+00:00' for fromisoformat compatibility
-            clean_value = value.replace('Z', '+00:00')
+            clean_value = value.replace("Z", "+00:00")
             dt = datetime.fromisoformat(clean_value)
             # Convert to naive UTC
             if dt.tzinfo is not None:
@@ -116,7 +127,9 @@ def _parse_timestamp(value) -> datetime:
             numeric_value = float(value)
             # If it's a large number, assume milliseconds
             if numeric_value > 1e12:
-                return datetime.fromtimestamp(numeric_value / 1000, tz=timezone.utc).replace(tzinfo=None)
+                return datetime.fromtimestamp(numeric_value / 1000, tz=timezone.utc).replace(
+                    tzinfo=None
+                )
             return datetime.fromtimestamp(numeric_value, tz=timezone.utc).replace(tzinfo=None)
         except ValueError:
             pass
@@ -131,7 +144,7 @@ def _parse_timestamp(value) -> datetime:
     # Fallback: try pandas parsing
     try:
         result = pd.to_datetime(value, utc=True)
-        if hasattr(result, 'to_pydatetime'):
+        if hasattr(result, "to_pydatetime"):
             dt = result.to_pydatetime()
             if dt.tzinfo is not None:
                 return dt.astimezone(timezone.utc).replace(tzinfo=None)
@@ -156,14 +169,14 @@ def _sanitize_filename(name: str, max_length: int = 50) -> str:
     # Remove or replace characters that are invalid in filenames
     # Invalid on Windows: < > : " / \ | ? *
     # Also remove control characters and other problematic chars
-    sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', name)
+    sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name)
     # Replace multiple underscores with single
-    sanitized = re.sub(r'_+', '_', sanitized)
+    sanitized = re.sub(r"_+", "_", sanitized)
     # Remove leading/trailing underscores and spaces
-    sanitized = sanitized.strip('_ ')
+    sanitized = sanitized.strip("_ ")
     # Truncate to max length
     if len(sanitized) > max_length:
-        sanitized = sanitized[:max_length].rstrip('_')
+        sanitized = sanitized[:max_length].rstrip("_")
     # Ensure we have something
     if not sanitized:
         sanitized = "unnamed"
@@ -196,6 +209,7 @@ def load_trades(file_path: str) -> List[Trade]:
         # Auto-detect provider from file format
         try:
             from .providers import ProviderRegistry
+
             sample = raw_trades[:5] if raw_trades else []
             provider = ProviderRegistry.detect_from_file(sample)
             if provider and provider.name != "limitless":
@@ -225,14 +239,15 @@ def load_trades(file_path: str) -> List[Trade]:
             if not market_slug:
                 market_slug = "unknown"
 
-            # Convert from micro-units (USDC has 6 decimals)
+            # Convert from micro-units (USDC uses 6 decimal places)
             # If data comes from API (has collateralAmount), values are in micro-units
+            USDC_DECIMALS = 1_000_000
             has_pnl = "pnl" in t and t["pnl"] is not None
             if "collateralAmount" in t:
                 # API data - convert from micro-units to regular units
-                raw_cost = float(t.get("collateralAmount") or 0) / 1_000_000
-                raw_pnl = float(t.get("pnl") or 0) / 1_000_000
-                raw_shares = float(t.get("outcomeTokenAmount") or 0) / 1_000_000
+                raw_cost = float(t.get("collateralAmount") or 0) / USDC_DECIMALS
+                raw_pnl = float(t.get("pnl") or 0) / USDC_DECIMALS
+                raw_shares = float(t.get("outcomeTokenAmount") or 0) / USDC_DECIMALS
             else:
                 # File data - already in regular units
                 raw_cost = float(t.get("cost") or 0)
@@ -266,7 +281,7 @@ def load_trades(file_path: str) -> List[Trade]:
                 side=side,
                 pnl=raw_pnl,
                 pnl_is_set=has_pnl,
-                tx_hash=t.get("tx_hash") or t.get("transactionHash")
+                tx_hash=t.get("tx_hash") or t.get("transactionHash"),
             )
             trades.append(trade)
 
@@ -275,6 +290,7 @@ def load_trades(file_path: str) -> List[Trade]:
         raise TradeLoadError(f"Failed to load trades from {file_path}: {e}") from e
 
     return trades
+
 
 def save_trades(trades: List[Union[Trade, dict]], file_path: str):
     """Save trades to JSON file"""
@@ -289,8 +305,8 @@ def save_trades(trades: List[Union[Trade, dict]], file_path: str):
 
     # Convert datetime to string for JSON serialization
     for t in trades_dict:
-        if 'timestamp' in t and isinstance(t['timestamp'], datetime):
-            t['timestamp'] = t['timestamp'].isoformat()
+        if "timestamp" in t and isinstance(t["timestamp"], datetime):
+            t["timestamp"] = t["timestamp"].isoformat()
 
-    with open(file_path, 'w', encoding='utf-8') as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         json.dump(trades_dict, f, indent=2)

@@ -6,6 +6,7 @@ Bug #1: export_tools path traversal check rejects valid absolute paths
 Bug #2: _apply_filters silently returns empty list when min_pnl > max_pnl
 Bug #3: filter_trades stores empty string/list values in active_filters
 """
+
 import json
 import math
 import os
@@ -19,10 +20,10 @@ from prediction_analyzer.trade_loader import Trade
 from prediction_analyzer.exceptions import InvalidFilterError
 from prediction_mcp.state import session
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_trade(**kwargs):
     """Create a Trade with sensible defaults, overriding with kwargs."""
@@ -48,6 +49,7 @@ def _make_trade(**kwargs):
 # Bug #1: export_tools path traversal check rejects valid absolute paths
 # ===========================================================================
 
+
 class TestExportPathTraversal:
     """export_trades should allow valid absolute paths like /tmp/foo.csv."""
 
@@ -68,10 +70,15 @@ class TestExportPathTraversal:
             path = f.name
 
         try:
-            result = asyncio.run(export_tools.handle_tool("export_trades", {
-                "format": "csv",
-                "output_path": path,
-            }))
+            result = asyncio.run(
+                export_tools.handle_tool(
+                    "export_trades",
+                    {
+                        "format": "csv",
+                        "output_path": path,
+                    },
+                )
+            )
             data = json.loads(result[0].text)
             assert data["trade_count"] == 1
             assert data["format"] == "csv"
@@ -84,10 +91,15 @@ class TestExportPathTraversal:
         """Paths with '..' components should still be rejected."""
         from prediction_mcp.tools import export_tools
 
-        result = asyncio.run(export_tools.handle_tool("export_trades", {
-            "format": "csv",
-            "output_path": "/tmp/../etc/test.csv",
-        }))
+        result = asyncio.run(
+            export_tools.handle_tool(
+                "export_trades",
+                {
+                    "format": "csv",
+                    "output_path": "/tmp/../etc/test.csv",
+                },
+            )
+        )
         assert "'..' " in result[0].text or "error" in result[0].text.lower()
 
     def test_relative_path_allowed(self):
@@ -96,10 +108,15 @@ class TestExportPathTraversal:
 
         path = os.path.join(tempfile.gettempdir(), "test_export_rel.json")
         try:
-            result = asyncio.run(export_tools.handle_tool("export_trades", {
-                "format": "json",
-                "output_path": path,
-            }))
+            result = asyncio.run(
+                export_tools.handle_tool(
+                    "export_trades",
+                    {
+                        "format": "json",
+                        "output_path": path,
+                    },
+                )
+            )
             data = json.loads(result[0].text)
             assert data["trade_count"] == 1
         finally:
@@ -110,6 +127,7 @@ class TestExportPathTraversal:
 # ===========================================================================
 # Bug #2: _apply_filters silently returns empty when min_pnl > max_pnl
 # ===========================================================================
+
 
 class TestApplyFiltersMinMaxPnl:
     """apply_filters should raise InvalidFilterError when min_pnl > max_pnl."""
@@ -168,6 +186,7 @@ class TestApplyFiltersMinMaxPnl:
 # Bug #3: filter_trades stores empty string/list values in active_filters
 # ===========================================================================
 
+
 class TestActiveFiltersNoEmpty:
     """filter_trades should not store empty strings or empty lists as active filters."""
 
@@ -184,10 +203,15 @@ class TestActiveFiltersNoEmpty:
         """Empty string filter values should not appear in active_filters."""
         from prediction_mcp.tools import filter_tools
 
-        result = asyncio.run(filter_tools.handle_tool("filter_trades", {
-            "market_slug": "",
-            "start_date": "",
-        }))
+        result = asyncio.run(
+            filter_tools.handle_tool(
+                "filter_trades",
+                {
+                    "market_slug": "",
+                    "start_date": "",
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert "market_slug" not in data["active_filters"]
         assert "start_date" not in data["active_filters"]
@@ -196,10 +220,15 @@ class TestActiveFiltersNoEmpty:
         """Empty list filter values should not appear in active_filters."""
         from prediction_mcp.tools import filter_tools
 
-        result = asyncio.run(filter_tools.handle_tool("filter_trades", {
-            "trade_types": [],
-            "sides": [],
-        }))
+        result = asyncio.run(
+            filter_tools.handle_tool(
+                "filter_trades",
+                {
+                    "trade_types": [],
+                    "sides": [],
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert "trade_types" not in data["active_filters"]
         assert "sides" not in data["active_filters"]
@@ -208,10 +237,15 @@ class TestActiveFiltersNoEmpty:
         """Non-empty filter values should still be stored."""
         from prediction_mcp.tools import filter_tools
 
-        result = asyncio.run(filter_tools.handle_tool("filter_trades", {
-            "sides": ["YES"],
-            "min_pnl": 0.0,
-        }))
+        result = asyncio.run(
+            filter_tools.handle_tool(
+                "filter_trades",
+                {
+                    "sides": ["YES"],
+                    "min_pnl": 0.0,
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert "sides" in data["active_filters"]
         # 0.0 is a valid filter value (not empty)
@@ -221,6 +255,7 @@ class TestActiveFiltersNoEmpty:
 # ===========================================================================
 # Additional: _apply_filters combined filter tests (coverage gap)
 # ===========================================================================
+
 
 class TestApplyFiltersCombined:
     """Test multiple filters applied simultaneously."""
@@ -235,11 +270,14 @@ class TestApplyFiltersCombined:
             _make_trade(timestamp=datetime(2024, 1, 10), side="YES"),
             _make_trade(timestamp=datetime(2024, 2, 1), side="YES"),
         ]
-        result = apply_filters(trades, {
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-15",
-            "sides": ["YES"],
-        })
+        result = apply_filters(
+            trades,
+            {
+                "start_date": "2024-01-01",
+                "end_date": "2024-01-15",
+                "sides": ["YES"],
+            },
+        )
         assert len(result) == 2
 
     def test_all_filters_at_once(self):
@@ -250,27 +288,36 @@ class TestApplyFiltersCombined:
             _make_trade(
                 market_slug="m1",
                 timestamp=datetime(2024, 3, 1),
-                type="Buy", side="YES", pnl=5.0,
+                type="Buy",
+                side="YES",
+                pnl=5.0,
             ),
             _make_trade(
                 market_slug="m1",
                 timestamp=datetime(2024, 3, 2),
-                type="Sell", side="YES", pnl=-2.0,
+                type="Sell",
+                side="YES",
+                pnl=-2.0,
             ),
             _make_trade(
                 market_slug="m2",
                 timestamp=datetime(2024, 3, 1),
-                type="Buy", side="NO", pnl=10.0,
+                type="Buy",
+                side="NO",
+                pnl=10.0,
             ),
         ]
-        result = apply_filters(trades, {
-            "market_slug": "m1",
-            "start_date": "2024-03-01",
-            "end_date": "2024-03-03",
-            "trade_types": ["Buy"],
-            "sides": ["YES"],
-            "min_pnl": 0,
-        })
+        result = apply_filters(
+            trades,
+            {
+                "market_slug": "m1",
+                "start_date": "2024-03-01",
+                "end_date": "2024-03-03",
+                "trade_types": ["Buy"],
+                "sides": ["YES"],
+                "min_pnl": 0,
+            },
+        )
         assert len(result) == 1
         assert result[0].pnl == 5.0
 
@@ -294,11 +341,13 @@ class TestApplyFiltersCombined:
 # Additional: Kalshi normalize_trade regression tests
 # ===========================================================================
 
+
 class TestKalshiNormalizeTrade:
     """Kalshi normalize_trade should handle both new and legacy price fields."""
 
     def _provider(self):
         from prediction_analyzer.providers.kalshi import KalshiProvider
+
         return KalshiProvider()
 
     def test_fixed_price_field_used_when_present(self):
@@ -451,6 +500,7 @@ class TestKalshiNormalizeTrade:
 # Additional: PnL calculator FIFO tests
 # ===========================================================================
 
+
 class TestPnlCalculatorFifo:
     """compute_realized_pnl FIFO matching correctness."""
 
@@ -459,10 +509,12 @@ class TestPnlCalculatorFifo:
         from prediction_analyzer.providers.pnl_calculator import compute_realized_pnl
 
         trades = [
-            _make_trade(type="Buy", price=0.40, shares=10, cost=4.0,
-                        timestamp=datetime(2024, 1, 1)),
-            _make_trade(type="Sell", price=0.60, shares=10, cost=6.0,
-                        timestamp=datetime(2024, 1, 2)),
+            _make_trade(
+                type="Buy", price=0.40, shares=10, cost=4.0, timestamp=datetime(2024, 1, 1)
+            ),
+            _make_trade(
+                type="Sell", price=0.60, shares=10, cost=6.0, timestamp=datetime(2024, 1, 2)
+            ),
         ]
         result = compute_realized_pnl(trades)
         sell = [t for t in result if t.type == "Sell"][0]
@@ -475,12 +527,11 @@ class TestPnlCalculatorFifo:
         from prediction_analyzer.providers.pnl_calculator import compute_realized_pnl
 
         trades = [
-            _make_trade(type="Buy", price=0.30, shares=5, cost=1.5,
-                        timestamp=datetime(2024, 1, 1)),
-            _make_trade(type="Buy", price=0.50, shares=5, cost=2.5,
-                        timestamp=datetime(2024, 1, 2)),
-            _make_trade(type="Sell", price=0.60, shares=5, cost=3.0,
-                        timestamp=datetime(2024, 1, 3)),
+            _make_trade(type="Buy", price=0.30, shares=5, cost=1.5, timestamp=datetime(2024, 1, 1)),
+            _make_trade(type="Buy", price=0.50, shares=5, cost=2.5, timestamp=datetime(2024, 1, 2)),
+            _make_trade(
+                type="Sell", price=0.60, shares=5, cost=3.0, timestamp=datetime(2024, 1, 3)
+            ),
         ]
         result = compute_realized_pnl(trades)
         sell = [t for t in result if t.type == "Sell"][0]
@@ -493,11 +544,18 @@ class TestPnlCalculatorFifo:
         from prediction_analyzer.providers.pnl_calculator import compute_realized_pnl
 
         trades = [
-            _make_trade(type="Buy", price=0.40, shares=10, cost=4.0,
-                        timestamp=datetime(2024, 1, 1)),
-            _make_trade(type="Sell", price=0.60, shares=10, cost=6.0,
-                        pnl=99.0, pnl_is_set=True,
-                        timestamp=datetime(2024, 1, 2)),
+            _make_trade(
+                type="Buy", price=0.40, shares=10, cost=4.0, timestamp=datetime(2024, 1, 1)
+            ),
+            _make_trade(
+                type="Sell",
+                price=0.60,
+                shares=10,
+                cost=6.0,
+                pnl=99.0,
+                pnl_is_set=True,
+                timestamp=datetime(2024, 1, 2),
+            ),
         ]
         result = compute_realized_pnl(trades)
         sell = [t for t in result if t.type == "Sell"][0]

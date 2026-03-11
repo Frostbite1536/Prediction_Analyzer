@@ -1,5 +1,6 @@
 # tests/mcp/test_state.py
 """Tests for MCP session state."""
+
 from prediction_mcp.state import SessionState, session
 from .conftest import make_trades
 

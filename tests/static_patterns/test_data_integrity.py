@@ -6,6 +6,7 @@ These tests verify that data serialization and deserialization
 maintains integrity. Data loss or corruption during I/O can cause
 subtle bugs that are hard to track down.
 """
+
 import pytest
 import json
 import tempfile
@@ -57,9 +58,7 @@ class TestJSONSerializationIntegrity:
         """save_trades and load_trades should roundtrip correctly."""
         from prediction_analyzer.trade_loader import save_trades, load_trades
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
@@ -84,9 +83,7 @@ class TestJSONSerializationIntegrity:
         """Saving empty list should create valid JSON."""
         from prediction_analyzer.trade_loader import save_trades, load_trades
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
@@ -100,9 +97,7 @@ class TestJSONSerializationIntegrity:
         """Timestamps should serialize to ISO format."""
         from prediction_analyzer.trade_loader import save_trades
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
@@ -129,15 +124,9 @@ class TestNumericPrecision:
 
         precise_value = 123.456789012345
 
-        trade = sample_trade_factory(
-            price=precise_value,
-            cost=precise_value,
-            pnl=precise_value
-        )
+        trade = sample_trade_factory(price=precise_value, cost=precise_value, pnl=precise_value)
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
@@ -155,16 +144,9 @@ class TestNumericPrecision:
         """Zero values should be preserved."""
         from prediction_analyzer.trade_loader import save_trades, load_trades
 
-        trade = sample_trade_factory(
-            price=0.0,
-            cost=0.0,
-            shares=0.0,
-            pnl=0.0
-        )
+        trade = sample_trade_factory(price=0.0, cost=0.0, shares=0.0, pnl=0.0)
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
@@ -184,9 +166,7 @@ class TestNumericPrecision:
 
         trade = sample_trade_factory(pnl=-123.456)
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
@@ -209,9 +189,7 @@ class TestStringIntegrity:
 
         trade = sample_trade_factory(market=unicode_market)
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
@@ -229,9 +207,7 @@ class TestStringIntegrity:
         # Note: empty market might get replaced with "Unknown" by loader
         trade = sample_trade_factory(tx_hash="")
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
@@ -279,9 +255,7 @@ class TestExportIntegrity:
         """export_to_json should create valid, parseable JSON."""
         from prediction_analyzer.reporting.report_data import export_to_json
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
@@ -302,9 +276,7 @@ class TestExportIntegrity:
         from prediction_analyzer.reporting.report_data import export_to_csv
         import pandas as pd
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".csv", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             temp_path = f.name
 
         try:
@@ -322,9 +294,7 @@ class TestExportIntegrity:
         from prediction_analyzer.reporting.report_data import export_to_excel
         import pandas as pd
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".xlsx", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".xlsx", delete=False) as f:
             temp_path = f.name
 
         try:

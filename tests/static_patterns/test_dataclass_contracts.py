@@ -6,6 +6,7 @@ These tests verify that the Trade dataclass maintains its structure
 and behavior. Changes to the dataclass can break serialization,
 PnL calculations, and other dependent code.
 """
+
 import pytest
 from dataclasses import fields, is_dataclass
 from datetime import datetime
@@ -18,6 +19,7 @@ class TestTradeDataclassStructure:
     def test_trade_is_dataclass(self):
         """Trade should be a dataclass."""
         from prediction_analyzer.trade_loader import Trade
+
         assert is_dataclass(Trade)
 
     def test_trade_required_fields(self):
@@ -35,8 +37,9 @@ class TestTradeDataclassStructure:
             "type",
             "side",
         }
-        assert required_fields.issubset(field_names), \
-            f"Missing fields: {required_fields - field_names}"
+        assert required_fields.issubset(
+            field_names
+        ), f"Missing fields: {required_fields - field_names}"
 
     def test_trade_optional_fields(self):
         """Trade should have expected optional fields."""
@@ -44,16 +47,18 @@ class TestTradeDataclassStructure:
 
         field_names = {f.name for f in fields(Trade)}
         optional_fields = {"pnl", "tx_hash"}
-        assert optional_fields.issubset(field_names), \
-            f"Missing optional fields: {optional_fields - field_names}"
+        assert optional_fields.issubset(
+            field_names
+        ), f"Missing optional fields: {optional_fields - field_names}"
 
     def test_trade_field_count(self):
         """Trade should have exactly 14 fields."""
         from prediction_analyzer.trade_loader import Trade
 
         field_count = len(fields(Trade))
-        assert field_count == 14, \
-            f"Expected 14 fields, got {field_count}. Fields were added or removed."
+        assert (
+            field_count == 14
+        ), f"Expected 14 fields, got {field_count}. Fields were added or removed."
 
 
 class TestTradeFieldTypes:
@@ -119,7 +124,7 @@ class TestTradeDefaultValues:
             shares=10.0,
             cost=5.0,
             type="Buy",
-            side="YES"
+            side="YES",
         )
         assert trade.pnl == 0.0
 
@@ -135,7 +140,7 @@ class TestTradeDefaultValues:
             shares=10.0,
             cost=5.0,
             type="Buy",
-            side="YES"
+            side="YES",
         )
         assert trade.tx_hash is None
 
@@ -157,7 +162,7 @@ class TestTradeInstantiation:
             type="Market Buy",
             side="NO",
             pnl=10.25,
-            tx_hash="0xdeadbeef"
+            tx_hash="0xdeadbeef",
         )
 
         assert trade.market == "Full Test Market"
@@ -183,7 +188,7 @@ class TestTradeInstantiation:
             shares=10.0,
             cost=5.0,
             type="Buy",
-            side="YES"
+            side="YES",
         )
 
         assert trade.market == "Min Market"
@@ -231,16 +236,8 @@ class TestTradeEquality:
 
     def test_identical_trades_are_equal(self, sample_trade_factory):
         """Two trades with same values should be equal."""
-        trade1 = sample_trade_factory(
-            timestamp=datetime(2024, 1, 1),
-            price=50.0,
-            pnl=10.0
-        )
-        trade2 = sample_trade_factory(
-            timestamp=datetime(2024, 1, 1),
-            price=50.0,
-            pnl=10.0
-        )
+        trade1 = sample_trade_factory(timestamp=datetime(2024, 1, 1), price=50.0, pnl=10.0)
+        trade2 = sample_trade_factory(timestamp=datetime(2024, 1, 1), price=50.0, pnl=10.0)
 
         assert trade1 == trade2
 
@@ -257,11 +254,7 @@ class TestTradeTypeValues:
 
     def test_valid_trade_types(self, sample_trade_factory):
         """All valid trade types should be instantiable."""
-        valid_types = [
-            "Buy", "Sell",
-            "Market Buy", "Market Sell",
-            "Limit Buy", "Limit Sell"
-        ]
+        valid_types = ["Buy", "Sell", "Market Buy", "Market Sell", "Limit Buy", "Limit Sell"]
 
         for trade_type in valid_types:
             trade = sample_trade_factory(type=trade_type)

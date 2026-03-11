@@ -2,6 +2,7 @@
 """
 Authentication service - JWT tokens and password hashing
 """
+
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -30,11 +31,7 @@ class AuthService:
         """Hash a password"""
         return pwd_context.hash(password)
 
-    def create_access_token(
-        self,
-        data: dict,
-        expires_delta: Optional[timedelta] = None
-    ) -> str:
+    def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """
         Create a JWT access token
 
@@ -46,23 +43,24 @@ class AuthService:
             Encoded JWT token string
         """
         to_encode = data.copy()
+        # JWT 'sub' claim must be a string per RFC 7519 / PyJWT >=2.9
+        if "sub" in to_encode:
+            to_encode["sub"] = str(to_encode["sub"])
         if expires_delta:
             expire = datetime.now(timezone.utc) + expires_delta
         else:
             expire = datetime.now(timezone.utc) + timedelta(
                 minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
             )
-        to_encode.update({
-            "exp": expire,
-            "iat": datetime.now(timezone.utc),
-            "iss": "prediction-analyzer",
-            "aud": "prediction-analyzer-api",
-        })
-        encoded_jwt = jwt.encode(
-            to_encode,
-            settings.SECRET_KEY,
-            algorithm=settings.ALGORITHM
+        to_encode.update(
+            {
+                "exp": expire,
+                "iat": datetime.now(timezone.utc),
+                "iss": "prediction-analyzer",
+                "aud": "prediction-analyzer-api",
+            }
         )
+        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         return encoded_jwt
 
     def decode_token(self, token: str) -> Optional[TokenData]:
@@ -83,19 +81,15 @@ class AuthService:
                 issuer="prediction-analyzer",
                 audience="prediction-analyzer-api",
             )
-            user_id: int = payload.get("sub")
-            if user_id is None:
+            raw_sub = payload.get("sub")
+            if raw_sub is None:
                 return None
+            user_id = int(raw_sub)
             return TokenData(user_id=user_id)
         except (jwt.InvalidTokenError, jwt.DecodeError, jwt.ExpiredSignatureError):
             return None
 
-    def authenticate_user(
-        self,
-        db: Session,
-        email: str,
-        password: str
-    ) -> Optional[User]:
+    def authenticate_user(self, db: Session, email: str, password: str) -> Optional[User]:
         """
         Authenticate a user by email and password
 
@@ -126,13 +120,7 @@ class AuthService:
         """Get user by ID"""
         return db.query(User).filter(User.id == user_id).first()
 
-    def create_user(
-        self,
-        db: Session,
-        email: str,
-        username: str,
-        password: str
-    ) -> User:
+    def create_user(self, db: Session, email: str, username: str, password: str) -> User:
         """
         Create a new user
 
@@ -146,11 +134,7 @@ class AuthService:
             Created User object
         """
         hashed_password = self.get_password_hash(password)
-        user = User(
-            email=email,
-            username=username,
-            hashed_password=hashed_password
-        )
+        user = User(email=email, username=username, hashed_password=hashed_password)
         db.add(user)
         db.commit()
         db.refresh(user)

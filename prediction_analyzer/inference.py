@@ -2,11 +2,15 @@
 """
 Market outcome inference logic
 """
+
 from typing import Optional, Tuple, List
 from .trade_loader import Trade
 from .config import PRICE_RESOLUTION_THRESHOLD
 
-def infer_resolved_side_from_trades(trades: List[Trade], threshold: float = PRICE_RESOLUTION_THRESHOLD) -> Tuple[Optional[str], Optional[Trade]]:
+
+def infer_resolved_side_from_trades(
+    trades: List[Trade], threshold: float = PRICE_RESOLUTION_THRESHOLD
+) -> Tuple[Optional[str], Optional[Trade]]:
     """
     Infer the resolved outcome of a market from trade history
 
@@ -37,6 +41,7 @@ def infer_resolved_side_from_trades(trades: List[Trade], threshold: float = PRIC
         inferred = "NO" if side == "YES" else "YES"
 
     return inferred, latest
+
 
 def detect_market_resolution(trades: List[Trade]) -> Optional[str]:
     """

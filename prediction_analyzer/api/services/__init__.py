@@ -2,6 +2,7 @@
 """
 Business logic services
 """
+
 from .auth_service import AuthService, auth_service
 from .trade_service import TradeService, trade_service
 from .analysis_service import AnalysisService, analysis_service

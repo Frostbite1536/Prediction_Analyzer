@@ -2,6 +2,7 @@
 """
 SavedAnalysis model for persisting user analysis results
 """
+
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from ..database import Base
 
 class SavedAnalysis(Base):
     """Saved analysis results"""
+
     __tablename__ = "saved_analyses"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -26,7 +28,11 @@ class SavedAnalysis(Base):
     results = Column(Text, nullable=False)  # JSON: summary stats, market breakdown, etc.
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
     # Relationships
     user = relationship("User", back_populates="saved_analyses")

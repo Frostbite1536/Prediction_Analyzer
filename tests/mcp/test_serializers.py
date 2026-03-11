@@ -1,5 +1,6 @@
 # tests/mcp/test_serializers.py
 """Tests for MCP serializers."""
+
 import math
 import json
 from datetime import datetime
@@ -72,10 +73,15 @@ class TestSerializeTrades:
 
     def test_single_trade(self):
         trade = Trade(
-            market="Test", market_slug="test",
+            market="Test",
+            market_slug="test",
             timestamp=datetime(2024, 1, 1),
-            price=0.5, shares=10.0, cost=5.0,
-            type="Buy", side="YES", pnl=1.0,
+            price=0.5,
+            shares=10.0,
+            cost=5.0,
+            type="Buy",
+            side="YES",
+            pnl=1.0,
         )
         result = serialize_trades([trade])
         assert len(result) == 1
@@ -85,10 +91,15 @@ class TestSerializeTrades:
 
     def test_nan_pnl_sanitized(self):
         trade = Trade(
-            market="Test", market_slug="test",
+            market="Test",
+            market_slug="test",
             timestamp=datetime(2024, 1, 1),
-            price=0.5, shares=10.0, cost=5.0,
-            type="Buy", side="YES", pnl=float("nan"),
+            price=0.5,
+            shares=10.0,
+            cost=5.0,
+            type="Buy",
+            side="YES",
+            pnl=float("nan"),
         )
         result = serialize_trades([trade])
         assert result[0]["pnl"] == 0.0

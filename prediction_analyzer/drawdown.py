@@ -5,6 +5,7 @@ Detailed drawdown analysis with date-aware tracking.
 Extends the basic drawdown metrics from metrics.py with full
 drawdown period identification and recovery analysis.
 """
+
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -138,13 +139,15 @@ def _identify_drawdown_periods(
             pct = (amount / peak_val * 100) if peak_val > 0 else 0.0
             duration = (timestamps[i] - timestamps[start_idx]).days
 
-            periods.append({
-                "start": timestamps[start_idx].strftime("%Y-%m-%d"),
-                "end": timestamps[i].strftime("%Y-%m-%d"),
-                "amount": sanitize_numeric(amount),
-                "pct": sanitize_numeric(pct),
-                "duration_days": duration,
-            })
+            periods.append(
+                {
+                    "start": timestamps[start_idx].strftime("%Y-%m-%d"),
+                    "end": timestamps[i].strftime("%Y-%m-%d"),
+                    "amount": sanitize_numeric(amount),
+                    "pct": sanitize_numeric(pct),
+                    "duration_days": duration,
+                }
+            )
 
     # Handle ongoing drawdown
     if in_dd:
@@ -155,13 +158,15 @@ def _identify_drawdown_periods(
         pct = (amount / peak_val * 100) if peak_val > 0 else 0.0
         duration = (timestamps[-1] - timestamps[start_idx]).days
 
-        periods.append({
-            "start": timestamps[start_idx].strftime("%Y-%m-%d"),
-            "end": None,
-            "amount": sanitize_numeric(amount),
-            "pct": sanitize_numeric(pct),
-            "duration_days": duration,
-        })
+        periods.append(
+            {
+                "start": timestamps[start_idx].strftime("%Y-%m-%d"),
+                "end": None,
+                "amount": sanitize_numeric(amount),
+                "pct": sanitize_numeric(pct),
+                "duration_days": duration,
+            }
+        )
 
     return periods
 

@@ -2,7 +2,8 @@
 """
 Trade and TradeUpload models for storing user trading data
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Index
+
+from sqlalchemy import Column, Integer, String, Float, Numeric, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -11,6 +12,7 @@ from ..database import Base
 
 class TradeUpload(Base):
     """Metadata for trade file uploads"""
+
     __tablename__ = "trade_uploads"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -31,6 +33,7 @@ class TradeUpload(Base):
 
 class Trade(Base):
     """Individual trade record"""
+
     __tablename__ = "trades"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -41,12 +44,12 @@ class Trade(Base):
     market = Column(String(500), nullable=False)
     market_slug = Column(String(255), nullable=False, index=True)
     timestamp = Column(DateTime, nullable=False)
-    price = Column(Float, default=0.0)
-    shares = Column(Float, default=0.0)
-    cost = Column(Float, default=0.0)
+    price = Column(Numeric(precision=18, scale=8), default=0.0)
+    shares = Column(Numeric(precision=18, scale=8), default=0.0)
+    cost = Column(Numeric(precision=18, scale=8), default=0.0)
     type = Column(String(50), nullable=False)  # Buy, Sell, Market Buy, Limit Sell, etc.
     side = Column(String(10), nullable=False)  # YES or NO
-    pnl = Column(Float, default=0.0)
+    pnl = Column(Numeric(precision=18, scale=8), default=0.0)
     tx_hash = Column(String(100), nullable=True)
     source = Column(String(50), nullable=False, default="limitless", index=True)
     currency = Column(String(10), nullable=False, default="USD")

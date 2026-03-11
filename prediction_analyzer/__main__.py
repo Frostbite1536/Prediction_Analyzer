@@ -2,6 +2,7 @@
 """
 Main CLI entry point for the prediction analyzer
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -50,42 +51,65 @@ Examples:
 
   # Filter and export
   python -m prediction_analyzer --file trades.json --start-date 2024-01-01 --export trades.csv
-        """
+        """,
     )
 
     # Data source options
-    data_group = parser.add_argument_group('Data Source')
-    data_group.add_argument('--file', '-f', type=str, help='Path to trades JSON/CSV/XLSX file')
-    data_group.add_argument('--fetch', action='store_true', help='Fetch live trades from API')
-    data_group.add_argument('--key', '-k', type=str,
-                            help='API key/credential (format depends on provider)')
-    data_group.add_argument('--provider', '-p', choices=VALID_PROVIDERS, default='auto',
-                            help='Prediction market provider (default: auto-detect from key)')
+    data_group = parser.add_argument_group("Data Source")
+    data_group.add_argument("--file", "-f", type=str, help="Path to trades JSON/CSV/XLSX file")
+    data_group.add_argument("--fetch", action="store_true", help="Fetch live trades from API")
+    data_group.add_argument(
+        "--key", "-k", type=str, help="API key/credential (format depends on provider)"
+    )
+    data_group.add_argument(
+        "--provider",
+        "-p",
+        choices=VALID_PROVIDERS,
+        default="auto",
+        help="Prediction market provider (default: auto-detect from key)",
+    )
 
     # Analysis options
-    analysis_group = parser.add_argument_group('Analysis')
-    analysis_group.add_argument('--market', '-m', type=str, help='Analyze specific market (slug or name)')
-    analysis_group.add_argument('--global', dest='global_view', action='store_true', help='Show global PnL summary')
-    analysis_group.add_argument('--chart', '-c', choices=['simple', 'pro', 'enhanced'], default='simple',
-                                help='Chart type: simple, pro, or enhanced (default: simple)')
-    analysis_group.add_argument('--dashboard', action='store_true', help='Generate multi-market dashboard')
-    analysis_group.add_argument('--metrics', action='store_true', help='Show advanced trading metrics (Sharpe, drawdown, streaks)')
+    analysis_group = parser.add_argument_group("Analysis")
+    analysis_group.add_argument(
+        "--market", "-m", type=str, help="Analyze specific market (slug or name)"
+    )
+    analysis_group.add_argument(
+        "--global", dest="global_view", action="store_true", help="Show global PnL summary"
+    )
+    analysis_group.add_argument(
+        "--chart",
+        "-c",
+        choices=["simple", "pro", "enhanced"],
+        default="simple",
+        help="Chart type: simple, pro, or enhanced (default: simple)",
+    )
+    analysis_group.add_argument(
+        "--dashboard", action="store_true", help="Generate multi-market dashboard"
+    )
+    analysis_group.add_argument(
+        "--metrics",
+        action="store_true",
+        help="Show advanced trading metrics (Sharpe, drawdown, streaks)",
+    )
 
     # Filter options
-    filter_group = parser.add_argument_group('Filters')
-    filter_group.add_argument('--start-date', type=str, help='Filter from date (YYYY-MM-DD)')
-    filter_group.add_argument('--end-date', type=str, help='Filter to date (YYYY-MM-DD)')
-    filter_group.add_argument('--type', nargs='+', choices=['Buy', 'Sell'], help='Filter by trade type')
-    filter_group.add_argument('--min-pnl', type=float, help='Minimum PnL threshold')
-    filter_group.add_argument('--max-pnl', type=float, help='Maximum PnL threshold')
+    filter_group = parser.add_argument_group("Filters")
+    filter_group.add_argument("--start-date", type=str, help="Filter from date (YYYY-MM-DD)")
+    filter_group.add_argument("--end-date", type=str, help="Filter to date (YYYY-MM-DD)")
+    filter_group.add_argument(
+        "--type", nargs="+", choices=["Buy", "Sell"], help="Filter by trade type"
+    )
+    filter_group.add_argument("--min-pnl", type=float, help="Minimum PnL threshold")
+    filter_group.add_argument("--max-pnl", type=float, help="Maximum PnL threshold")
 
     # Export options
-    export_group = parser.add_argument_group('Export')
-    export_group.add_argument('--export', type=str, help='Export filtered trades (CSV or XLSX)')
-    export_group.add_argument('--report', action='store_true', help='Generate text report')
+    export_group = parser.add_argument_group("Export")
+    export_group.add_argument("--export", type=str, help="Export filtered trades (CSV or XLSX)")
+    export_group.add_argument("--report", action="store_true", help="Generate text report")
 
     # Other options
-    parser.add_argument('--no-interactive', action='store_true', help='Disable interactive mode')
+    parser.add_argument("--no-interactive", action="store_true", help="Disable interactive mode")
 
     args = parser.parse_args()
 
@@ -97,7 +121,9 @@ Examples:
         provider_name = args.provider
 
         # Resolve API key from args or env
-        api_key = get_api_key(args.key, provider=provider_name if provider_name != "auto" else "limitless")
+        api_key = get_api_key(
+            args.key, provider=provider_name if provider_name != "auto" else "limitless"
+        )
         if not api_key:
             print("Error: API key required. Pass --key <KEY> or set the appropriate env var:")
             print("  Limitless:   LIMITLESS_API_KEY=lmts_...")
@@ -120,12 +146,14 @@ Examples:
         else:
             # Use provider system
             from .providers import ProviderRegistry
+
             provider = ProviderRegistry.get(provider_name)
             trades = provider.fetch_trades(api_key)
 
             # Apply PnL computation
             if provider_name in ("kalshi", "manifold", "polymarket"):
                 from .providers.pnl_calculator import compute_realized_pnl
+
                 trades = compute_realized_pnl(trades)
 
     elif args.file:
@@ -184,9 +212,9 @@ Examples:
         generate_text_report(trades)
 
     if args.export:
-        if args.export.endswith('.csv'):
+        if args.export.endswith(".csv"):
             export_to_csv(trades, args.export)
-        elif args.export.endswith('.xlsx'):
+        elif args.export.endswith(".xlsx"):
             export_to_excel(trades, args.export)
         else:
             print("Error: Export file must be .csv or .xlsx")
@@ -210,18 +238,24 @@ Examples:
 
         market_name = market_trades[0].market
 
-        if args.chart == 'simple':
+        if args.chart == "simple":
             generate_simple_chart(market_trades, market_name)
-        elif args.chart == 'pro':
+        elif args.chart == "pro":
             generate_pro_chart(market_trades, market_name)
-        elif args.chart == 'enhanced':
+        elif args.chart == "enhanced":
             generate_enhanced_chart(market_trades, market_name)
         else:
             generate_simple_chart(market_trades, market_name)
 
     # Interactive mode (if no other actions specified)
-    if not any([args.global_view, args.metrics, args.report, args.export, args.dashboard, args.market]) and not args.no_interactive:
+    if (
+        not any(
+            [args.global_view, args.metrics, args.report, args.export, args.dashboard, args.market]
+        )
+        and not args.no_interactive
+    ):
         interactive_menu(trades)
+
 
 if __name__ == "__main__":
     main()

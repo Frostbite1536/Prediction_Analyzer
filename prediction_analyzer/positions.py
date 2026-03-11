@@ -2,6 +2,7 @@
 """
 Portfolio position analysis: open positions, unrealized PnL, concentration risk.
 """
+
 import logging
 from typing import List, Dict, Optional
 from .trade_loader import Trade, sanitize_numeric
@@ -75,16 +76,22 @@ def calculate_open_positions(
         if current_price is not None:
             unrealized_pnl = abs_shares * (current_price - avg_entry)
 
-        positions.append({
-            "market": market_name,
-            "market_slug": slug,
-            "net_shares": sanitize_numeric(abs_shares),
-            "side": side,
-            "avg_entry_price": sanitize_numeric(avg_entry),
-            "current_price": sanitize_numeric(current_price) if current_price is not None else None,
-            "unrealized_pnl": sanitize_numeric(unrealized_pnl) if unrealized_pnl is not None else None,
-            "cost_basis": sanitize_numeric(abs(total_cost)),
-        })
+        positions.append(
+            {
+                "market": market_name,
+                "market_slug": slug,
+                "net_shares": sanitize_numeric(abs_shares),
+                "side": side,
+                "avg_entry_price": sanitize_numeric(avg_entry),
+                "current_price": (
+                    sanitize_numeric(current_price) if current_price is not None else None
+                ),
+                "unrealized_pnl": (
+                    sanitize_numeric(unrealized_pnl) if unrealized_pnl is not None else None
+                ),
+                "cost_basis": sanitize_numeric(abs(total_cost)),
+            }
+        )
 
     return positions
 
@@ -121,13 +128,15 @@ def calculate_concentration_risk(trades: List[Trade]) -> Dict:
     markets = []
     for slug, data in exposure_by_market.items():
         pct = (data["exposure"] / total_exposure * 100) if total_exposure > 0 else 0.0
-        markets.append({
-            "market": data["market"],
-            "slug": data["slug"],
-            "exposure": sanitize_numeric(data["exposure"]),
-            "pct_of_total": sanitize_numeric(pct),
-            "trade_count": data["trade_count"],
-        })
+        markets.append(
+            {
+                "market": data["market"],
+                "slug": data["slug"],
+                "exposure": sanitize_numeric(data["exposure"]),
+                "pct_of_total": sanitize_numeric(pct),
+                "trade_count": data["trade_count"],
+            }
+        )
 
     # Sort by exposure descending
     markets.sort(key=lambda x: x["exposure"], reverse=True)

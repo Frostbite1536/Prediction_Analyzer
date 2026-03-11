@@ -1,5 +1,6 @@
 # tests/mcp/test_tax_tools.py
 """Tests for MCP tax tools."""
+
 import json
 import asyncio
 
@@ -11,9 +12,14 @@ from prediction_mcp.state import session
 
 class TestTaxReport:
     def test_no_trades_error(self):
-        result = asyncio.run(tax_tools.handle_tool("get_tax_report", {
-            "tax_year": 2024,
-        }))
+        result = asyncio.run(
+            tax_tools.handle_tool(
+                "get_tax_report",
+                {
+                    "tax_year": 2024,
+                },
+            )
+        )
         assert "No trades loaded" in result[0].text
 
     def test_missing_tax_year(self, loaded_session):
@@ -21,10 +27,15 @@ class TestTaxReport:
         assert "tax_year is required" in result[0].text
 
     def test_fifo_report(self, loaded_session):
-        result = asyncio.run(tax_tools.handle_tool("get_tax_report", {
-            "tax_year": 2024,
-            "cost_basis_method": "fifo",
-        }))
+        result = asyncio.run(
+            tax_tools.handle_tool(
+                "get_tax_report",
+                {
+                    "tax_year": 2024,
+                    "cost_basis_method": "fifo",
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert data["tax_year"] == 2024
         assert data["method"] == "fifo"
@@ -33,31 +44,51 @@ class TestTaxReport:
         assert "transactions" in data
 
     def test_lifo_report(self, loaded_session):
-        result = asyncio.run(tax_tools.handle_tool("get_tax_report", {
-            "tax_year": 2024,
-            "cost_basis_method": "lifo",
-        }))
+        result = asyncio.run(
+            tax_tools.handle_tool(
+                "get_tax_report",
+                {
+                    "tax_year": 2024,
+                    "cost_basis_method": "lifo",
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert data["method"] == "lifo"
 
     def test_average_report(self, loaded_session):
-        result = asyncio.run(tax_tools.handle_tool("get_tax_report", {
-            "tax_year": 2024,
-            "cost_basis_method": "average",
-        }))
+        result = asyncio.run(
+            tax_tools.handle_tool(
+                "get_tax_report",
+                {
+                    "tax_year": 2024,
+                    "cost_basis_method": "average",
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert data["method"] == "average"
 
     def test_default_method_is_fifo(self, loaded_session):
-        result = asyncio.run(tax_tools.handle_tool("get_tax_report", {
-            "tax_year": 2024,
-        }))
+        result = asyncio.run(
+            tax_tools.handle_tool(
+                "get_tax_report",
+                {
+                    "tax_year": 2024,
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert data["method"] == "fifo"
 
     def test_invalid_cost_basis_method(self, loaded_session):
-        result = asyncio.run(tax_tools.handle_tool("get_tax_report", {
-            "tax_year": 2024,
-            "cost_basis_method": "invalid",
-        }))
+        result = asyncio.run(
+            tax_tools.handle_tool(
+                "get_tax_report",
+                {
+                    "tax_year": 2024,
+                    "cost_basis_method": "invalid",
+                },
+            )
+        )
         assert "Invalid cost basis method" in result[0].text

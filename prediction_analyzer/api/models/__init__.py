@@ -2,6 +2,7 @@
 """
 SQLAlchemy ORM models
 """
+
 from .user import User
 from .trade import Trade, TradeUpload
 from .analysis import SavedAnalysis

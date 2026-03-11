@@ -206,13 +206,15 @@ async def _handle_market_breakdown(arguments: dict):
 
     result = []
     for slug, stats in sorted(breakdown.items(), key=lambda x: x[1]["total_pnl"], reverse=True):
-        result.append({
-            "market_slug": slug,
-            "market": stats["market_name"],
-            "trade_count": stats["trade_count"],
-            "pnl": stats["total_pnl"],
-            "volume": stats["total_volume"],
-        })
+        result.append(
+            {
+                "market_slug": slug,
+                "market": stats["market_name"],
+                "trade_count": stats["trade_count"],
+                "pnl": stats["total_pnl"],
+                "volume": stats["total_volume"],
+            }
+        )
 
     return [types.TextContent(type="text", text=to_json_text(result))]
 
@@ -241,13 +243,15 @@ async def _handle_provider_breakdown(arguments: dict):
     result = []
     for src, stats in sorted(sources.items(), key=lambda x: x[1]["total_pnl"], reverse=True):
         cfg = PROVIDER_CONFIGS.get(src, {})
-        result.append({
-            "provider": src,
-            "display_name": cfg.get("display_name", src.title()),
-            "total_trades": stats["total_trades"],
-            "total_pnl": stats["total_pnl"],
-            "total_volume": stats["total_volume"],
-            "currency": stats["currency"],
-        })
+        result.append(
+            {
+                "provider": src,
+                "display_name": cfg.get("display_name", src.title()),
+                "total_trades": stats["total_trades"],
+                "total_pnl": stats["total_pnl"],
+                "total_volume": stats["total_volume"],
+                "currency": stats["currency"],
+            }
+        )
 
     return [types.TextContent(type="text", text=to_json_text(result))]

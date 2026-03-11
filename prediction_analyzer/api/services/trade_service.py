@@ -2,6 +2,7 @@
 """
 Trade service - file upload, CRUD operations
 """
+
 import tempfile
 import hashlib
 from pathlib import Path
@@ -48,12 +49,7 @@ class TradeService:
         """Convert a list of SQLAlchemy Trade models to Trade dataclasses"""
         return [self.db_trade_to_dataclass(t) for t in db_trades]
 
-    async def process_upload(
-        self,
-        db: Session,
-        user_id: int,
-        file: UploadFile
-    ) -> Tuple[int, int]:
+    async def process_upload(self, db: Session, user_id: int, file: UploadFile) -> Tuple[int, int]:
         """
         Process an uploaded trade file
 
@@ -72,17 +68,24 @@ class TradeService:
         if suffix not in [".json", ".csv", ".xlsx"]:
             raise ValueError(f"Unsupported file type: {suffix}")
 
-        # Read file content
-        content = await file.read()
+        # Read file content with size limit (10 MB) to prevent OOM
+        MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+        content = await file.read(MAX_UPLOAD_BYTES + 1)
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise ValueError(
+                f"File too large (>{MAX_UPLOAD_BYTES // (1024 * 1024)} MB). "
+                "Please split into smaller files."
+            )
 
         # Calculate file hash for deduplication
         file_hash = hashlib.sha256(content).hexdigest()
 
         # Check for duplicate upload
-        existing = db.query(TradeUpload).filter(
-            TradeUpload.user_id == user_id,
-            TradeUpload.file_hash == file_hash
-        ).first()
+        existing = (
+            db.query(TradeUpload)
+            .filter(TradeUpload.user_id == user_id, TradeUpload.file_hash == file_hash)
+            .first()
+        )
 
         if existing:
             raise ValueError(f"This file was already uploaded (ID: {existing.id})")
@@ -105,7 +108,7 @@ class TradeService:
                 filename=filename,
                 file_type=suffix[1:],  # Remove the dot
                 trade_count=len(trades),
-                file_hash=file_hash
+                file_hash=file_hash,
             )
             db.add(upload)
             db.flush()  # Get the upload ID
@@ -174,9 +177,12 @@ class TradeService:
 
     def get_all_user_trades(self, db: Session, user_id: int) -> List[TradeModel]:
         """Get all trades for a user (no pagination)"""
-        return db.query(TradeModel).filter(
-            TradeModel.user_id == user_id
-        ).order_by(TradeModel.timestamp.asc()).all()
+        return (
+            db.query(TradeModel)
+            .filter(TradeModel.user_id == user_id)
+            .order_by(TradeModel.timestamp.asc())
+            .all()
+        )
 
     def get_user_markets(self, db: Session, user_id: int) -> List[MarketInfo]:
         """
@@ -185,39 +191,35 @@ class TradeService:
         Returns:
             List of MarketInfo objects
         """
-        results = db.query(
-            TradeModel.market_slug,
-            TradeModel.market,
-            func.count(TradeModel.id).label("trade_count"),
-            func.sum(TradeModel.pnl).label("total_pnl")
-        ).filter(
-            TradeModel.user_id == user_id
-        ).group_by(
-            TradeModel.market_slug,
-            TradeModel.market
-        ).all()
+        results = (
+            db.query(
+                TradeModel.market_slug,
+                TradeModel.market,
+                func.count(TradeModel.id).label("trade_count"),
+                func.sum(TradeModel.pnl).label("total_pnl"),
+            )
+            .filter(TradeModel.user_id == user_id)
+            .group_by(TradeModel.market_slug, TradeModel.market)
+            .all()
+        )
 
         return [
             MarketInfo(
                 slug=r.market_slug,
                 title=r.market,
                 trade_count=r.trade_count,
-                total_pnl=r.total_pnl or 0.0
+                total_pnl=r.total_pnl or 0.0,
             )
             for r in results
         ]
 
-    def get_trade_by_id(
-        self,
-        db: Session,
-        user_id: int,
-        trade_id: int
-    ) -> Optional[TradeModel]:
+    def get_trade_by_id(self, db: Session, user_id: int, trade_id: int) -> Optional[TradeModel]:
         """Get a specific trade by ID (must belong to user)"""
-        return db.query(TradeModel).filter(
-            TradeModel.id == trade_id,
-            TradeModel.user_id == user_id
-        ).first()
+        return (
+            db.query(TradeModel)
+            .filter(TradeModel.id == trade_id, TradeModel.user_id == user_id)
+            .first()
+        )
 
     def delete_trade(self, db: Session, trade: TradeModel) -> None:
         """Delete a trade"""
@@ -234,9 +236,12 @@ class TradeService:
 
     def get_user_uploads(self, db: Session, user_id: int) -> List[TradeUpload]:
         """Get all uploads for a user"""
-        return db.query(TradeUpload).filter(
-            TradeUpload.user_id == user_id
-        ).order_by(TradeUpload.uploaded_at.desc()).all()
+        return (
+            db.query(TradeUpload)
+            .filter(TradeUpload.user_id == user_id)
+            .order_by(TradeUpload.uploaded_at.desc())
+            .all()
+        )
 
 
 # Singleton instance

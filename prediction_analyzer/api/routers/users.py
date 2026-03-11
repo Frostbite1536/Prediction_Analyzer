@@ -2,6 +2,7 @@
 """
 User profile endpoints
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -13,9 +14,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_profile(
-    current_user: User = Depends(get_current_user)
-):
+async def get_current_user_profile(current_user: User = Depends(get_current_user)):
     """
     Get the current authenticated user's profile.
     """
@@ -26,7 +25,7 @@ async def get_current_user_profile(
 async def update_current_user_profile(
     user_update: UserUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Update the current user's profile.
@@ -40,8 +39,7 @@ async def update_current_user_profile(
         existing = auth_service.get_user_by_email(db, user_update.email)
         if existing:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
             )
         current_user.email = user_update.email
 
@@ -50,8 +48,7 @@ async def update_current_user_profile(
         existing = auth_service.get_user_by_username(db, user_update.username)
         if existing:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already taken"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Username already taken"
             )
         current_user.username = user_update.username
 
@@ -63,8 +60,7 @@ async def update_current_user_profile(
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_current_user(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Delete the current user's account.
@@ -78,8 +74,7 @@ async def delete_current_user(
 
 @router.get("/me/stats")
 async def get_current_user_stats(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Get statistics for the current user.
@@ -88,25 +83,27 @@ async def get_current_user_stats(
     from ..models.analysis import SavedAnalysis
     from sqlalchemy import func
 
-    trade_count = db.query(func.count(Trade.id)).filter(
-        Trade.user_id == current_user.id
-    ).scalar()
+    trade_count = db.query(func.count(Trade.id)).filter(Trade.user_id == current_user.id).scalar()
 
-    upload_count = db.query(func.count(TradeUpload.id)).filter(
-        TradeUpload.user_id == current_user.id
-    ).scalar()
+    upload_count = (
+        db.query(func.count(TradeUpload.id)).filter(TradeUpload.user_id == current_user.id).scalar()
+    )
 
-    analysis_count = db.query(func.count(SavedAnalysis.id)).filter(
-        SavedAnalysis.user_id == current_user.id
-    ).scalar()
+    analysis_count = (
+        db.query(func.count(SavedAnalysis.id))
+        .filter(SavedAnalysis.user_id == current_user.id)
+        .scalar()
+    )
 
-    market_count = db.query(func.count(func.distinct(Trade.market_slug))).filter(
-        Trade.user_id == current_user.id
-    ).scalar()
+    market_count = (
+        db.query(func.count(func.distinct(Trade.market_slug)))
+        .filter(Trade.user_id == current_user.id)
+        .scalar()
+    )
 
-    total_pnl = db.query(func.sum(Trade.pnl)).filter(
-        Trade.user_id == current_user.id
-    ).scalar() or 0.0
+    total_pnl = (
+        db.query(func.sum(Trade.pnl)).filter(Trade.user_id == current_user.id).scalar() or 0.0
+    )
 
     return {
         "trade_count": trade_count,
@@ -114,5 +111,5 @@ async def get_current_user_stats(
         "saved_analysis_count": analysis_count,
         "market_count": market_count,
         "total_pnl": total_pnl,
-        "member_since": current_user.created_at.isoformat()
+        "member_since": current_user.created_at.isoformat(),
     }

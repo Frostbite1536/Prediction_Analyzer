@@ -3,6 +3,7 @@
 FIFO PnL computation for providers that don't supply per-trade PnL
 (Kalshi, Manifold, Polymarket).
 """
+
 import logging
 from typing import List, Dict
 from collections import defaultdict, deque
@@ -61,7 +62,10 @@ def compute_realized_pnl(trades: List[Trade]) -> List[Trade]:
             if remaining > 0:
                 logger.warning(
                     "Unmatched sell shares: %.6f shares for %s (market=%s, side=%s)",
-                    remaining, trade.type, trade.market_slug, trade.side,
+                    remaining,
+                    trade.type,
+                    trade.market_slug,
+                    trade.side,
                 )
 
             # Only set PnL if trade doesn't already have one from the provider

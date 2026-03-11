@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pip install -e '.[api,mcp,dev]' --quiet 2>/dev/null || pip install -e '.[dev]' --quiet 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

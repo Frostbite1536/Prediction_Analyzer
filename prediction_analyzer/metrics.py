@@ -9,10 +9,11 @@ Provides risk-adjusted metrics beyond basic PnL:
 - Win/Loss Streak analysis
 - Period-over-period comparison
 """
+
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 import numpy as np
-from .trade_loader import Trade
+from .trade_loader import Trade, INF_CAP
 
 
 def calculate_advanced_metrics(trades: List[Trade]) -> Dict:
@@ -74,10 +75,12 @@ def _basic_stats(pnls: List[float]) -> Dict:
     total_wins = sum(wins)
     total_losses = abs(sum(losses))
 
-    profit_factor = (total_wins / total_losses) if total_losses > 0 else float('inf') if total_wins > 0 else 0.0
-    # Cap inf for serialization
-    if profit_factor == float('inf'):
-        profit_factor = 999.99
+    profit_factor = (
+        (total_wins / total_losses) if total_losses > 0 else float("inf") if total_wins > 0 else 0.0
+    )
+    # Cap inf for serialization (uses shared INF_CAP constant)
+    if profit_factor == float("inf"):
+        profit_factor = INF_CAP
 
     # Expectancy: average PnL per trade
     expectancy = float(np.mean(pnls)) if pnls else 0.0
@@ -143,7 +146,7 @@ def _risk_adjusted_metrics(pnls: List[float]) -> Dict:
 
     # Sortino ratio — downside deviation from target (0)
     downside_diffs = np.minimum(arr, 0.0)
-    downside_std = np.sqrt(np.sum(downside_diffs ** 2) / (len(arr) - 1)) if len(arr) > 1 else 0.0
+    downside_std = np.sqrt(np.sum(downside_diffs**2) / (len(arr) - 1)) if len(arr) > 1 else 0.0
     sortino = (mean_return / downside_std) if downside_std > 0 else 0.0
 
     return {
@@ -155,7 +158,12 @@ def _risk_adjusted_metrics(pnls: List[float]) -> Dict:
 def _streak_metrics(pnls: List[float]) -> Dict:
     """Calculate win/loss streak metrics."""
     if not pnls:
-        return {"max_win_streak": 0, "max_loss_streak": 0, "current_streak": 0, "current_streak_type": None}
+        return {
+            "max_win_streak": 0,
+            "max_loss_streak": 0,
+            "current_streak": 0,
+            "current_streak_type": None,
+        }
 
     max_win = 0
     max_loss = 0
@@ -231,7 +239,7 @@ def format_metrics_report(metrics: Dict) -> str:
     lines.append("\nStreaks:")
     lines.append(f"  Max Win Streak:        {metrics['max_win_streak']}")
     lines.append(f"  Max Loss Streak:       {metrics['max_loss_streak']}")
-    streak_type = metrics.get('current_streak_type', 'none')
+    streak_type = metrics.get("current_streak_type", "none")
     lines.append(f"  Current Streak:        {metrics['current_streak']} ({streak_type})")
 
     lines.append("\nVolume:")

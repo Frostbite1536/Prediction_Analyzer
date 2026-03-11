@@ -2,8 +2,10 @@
 """
 Time and date utility functions
 """
+
 from datetime import datetime, timedelta
 from typing import Optional
+
 
 def parse_date(date_str: str) -> datetime:
     """
@@ -15,13 +17,7 @@ def parse_date(date_str: str) -> datetime:
     Returns:
         datetime object
     """
-    formats = [
-        "%Y-%m-%d",
-        "%Y/%m/%d",
-        "%m-%d-%Y",
-        "%m/%d/%Y",
-        "%Y-%m-%d %H:%M:%S"
-    ]
+    formats = ["%Y-%m-%d", "%Y/%m/%d", "%m-%d-%Y", "%m/%d/%Y", "%Y-%m-%d %H:%M:%S"]
 
     for fmt in formats:
         try:
@@ -30,6 +26,7 @@ def parse_date(date_str: str) -> datetime:
             continue
 
     raise ValueError(f"Unable to parse date: {date_str}")
+
 
 def format_timestamp(timestamp: datetime, fmt: str = "%Y-%m-%d %H:%M:%S") -> str:
     """
@@ -43,6 +40,7 @@ def format_timestamp(timestamp: datetime, fmt: str = "%Y-%m-%d %H:%M:%S") -> str
         Formatted date string
     """
     return timestamp.strftime(fmt)
+
 
 def get_date_range(days_back: int) -> tuple:
     """

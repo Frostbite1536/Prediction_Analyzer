@@ -8,6 +8,7 @@ Supports multiple providers:
   - Kalshi: RSA key pair — per-request RSA-PSS signing
   - Manifold Markets: API key (manifold_...) via "Authorization: Key ..." header
 """
+
 import os
 import logging
 from typing import Optional

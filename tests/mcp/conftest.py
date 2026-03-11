@@ -2,6 +2,7 @@
 """
 Shared fixtures for MCP tool tests.
 """
+
 import os
 import json
 import pytest
@@ -11,10 +12,10 @@ from datetime import datetime
 from prediction_analyzer.trade_loader import Trade
 from prediction_mcp.state import session
 
-
 EXAMPLE_TRADES_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    "data", "example_trades.json",
+    "data",
+    "example_trades.json",
 )
 
 
@@ -23,17 +24,19 @@ def make_trades(count=10):
     trades = []
     for i in range(count):
         is_buy = i % 2 == 0
-        trades.append(Trade(
-            market=f"Market {i // 3}",
-            market_slug=f"market-{i // 3}",
-            timestamp=datetime(2024, 1, 1 + i),
-            price=0.5 + (i * 0.01),
-            shares=10.0,
-            cost=5.0 + i,
-            type="Buy" if is_buy else "Sell",
-            side="YES" if i % 4 < 2 else "NO",
-            pnl=1.0 if is_buy else -0.5,
-        ))
+        trades.append(
+            Trade(
+                market=f"Market {i // 3}",
+                market_slug=f"market-{i // 3}",
+                timestamp=datetime(2024, 1, 1 + i),
+                price=0.5 + (i * 0.01),
+                shares=10.0,
+                cost=5.0 + i,
+                type="Buy" if is_buy else "Sell",
+                side="YES" if i % 4 < 2 else "NO",
+                pnl=1.0 if is_buy else -0.5,
+            )
+        )
     return trades
 
 

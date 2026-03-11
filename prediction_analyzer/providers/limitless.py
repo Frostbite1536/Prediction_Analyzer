@@ -2,6 +2,7 @@
 """
 Limitless Exchange provider — refactored from utils/data.py.
 """
+
 import logging
 import requests
 from typing import List, Optional, Dict, Any
@@ -12,6 +13,9 @@ from ..trade_loader import Trade, _parse_timestamp
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.limitless.exchange"
+
+# USDC uses 6 decimal places; on-chain amounts are in micro-units.
+USDC_DECIMALS = 1_000_000
 
 
 class LimitlessProvider(MarketProvider):
@@ -68,9 +72,7 @@ class LimitlessProvider(MarketProvider):
             market_title = market_data.get("title") or "Unknown"
             market_slug = market_data.get("slug") or "unknown"
         else:
-            market_title = (
-                raw.get("market") if isinstance(raw.get("market"), str) else "Unknown"
-            )
+            market_title = raw.get("market") if isinstance(raw.get("market"), str) else "Unknown"
             market_slug = raw.get("market_slug") or "unknown"
 
         if not market_title:
@@ -81,9 +83,9 @@ class LimitlessProvider(MarketProvider):
         # Convert from micro-units (USDC 6 decimals) if API format
         has_pnl = "pnl" in raw and raw["pnl"] is not None
         if "collateralAmount" in raw:
-            cost = float(raw.get("collateralAmount") or 0) / 1_000_000
-            pnl = float(raw.get("pnl") or 0) / 1_000_000
-            shares = float(raw.get("outcomeTokenAmount") or 0) / 1_000_000
+            cost = float(raw.get("collateralAmount") or 0) / USDC_DECIMALS
+            pnl = float(raw.get("pnl") or 0) / USDC_DECIMALS
+            shares = float(raw.get("outcomeTokenAmount") or 0) / USDC_DECIMALS
         else:
             cost = float(raw.get("cost") or 0)
             pnl = float(raw.get("pnl") or 0)
@@ -130,9 +132,7 @@ class LimitlessProvider(MarketProvider):
         return Trade(
             market=market_title,
             market_slug=market_slug,
-            timestamp=_parse_timestamp(
-                raw.get("timestamp") or raw.get("blockTimestamp") or 0
-            ),
+            timestamp=_parse_timestamp(raw.get("timestamp") or raw.get("blockTimestamp") or 0),
             price=raw_price,
             shares=shares,
             cost=cost,
@@ -163,8 +163,5 @@ class LimitlessProvider(MarketProvider):
         return (
             "collateralAmount" in first
             or "outcomeTokenAmount" in first
-            or (
-                isinstance(first.get("market"), dict)
-                and "slug" in first["market"]
-            )
+            or (isinstance(first.get("market"), dict) and "slug" in first["market"])
         )

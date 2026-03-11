@@ -2,6 +2,7 @@
 """
 Period-over-period performance comparison.
 """
+
 import logging
 from typing import List, Dict
 from .trade_loader import Trade, sanitize_numeric

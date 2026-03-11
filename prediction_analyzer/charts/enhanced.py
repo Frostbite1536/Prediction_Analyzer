@@ -2,6 +2,7 @@
 """
 Enhanced chart generation with battlefield visualization
 """
+
 import logging
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -16,7 +17,13 @@ logger = logging.getLogger(__name__)
 _DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "charts_output"
 
 
-def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None, output_dir: Optional[str] = None, show: bool = True):
+def generate_enhanced_chart(
+    trades: List[Trade],
+    market_name: str,
+    resolved_outcome: str = None,
+    output_dir: Optional[str] = None,
+    show: bool = True,
+):
     """
     Generate an enhanced battlefield chart using Plotly
 
@@ -103,11 +110,11 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
         if t.type in ["Buy", "Market Buy", "Limit Buy"]:
             # Buying YES = Long YES
             # Buying NO = Short YES
-            is_long_yes = (t.side == "YES")
+            is_long_yes = t.side == "YES"
         else:  # Sell
             # Selling YES = Short YES
             # Selling NO = Long YES
-            is_long_yes = (t.side == "NO")
+            is_long_yes = t.side == "NO"
 
         # Color and symbol
         if is_long_yes:
@@ -133,15 +140,16 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
 
     # Create subplots
     fig = make_subplots(
-        rows=3, cols=1,
+        rows=3,
+        cols=1,
         shared_xaxes=True,
         vertical_spacing=0.08,
         subplot_titles=(
             "The Battlefield: Implied Probability of YES",
             "The Scoreboard: Running P&L (Mark-to-Market)",
-            "The Risk: Net Share Position"
+            "The Risk: Net Share Position",
         ),
-        row_heights=[0.4, 0.3, 0.3]
+        row_heights=[0.4, 0.3, 0.3],
     )
 
     # ==========================================
@@ -157,9 +165,10 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
             line=dict(color="#1f77b4", width=3),
             name="Market Price",
             showlegend=True,
-            hovertemplate="Price: %{y:.1f}¢<extra></extra>"
+            hovertemplate="Price: %{y:.1f}¢<extra></extra>",
         ),
-        row=1, col=1
+        row=1,
+        col=1,
     )
 
     # Trade markers (triangles)
@@ -172,14 +181,15 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
                 color=trade_colors,
                 size=trade_sizes,
                 symbol=trade_symbols,
-                line=dict(width=1, color="white")
+                line=dict(width=1, color="white"),
             ),
             name="Trades",
             text=hover_texts,
             hovertemplate="%{text}<extra></extra>",
-            showlegend=True
+            showlegend=True,
         ),
-        row=1, col=1
+        row=1,
+        col=1,
     )
 
     # ==========================================
@@ -187,7 +197,7 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
     # ==========================================
 
     # Determine colors for P&L line segments
-    pnl_colors = ['green' if pnl >= 0 else 'red' for pnl in running_pnl]
+    pnl_colors = ["green" if pnl >= 0 else "red" for pnl in running_pnl]
 
     # P&L line with fill
     fig.add_trace(
@@ -197,12 +207,13 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
             mode="lines",
             line=dict(color="black", width=2),
             name="Running P&L",
-            fill='tozeroy',
-            fillcolor='rgba(0,255,0,0.2)',  # Will be conditional
+            fill="tozeroy",
+            fillcolor="rgba(0,255,0,0.2)",  # Will be conditional
             showlegend=True,
-            hovertemplate="P&L: $%{y:.2f}<extra></extra>"
+            hovertemplate="P&L: $%{y:.2f}<extra></extra>",
         ),
-        row=2, col=1
+        row=2,
+        col=1,
     )
 
     # Add positive/negative fill regions
@@ -214,13 +225,14 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
             x=times,
             y=positive_pnl,
             mode="none",
-            fill='tozeroy',
-            fillcolor='rgba(0,255,0,0.3)',
+            fill="tozeroy",
+            fillcolor="rgba(0,255,0,0.3)",
             name="Profit",
             showlegend=False,
-            hoverinfo='skip'
+            hoverinfo="skip",
         ),
-        row=2, col=1
+        row=2,
+        col=1,
     )
 
     fig.add_trace(
@@ -228,13 +240,14 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
             x=times,
             y=negative_pnl,
             mode="none",
-            fill='tozeroy',
-            fillcolor='rgba(255,0,0,0.3)',
+            fill="tozeroy",
+            fillcolor="rgba(255,0,0,0.3)",
             name="Loss",
             showlegend=False,
-            hoverinfo='skip'
+            hoverinfo="skip",
         ),
-        row=2, col=1
+        row=2,
+        col=1,
     )
 
     # Zero line
@@ -245,7 +258,7 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
     # ==========================================
 
     # Determine fill color based on position
-    fill_color = 'rgba(0,150,255,0.2)' if net_shares[-1] >= 0 else 'rgba(255,100,0,0.2)'
+    fill_color = "rgba(0,150,255,0.2)" if net_shares[-1] >= 0 else "rgba(255,100,0,0.2)"
 
     fig.add_trace(
         go.Scatter(
@@ -254,12 +267,13 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
             mode="lines",
             line=dict(color="purple", width=2),
             name="Net Shares",
-            fill='tozeroy',
+            fill="tozeroy",
             fillcolor=fill_color,
             showlegend=True,
-            hovertemplate="Shares: %{y:.1f}<extra></extra>"
+            hovertemplate="Shares: %{y:.1f}<extra></extra>",
         ),
-        row=3, col=1
+        row=3,
+        col=1,
     )
 
     # Zero line
@@ -280,14 +294,8 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
         title_text=title_text,
         title_font_size=16,
         showlegend=True,
-        hovermode='x unified',
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
+        hovermode="x unified",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
     # Update axes
@@ -297,8 +305,8 @@ def generate_enhanced_chart(trades: List[Trade], market_name: str, resolved_outc
     fig.update_xaxes(title_text="Time", row=3, col=1)
 
     # Add gridlines
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor="rgba(128,128,128,0.2)")
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor="rgba(128,128,128,0.2)")
 
     # Save as interactive HTML with sanitized filename to output directory
     out = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR

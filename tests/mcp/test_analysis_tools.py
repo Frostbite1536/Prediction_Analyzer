@@ -1,5 +1,6 @@
 # tests/mcp/test_analysis_tools.py
 """Tests for MCP analysis tools."""
+
 import json
 import asyncio
 
@@ -23,19 +24,29 @@ class TestGlobalSummary:
         assert "win_rate" in data
 
     def test_summary_with_date_filter(self, loaded_session):
-        result = asyncio.run(analysis_tools.handle_tool("get_global_summary", {
-            "start_date": "2024-01-03",
-            "end_date": "2024-01-06",
-        }))
+        result = asyncio.run(
+            analysis_tools.handle_tool(
+                "get_global_summary",
+                {
+                    "start_date": "2024-01-03",
+                    "end_date": "2024-01-06",
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert data["total_trades"] < 10
 
 
 class TestMarketSummary:
     def test_no_trades_error(self):
-        result = asyncio.run(analysis_tools.handle_tool("get_market_summary", {
-            "market_slug": "test",
-        }))
+        result = asyncio.run(
+            analysis_tools.handle_tool(
+                "get_market_summary",
+                {
+                    "market_slug": "test",
+                },
+            )
+        )
         assert "No trades loaded" in result[0].text
 
     def test_missing_market_slug(self, loaded_session):
@@ -43,15 +54,25 @@ class TestMarketSummary:
         assert "market_slug is required" in result[0].text
 
     def test_market_not_found(self, loaded_session):
-        result = asyncio.run(analysis_tools.handle_tool("get_market_summary", {
-            "market_slug": "nonexistent-market",
-        }))
+        result = asyncio.run(
+            analysis_tools.handle_tool(
+                "get_market_summary",
+                {
+                    "market_slug": "nonexistent-market",
+                },
+            )
+        )
         assert "not found" in result[0].text
 
     def test_valid_market_summary(self, loaded_session):
-        result = asyncio.run(analysis_tools.handle_tool("get_market_summary", {
-            "market_slug": "market-0",
-        }))
+        result = asyncio.run(
+            analysis_tools.handle_tool(
+                "get_market_summary",
+                {
+                    "market_slug": "market-0",
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert "market_title" in data
         assert data["total_trades"] > 0
@@ -71,9 +92,14 @@ class TestAdvancedMetrics:
         assert "profit_factor" in data
 
     def test_metrics_for_specific_market(self, loaded_session):
-        result = asyncio.run(analysis_tools.handle_tool("get_advanced_metrics", {
-            "market_slug": "market-0",
-        }))
+        result = asyncio.run(
+            analysis_tools.handle_tool(
+                "get_advanced_metrics",
+                {
+                    "market_slug": "market-0",
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert "sharpe_ratio" in data
 

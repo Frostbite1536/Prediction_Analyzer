@@ -317,7 +317,7 @@ class MarketProvider(ABC):
 |----------|------|-----------|------------|
 | Limitless | `X-API-Key` header | Page-based (`page` param) | Native (API provides PnL) |
 | Polymarket | None (public API, wallet as query param) | Timestamp window narrowing | FIFO calculator |
-| Kalshi | RSA-PSS per-request signing | Cursor-based (`cursor` param) | Position endpoint + distribution |
+| Kalshi | RSA-PSS per-request signing (key cleared from memory after use) | Cursor-based (`cursor` param) | Position endpoint + distribution |
 | Manifold | `Authorization: Key ...` header | Cursor-based (`before` param) | FIFO calculator |
 
 ### FIFO PnL Calculator (`providers/pnl_calculator.py`)
@@ -331,19 +331,24 @@ Responsible for loading and normalizing trade data from multiple sources:
 - **Supported formats**: JSON, CSV, XLSX
 - **Auto-detection**: Uses ProviderRegistry to detect file format from field signatures
 - **Timestamp parsing**: Handles Unix epochs (seconds/milliseconds), RFC 3339, ISO 8601
-- **Unit conversion**: Converts API micro-units (6 decimals) to standard units
+- **Unit conversion**: Converts API micro-units using `USDC_DECIMALS` (1,000,000) constant
 - **Field mapping**: Maps various API field names to internal format
+- **NaN/Infinity sanitization**: `sanitize_numeric()` replaces NaN → 0.0, Inf → ±`INF_CAP`
 
 Key functions:
 - `load_trades(file_path)`: Main entry point -- auto-detects provider format
 - `save_trades(trades, file_path)`: Save trades to JSON
 - `_parse_timestamp(value)`: Robust timestamp parsing
+- `sanitize_numeric(value)`: Guards against NaN/Infinity for JSON serialization
+
+Key constants:
+- `INF_CAP = 999999.99` — shared ceiling for infinite values across the codebase
 
 ### PnL Calculator (`pnl.py`)
 
 Calculates profit/loss metrics:
 
-- `calculate_pnl(trades)`: Returns DataFrame with cumulative PnL
+- `calculate_pnl(trades)`: Returns DataFrame with cumulative PnL (uses `Decimal` accumulation to avoid float drift)
 - `calculate_global_pnl_summary(trades)`: Aggregate statistics with currency separation -- top-level totals use real-money currencies (USD/USDC) only; play-money (MANA) reported separately under `by_currency`; also includes `by_source` breakdown
 - `calculate_market_pnl_summary(trades)`: Per-market statistics
 - `calculate_market_pnl(trades)`: Breakdown by market
@@ -355,6 +360,11 @@ Metrics calculated:
 - Winning/Losing trade counts
 - Total invested/returned
 - Per-currency and per-source breakdowns
+
+**Numeric precision notes:**
+- Cumulative PnL is computed using `decimal.Decimal` accumulation, then stored back as `float`.
+- Infinite values (e.g. profit factor with zero losses) are capped at `INF_CAP` (999999.99), defined in `trade_loader.py` and shared across the codebase.
+- DB monetary columns use `Numeric(18,8)` to reduce rounding in storage.
 
 ### Filters (`filters.py` + `trade_filter.py`)
 
@@ -404,12 +414,14 @@ Four chart types with different use cases:
 
 ### MCP Server (`prediction_mcp/`)
 
-Model Context Protocol server providing 18 tools across 7 modules:
+Model Context Protocol server implementing all three MCP primitives:
 
 - **Transport**: stdio (Claude Code) or HTTP/SSE (web agents)
 - **State**: In-memory session with optional SQLite persistence
 - **Multi-source**: Session tracks multiple provider sources simultaneously
-- **Tools**: data (4), analysis (5), filter (1), chart (2), export (1), portfolio (4), tax (1)
+- **Tools**: 18 tools across 7 modules — data (4), analysis (5), filter (1), chart (2), export (1), portfolio (4), tax (1)
+- **Resources**: Dynamic resources exposing session state — `prediction://trades/summary`, `prediction://trades/markets`, `prediction://trades/filters`
+- **Prompts**: 3 prompt templates — `analyze_portfolio` (with risk/performance/tax focus), `compare_periods`, `daily_report`
 
 Key features:
 - `fetch_trades` tool accepts `provider` parameter with auto-detection
@@ -421,11 +433,15 @@ Key features:
 
 REST API with JWT authentication:
 
-- Trade upload with auto-detection of provider format
+- Trade upload with auto-detection of provider format (10 MB upload limit)
 - Source-based filtering (`?source=polymarket`)
-- `/trades/providers` endpoint listing available providers
+- `/trades/providers` endpoint listing available providers (requires authentication)
 - CSV/JSON export with source and currency fields
-- SQLAlchemy models include `source` and `currency` columns
+- SQLAlchemy models use `Numeric(18,8)` for monetary columns (price, shares, cost, pnl)
+- Security headers middleware (X-Frame-Options, X-Content-Type-Options, HSTS, etc.)
+- Per-IP rate limiting with key eviction (bounded memory; single-process only)
+- SECRET_KEY auto-generated in dev mode; must be explicitly set for production
+- Minimum password length: 8 characters
 
 ## User Interfaces
 
@@ -624,6 +640,58 @@ Run tests with:
 pytest                    # Run all tests
 pytest --cov=prediction_analyzer  # With coverage
 ```
+
+## Security Architecture
+
+### Web API Security Layers
+
+```
+Request → Rate Limiter → Security Headers → CORS → Auth (JWT) → Route Handler
+```
+
+1. **Rate Limiting** (per-IP, in-memory sliding window)
+   - Auth endpoints: 5 req/60s
+   - General endpoints: 60 req/60s
+   - Key eviction at 10,000 keys to bound memory
+   - **Limitation**: Single-process only. For multi-worker deployments, replace with Redis-backed solution.
+
+2. **Security Headers** (middleware on all responses)
+   - `X-Content-Type-Options: nosniff`
+   - `X-Frame-Options: DENY`
+   - `Referrer-Policy: strict-origin-when-cross-origin`
+   - `X-XSS-Protection: 1; mode=block`
+   - `Permissions-Policy: geolocation=(), camera=(), microphone=()`
+   - `Strict-Transport-Security` (HTTPS only)
+
+3. **CORS**
+   - Explicit origins list with credentials; wildcard without credentials
+   - Methods restricted to `GET, POST, PUT, PATCH, DELETE, OPTIONS`
+   - Headers restricted to `Authorization, Content-Type, Accept`
+
+4. **Authentication**
+   - JWT tokens with HS256 (symmetric), includes `exp`, `iat`, `iss`, `aud` claims
+   - Passwords hashed with Argon2 (minimum 8 characters)
+   - SECRET_KEY: auto-generated random key in dev; must be set via env var in production
+
+5. **Upload Protection**
+   - 10 MB file size limit enforced before processing
+   - SHA-256 dedup prevents duplicate uploads
+   - Temporary files cleaned up in `finally` block
+
+### Provider Credential Security
+
+- API keys are never logged, printed, or serialized
+- Kalshi RSA private key cleared from memory (`self._private_key = None`) after each `fetch_trades` call
+- `.env` and `*.pem` files excluded from version control via `.gitignore`
+- Polymarket wallet address is not logged (removed in security audit)
+
+### Numeric Precision Invariants
+
+- **DB storage**: `Numeric(18,8)` for all monetary columns (price, shares, cost, pnl)
+- **Cumulative PnL**: Computed via `decimal.Decimal` accumulation, not float `cumsum()`
+- **Infinity cap**: Unified to `INF_CAP = 999999.99` (defined in `trade_loader.py`)
+- **USDC conversion**: Uses named constant `USDC_DECIMALS = 1_000_000`
+- **NaN/Infinity sanitization**: Applied at serialization boundaries (JSON export, MCP responses)
 
 ## Design Principles
 

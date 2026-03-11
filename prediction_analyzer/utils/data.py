@@ -2,6 +2,7 @@
 """
 Data fetching utilities for Limitless Exchange API.
 """
+
 import logging
 import requests
 from typing import List
@@ -33,10 +34,7 @@ def fetch_trade_history(api_key: str, page_limit: int = 100) -> List[dict]:
 
         try:
             resp = requests.get(
-                f"{API_BASE_URL}/portfolio/history",
-                params=params,
-                headers=headers,
-                timeout=15
+                f"{API_BASE_URL}/portfolio/history", params=params, headers=headers, timeout=15
             )
             resp.raise_for_status()
             data = resp.json()

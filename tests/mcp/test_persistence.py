@@ -1,5 +1,6 @@
 # tests/mcp/test_persistence.py
 """Tests for SQLite session persistence."""
+
 import os
 import json
 import tempfile

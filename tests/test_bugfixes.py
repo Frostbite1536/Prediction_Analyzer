@@ -5,6 +5,7 @@ Regression tests for bugs identified in the codebase audit.
 Each test class corresponds to a specific bug fix and verifies the
 fix works correctly without regressions.
 """
+
 import json
 import math
 import pytest
@@ -14,10 +15,10 @@ from unittest.mock import patch
 
 from prediction_analyzer.trade_loader import Trade
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_trade(**kwargs):
     """Create a Trade with sensible defaults, overriding with kwargs."""
@@ -44,6 +45,7 @@ def _make_trade(**kwargs):
 # sample variance (ddof=1).  Fix: use ddof=1 for Sortino as well.
 # ===========================================================================
 
+
 class TestSortinoDdofConsistency:
     """Sortino ratio should use ddof=1 (Bessel's correction), matching Sharpe."""
 
@@ -59,7 +61,7 @@ class TestSortinoDdofConsistency:
         mean_ret = np.mean(arr)
         downside = np.minimum(arr, 0.0)
         # ddof=1: divide by (N - 1)
-        expected_dd = np.sqrt(np.sum(downside ** 2) / (len(arr) - 1))
+        expected_dd = np.sqrt(np.sum(downside**2) / (len(arr) - 1))
         expected_sortino = mean_ret / expected_dd
 
         assert abs(result["sortino_ratio"] - round(expected_sortino, 4)) < 1e-4
@@ -100,6 +102,7 @@ class TestSortinoDdofConsistency:
 # Fix: use cur_symbol derived from the portfolio's currency.
 # ===========================================================================
 
+
 class TestReportCurrencySymbol:
     """Per-market report sections should use the portfolio's currency symbol."""
 
@@ -110,12 +113,24 @@ class TestReportCurrencySymbol:
 
         trades = [
             _make_trade(
-                market="Q1", market_slug="q1", pnl=10.0, pnl_is_set=True,
-                cost=5.0, type="Buy", currency="MANA", source="manifold",
+                market="Q1",
+                market_slug="q1",
+                pnl=10.0,
+                pnl_is_set=True,
+                cost=5.0,
+                type="Buy",
+                currency="MANA",
+                source="manifold",
             ),
             _make_trade(
-                market="Q1", market_slug="q1", pnl=-3.0, pnl_is_set=True,
-                cost=3.0, type="Sell", currency="MANA", source="manifold",
+                market="Q1",
+                market_slug="q1",
+                pnl=-3.0,
+                pnl_is_set=True,
+                cost=3.0,
+                type="Sell",
+                currency="MANA",
+                source="manifold",
             ),
         ]
         buf = io.StringIO()
@@ -124,9 +139,9 @@ class TestReportCurrencySymbol:
 
         # The top-markets line should contain M$ not bare $
         lines = [l for l in output.splitlines() if "q1" in l.lower() or "Q1" in l]
-        assert any("M$" in line for line in lines), (
-            f"Expected M$ in top-markets lines, got: {lines}"
-        )
+        assert any(
+            "M$" in line for line in lines
+        ), f"Expected M$ in top-markets lines, got: {lines}"
 
     def test_usd_trades_use_dollar_sign(self):
         """USD trades should still use $ in the per-market section."""
@@ -135,8 +150,13 @@ class TestReportCurrencySymbol:
 
         trades = [
             _make_trade(
-                market="Election", market_slug="election", pnl=5.0,
-                pnl_is_set=True, cost=10.0, type="Buy", currency="USD",
+                market="Election",
+                market_slug="election",
+                pnl=5.0,
+                pnl_is_set=True,
+                cost=10.0,
+                type="Buy",
+                currency="USD",
             ),
         ]
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
@@ -156,6 +176,7 @@ class TestReportCurrencySymbol:
 # NaN/Inf sanitization and producing invalid JSON.
 # ===========================================================================
 
+
 class TestJsonExportUsesToDict:
     """export_to_json should use to_dict() for NaN/Inf sanitization."""
 
@@ -163,7 +184,7 @@ class TestJsonExportUsesToDict:
         """NaN in pnl should be sanitized to 0.0 in JSON output."""
         from prediction_analyzer.reporting.report_data import export_to_json
 
-        trades = [_make_trade(pnl=float('nan'), pnl_is_set=True)]
+        trades = [_make_trade(pnl=float("nan"), pnl_is_set=True)]
         outfile = str(tmp_path / "test.json")
         export_to_json(trades, filename=outfile)
 
@@ -176,7 +197,7 @@ class TestJsonExportUsesToDict:
         """Infinity in cost should be sanitized in JSON output."""
         from prediction_analyzer.reporting.report_data import export_to_json
 
-        trades = [_make_trade(cost=float('inf'))]
+        trades = [_make_trade(cost=float("inf"))]
         outfile = str(tmp_path / "test.json")
         export_to_json(trades, filename=outfile)
 
@@ -204,6 +225,7 @@ class TestJsonExportUsesToDict:
 # Bug #6: group_trades_by_market uses a different grouping key than
 # calculate_market_pnl.  Fix: both use trade.market_slug.
 # ===========================================================================
+
 
 class TestGroupingKeyConsistency:
     """group_trades_by_market and calculate_market_pnl should use the same key."""
@@ -244,6 +266,7 @@ class TestGroupingKeyConsistency:
 # Fix: only add the extra day for string dates (midnight-based).
 # ===========================================================================
 
+
 class TestFilterByDateDatetimeEnd:
     """filter_by_date should not add 24h when end is a datetime."""
 
@@ -279,6 +302,7 @@ class TestFilterByDateDatetimeEnd:
 # Fix: zero-amount trades are classified as "Buy" (amount >= 0).
 # This is now explicit rather than an accidental fallthrough.
 # ===========================================================================
+
 
 class TestManifoldZeroAmountTrade:
     """Manifold provider should handle zero-amount trades explicitly."""
@@ -321,6 +345,7 @@ class TestManifoldZeroAmountTrade:
 # Bug #10: inference.py docstring says threshold default is 0.5, but the
 # actual default is PRICE_RESOLUTION_THRESHOLD = 0.85.
 # ===========================================================================
+
 
 class TestInferenceDocstring:
     """Verify inference function's default threshold matches documentation."""

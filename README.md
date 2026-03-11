@@ -35,7 +35,7 @@ A complete modular analysis tool for prediction market traders. Analyze past tra
 - Currency-separated PnL aggregation (real-money USD/USDC vs play-money MANA)
 - FIFO PnL computation for providers without native PnL
 - MCP server integration for Claude Code / Claude Desktop
-- FastAPI web server with JWT authentication
+- FastAPI web server with JWT authentication and security headers
 - Command-line interface for automation
 
 ## Installation
@@ -282,11 +282,11 @@ prediction_analyzer/
 │   ├── time_utils.py        # Time utilities
 │   ├── math_utils.py        # Math utilities
 │   └── export.py            # Export utilities
-├── api/                     # FastAPI web application
-│   ├── models/              # SQLAlchemy ORM models
-│   ├── routers/             # API route handlers
-│   ├── schemas/             # Pydantic request/response schemas
-│   └── services/            # Business logic services
+├── api/                     # FastAPI web application (JWT auth, security headers)
+│   ├── models/              # SQLAlchemy ORM models (Numeric precision for money)
+│   ├── routers/             # API route handlers (all authenticated)
+│   ├── schemas/             # Pydantic request/response schemas (with field constraints)
+│   └── services/            # Business logic services (10 MB upload limit)
 └── core/                    # Core modules
     └── interactive.py       # Interactive CLI menu
 

@@ -2,6 +2,7 @@
 """
 FastAPI application - main entry point
 """
+
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -9,6 +10,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from .config import get_settings
 from .database import init_db
@@ -34,10 +37,15 @@ async def lifespan(app: FastAPI):
 # In-memory rate limiter (per-IP, sliding window)
 # ---------------------------------------------------------------------------
 # Two tiers: a strict limit for auth endpoints and a general limit for all others.
-_rate_store: dict = defaultdict(list)  # ip -> list of timestamps
-_RATE_LIMIT_AUTH = 5       # max requests per window on /auth/*
-_RATE_LIMIT_GENERAL = 60   # max requests per window on all other endpoints
-_RATE_WINDOW = 60          # window size in seconds
+#
+# NOTE: This rate limiter is in-memory and per-process. It does NOT share
+# state across multiple workers/servers. For multi-instance deployments,
+# replace with a Redis-backed solution (e.g. fastapi-limiter).
+_rate_store: dict = defaultdict(list)  # key -> list of timestamps
+_RATE_LIMIT_AUTH = 5  # max requests per window on /auth/*
+_RATE_LIMIT_GENERAL = 60  # max requests per window on all other endpoints
+_RATE_WINDOW = 60  # window size in seconds
+_RATE_MAX_KEYS = 10_000  # max tracked IPs before evicting oldest entries
 
 
 # Create FastAPI application
@@ -66,6 +74,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# ---------------------------------------------------------------------------
+# Security headers middleware
+# ---------------------------------------------------------------------------
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Inject standard security headers on every response."""
+
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+        # HSTS — only enable when actually serving over TLS
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
 # CORS configuration
 _raw_origins = settings.ALLOWED_ORIGINS.strip()
 if _raw_origins == "*":
@@ -80,9 +111,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=_allow_credentials,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
+
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
@@ -96,6 +128,12 @@ async def rate_limit_middleware(request: Request, call_next):
 
     # Prune timestamps outside the window
     _rate_store[key] = [t for t in _rate_store[key] if now - t < _RATE_WINDOW]
+
+    # Evict stale keys to bound memory usage
+    if len(_rate_store) > _RATE_MAX_KEYS:
+        stale = [k for k, v in _rate_store.items() if not v or (now - v[-1]) >= _RATE_WINDOW]
+        for k in stale:
+            del _rate_store[k]
 
     if len(_rate_store[key]) >= limit:
         return JSONResponse(
@@ -126,7 +164,7 @@ async def root():
         "version": settings.APP_VERSION,
         "docs": "/docs",
         "redoc": "/redoc",
-        "api_prefix": API_PREFIX
+        "api_prefix": API_PREFIX,
     }
 
 

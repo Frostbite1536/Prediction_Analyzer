@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "A complete modular analysis tool for prediction market traders"
 readme = "README.md"
 authors = [
-    {name = "Your Name", email = "you@example.com"}
+    {name = "Frostbite1536"}
 ]
 license = "AGPL-3.0-or-later"
 classifiers = [
@@ -27,7 +27,8 @@ dependencies = [
     "matplotlib>=3.7.0",
     "plotly>=5.20.0",
     "openpyxl>=3.1.0",
-    "requests>=2.28.0"
+    "requests>=2.28.0",
+    "cryptography>=41.0.0",
 ]
 
 [project.optional-dependencies]
@@ -46,8 +47,13 @@ api = [
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.24.0",
     "black>=22.0.0",
-    "flake8>=5.0.0"
+    "flake8>=5.0.0",
+    "mypy>=1.0.0",
+    "pandas-stubs>=1.5.0",
+    "types-requests>=2.28.0",
 ]
 mcp = [
     "mcp>=1.0.0",
@@ -61,9 +67,25 @@ prediction-analyzer = "prediction_analyzer.__main__:main"
 prediction-mcp = "prediction_mcp.server:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/prediction_analyzer"
-Documentation = "https://github.com/yourusername/prediction_analyzer/wiki"
-Repository = "https://github.com/yourusername/prediction_analyzer"
+Homepage = "https://github.com/Frostbite1536/Prediction_Analyzer"
+Documentation = "https://github.com/Frostbite1536/Prediction_Analyzer/wiki"
+Repository = "https://github.com/Frostbite1536/Prediction_Analyzer"
 
 [tool.setuptools.packages.find]
 include = ["prediction_analyzer*", "prediction_mcp*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

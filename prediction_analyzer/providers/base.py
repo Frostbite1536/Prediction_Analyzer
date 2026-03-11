@@ -2,6 +2,7 @@
 """
 Abstract base class for prediction market data providers and provider registry.
 """
+
 import logging
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
@@ -14,9 +15,9 @@ logger = logging.getLogger(__name__)
 class MarketProvider(ABC):
     """Base class for prediction market data providers."""
 
-    name: str           # e.g. "polymarket"
-    display_name: str   # e.g. "Polymarket"
-    api_key_prefix: str # e.g. "poly_", "kalshi_", "lmts_"
+    name: str  # e.g. "polymarket"
+    display_name: str  # e.g. "Polymarket"
+    api_key_prefix: str  # e.g. "poly_", "kalshi_", "lmts_"
     currency: str = "USD"
 
     @abstractmethod
@@ -56,9 +57,7 @@ class ProviderRegistry:
     @classmethod
     def get(cls, name: str) -> MarketProvider:
         if name not in cls._providers:
-            raise ValueError(
-                f"Unknown provider: {name}. Available: {list(cls._providers.keys())}"
-            )
+            raise ValueError(f"Unknown provider: {name}. Available: {list(cls._providers.keys())}")
         return cls._providers[name]
 
     @classmethod

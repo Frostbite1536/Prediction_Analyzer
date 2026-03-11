@@ -88,9 +88,7 @@ async def _handle_export_trades(arguments: dict):
     # allowed (the user explicitly chose where to write).
     # Check the raw path (before normpath resolves ..) to catch traversal.
     if ".." in output_path.replace("\\", "/").split("/"):
-        raise ValueError(
-            f"output_path must not contain '..': {output_path}"
-        )
+        raise ValueError(f"output_path must not contain '..': {output_path}")
 
     validate_export_format(fmt)
 

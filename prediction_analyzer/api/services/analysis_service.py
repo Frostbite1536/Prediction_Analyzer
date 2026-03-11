@@ -2,6 +2,7 @@
 """
 Analysis service - wraps existing pnl.py and filters.py functions
 """
+
 import json
 from typing import List, Dict, Any, Optional
 
@@ -15,14 +16,9 @@ from ...pnl import (
     calculate_global_pnl_summary,
     calculate_market_pnl_summary,
     calculate_market_pnl,
-    calculate_pnl
+    calculate_pnl,
 )
-from ...filters import (
-    filter_by_date,
-    filter_by_trade_type,
-    filter_by_side,
-    filter_by_pnl
-)
+from ...filters import filter_by_date, filter_by_trade_type, filter_by_side, filter_by_pnl
 from .trade_service import trade_service
 
 
@@ -30,9 +26,7 @@ class AnalysisService:
     """Service for running analyses on trade data"""
 
     def apply_filters(
-        self,
-        trades: List[TradeDataclass],
-        filters: FilterParams
+        self, trades: List[TradeDataclass], filters: FilterParams
     ) -> List[TradeDataclass]:
         """
         Apply filter parameters to a list of trades
@@ -62,10 +56,7 @@ class AnalysisService:
         return trades
 
     def get_global_summary(
-        self,
-        db: Session,
-        user_id: int,
-        filters: Optional[FilterParams] = None
+        self, db: Session, user_id: int, filters: Optional[FilterParams] = None
     ) -> Dict[str, Any]:
         """
         Calculate global PnL summary for a user
@@ -90,11 +81,7 @@ class AnalysisService:
         return calculate_global_pnl_summary(trades)
 
     def get_market_summary(
-        self,
-        db: Session,
-        user_id: int,
-        market_slug: str,
-        filters: Optional[FilterParams] = None
+        self, db: Session, user_id: int, market_slug: str, filters: Optional[FilterParams] = None
     ) -> Dict[str, Any]:
         """
         Calculate PnL summary for a specific market
@@ -109,10 +96,12 @@ class AnalysisService:
             Dictionary with market summary statistics
         """
         # Get trades for specific market
-        db_trades = db.query(TradeModel).filter(
-            TradeModel.user_id == user_id,
-            TradeModel.market_slug == market_slug
-        ).order_by(TradeModel.timestamp.asc()).all()
+        db_trades = (
+            db.query(TradeModel)
+            .filter(TradeModel.user_id == user_id, TradeModel.market_slug == market_slug)
+            .order_by(TradeModel.timestamp.asc())
+            .all()
+        )
 
         trades = trade_service.db_trades_to_dataclass(db_trades)
 
@@ -126,10 +115,7 @@ class AnalysisService:
         return summary
 
     def get_market_breakdown(
-        self,
-        db: Session,
-        user_id: int,
-        filters: Optional[FilterParams] = None
+        self, db: Session, user_id: int, filters: Optional[FilterParams] = None
     ) -> Dict[str, Dict]:
         """
         Get PnL breakdown by market
@@ -150,7 +136,7 @@ class AnalysisService:
         db: Session,
         user_id: int,
         market_slug: Optional[str] = None,
-        filters: Optional[FilterParams] = None
+        filters: Optional[FilterParams] = None,
     ) -> List[Dict]:
         """
         Get time-series PnL data for charting
@@ -159,10 +145,12 @@ class AnalysisService:
             List of dictionaries with timestamp, cumulative_pnl, exposure
         """
         if market_slug:
-            db_trades = db.query(TradeModel).filter(
-                TradeModel.user_id == user_id,
-                TradeModel.market_slug == market_slug
-            ).order_by(TradeModel.timestamp.asc()).all()
+            db_trades = (
+                db.query(TradeModel)
+                .filter(TradeModel.user_id == user_id, TradeModel.market_slug == market_slug)
+                .order_by(TradeModel.timestamp.asc())
+                .all()
+            )
         else:
             db_trades = trade_service.get_all_user_trades(db, user_id)
 
@@ -182,10 +170,7 @@ class AnalysisService:
     # Saved Analysis CRUD
 
     def save_analysis(
-        self,
-        db: Session,
-        user_id: int,
-        analysis_data: SavedAnalysisCreate
+        self, db: Session, user_id: int, analysis_data: SavedAnalysisCreate
     ) -> SavedAnalysis:
         """Save an analysis result"""
         saved = SavedAnalysis(
@@ -196,7 +181,7 @@ class AnalysisService:
                 analysis_data.filter_params.model_dump() if analysis_data.filter_params else None
             ),
             market_slug=analysis_data.market_slug,
-            results=json.dumps(analysis_data.results)
+            results=json.dumps(analysis_data.results),
         )
         db.add(saved)
         db.commit()
@@ -205,21 +190,22 @@ class AnalysisService:
 
     def get_saved_analyses(self, db: Session, user_id: int) -> List[SavedAnalysis]:
         """Get all saved analyses for a user"""
-        return db.query(SavedAnalysis).filter(
-            SavedAnalysis.user_id == user_id
-        ).order_by(SavedAnalysis.created_at.desc()).all()
+        return (
+            db.query(SavedAnalysis)
+            .filter(SavedAnalysis.user_id == user_id)
+            .order_by(SavedAnalysis.created_at.desc())
+            .all()
+        )
 
     def get_saved_analysis(
-        self,
-        db: Session,
-        user_id: int,
-        analysis_id: int
+        self, db: Session, user_id: int, analysis_id: int
     ) -> Optional[SavedAnalysis]:
         """Get a specific saved analysis"""
-        return db.query(SavedAnalysis).filter(
-            SavedAnalysis.id == analysis_id,
-            SavedAnalysis.user_id == user_id
-        ).first()
+        return (
+            db.query(SavedAnalysis)
+            .filter(SavedAnalysis.id == analysis_id, SavedAnalysis.user_id == user_id)
+            .first()
+        )
 
     def delete_saved_analysis(self, db: Session, analysis: SavedAnalysis) -> None:
         """Delete a saved analysis"""
@@ -227,10 +213,7 @@ class AnalysisService:
         db.commit()
 
     def get_filtered_trades(
-        self,
-        db: Session,
-        user_id: int,
-        filters: Optional[FilterParams] = None
+        self, db: Session, user_id: int, filters: Optional[FilterParams] = None
     ) -> List[TradeDataclass]:
         """
         Get all trades for a user with optional filters applied.
@@ -261,7 +244,7 @@ class AnalysisService:
             "market_slug": analysis.market_slug,
             "results": json.loads(analysis.results),
             "created_at": analysis.created_at,
-            "updated_at": analysis.updated_at
+            "updated_at": analysis.updated_at,
         }
 
 

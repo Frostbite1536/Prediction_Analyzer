@@ -1,5 +1,6 @@
 # tests/mcp/test_sse_transport.py
 """Tests for HTTP/SSE transport setup."""
+
 import pytest
 from starlette.testclient import TestClient
 
