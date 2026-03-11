@@ -1,5 +1,6 @@
 # tests/api/test_auth.py
 """Tests for authentication endpoints: signup, login, token validation."""
+
 import pytest
 
 from .conftest import signup_user, auth_header, create_authenticated_user
@@ -42,38 +43,50 @@ class TestSignup:
 class TestLoginJson:
     def test_login_json_success(self, client):
         signup_user(client)
-        resp = client.post("/api/v1/auth/login/json", json={
-            "email": "test@example.com",
-            "password": "password123",
-        })
+        resp = client.post(
+            "/api/v1/auth/login/json",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["access_token"]
         assert resp.json()["token_type"] == "bearer"
 
     def test_login_json_wrong_password(self, client):
         signup_user(client)
-        resp = client.post("/api/v1/auth/login/json", json={
-            "email": "test@example.com",
-            "password": "wrong",
-        })
+        resp = client.post(
+            "/api/v1/auth/login/json",
+            json={
+                "email": "test@example.com",
+                "password": "wrong",
+            },
+        )
         assert resp.status_code == 401
         assert "Incorrect email or password" in resp.json()["detail"]
 
     def test_login_json_nonexistent_user(self, client):
-        resp = client.post("/api/v1/auth/login/json", json={
-            "email": "nobody@example.com",
-            "password": "password123",
-        })
+        resp = client.post(
+            "/api/v1/auth/login/json",
+            json={
+                "email": "nobody@example.com",
+                "password": "password123",
+            },
+        )
         assert resp.status_code == 401
 
 
 class TestLoginOAuth2:
     def test_login_form_success(self, client):
         signup_user(client)
-        resp = client.post("/api/v1/auth/login", data={
-            "username": "test@example.com",
-            "password": "password123",
-        })
+        resp = client.post(
+            "/api/v1/auth/login",
+            data={
+                "username": "test@example.com",
+                "password": "password123",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["access_token"]
 

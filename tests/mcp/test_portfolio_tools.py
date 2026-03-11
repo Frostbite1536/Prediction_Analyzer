@@ -1,5 +1,6 @@
 # tests/mcp/test_portfolio_tools.py
 """Tests for MCP portfolio tools."""
+
 import json
 import asyncio
 
@@ -49,37 +50,57 @@ class TestDrawdownAnalysis:
 
 class TestComparePeriods:
     def test_no_trades_error(self):
-        result = asyncio.run(portfolio_tools.handle_tool("compare_periods", {
-            "period_1_start": "2024-01-01",
-            "period_1_end": "2024-01-05",
-            "period_2_start": "2024-01-06",
-            "period_2_end": "2024-01-10",
-        }))
+        result = asyncio.run(
+            portfolio_tools.handle_tool(
+                "compare_periods",
+                {
+                    "period_1_start": "2024-01-01",
+                    "period_1_end": "2024-01-05",
+                    "period_2_start": "2024-01-06",
+                    "period_2_end": "2024-01-10",
+                },
+            )
+        )
         assert "No trades loaded" in result[0].text
 
     def test_comparison_returned(self, loaded_session):
-        result = asyncio.run(portfolio_tools.handle_tool("compare_periods", {
-            "period_1_start": "2024-01-01",
-            "period_1_end": "2024-01-05",
-            "period_2_start": "2024-01-06",
-            "period_2_end": "2024-01-10",
-        }))
+        result = asyncio.run(
+            portfolio_tools.handle_tool(
+                "compare_periods",
+                {
+                    "period_1_start": "2024-01-01",
+                    "period_1_end": "2024-01-05",
+                    "period_2_start": "2024-01-06",
+                    "period_2_end": "2024-01-10",
+                },
+            )
+        )
         data = json.loads(result[0].text)
         assert "period_1" in data
         assert "period_2" in data
         assert "changes" in data
 
     def test_missing_dates_error(self, loaded_session):
-        result = asyncio.run(portfolio_tools.handle_tool("compare_periods", {
-            "period_1_start": "2024-01-01",
-        }))
+        result = asyncio.run(
+            portfolio_tools.handle_tool(
+                "compare_periods",
+                {
+                    "period_1_start": "2024-01-01",
+                },
+            )
+        )
         assert "required" in result[0].text
 
     def test_invalid_date_format(self, loaded_session):
-        result = asyncio.run(portfolio_tools.handle_tool("compare_periods", {
-            "period_1_start": "bad-date",
-            "period_1_end": "2024-01-05",
-            "period_2_start": "2024-01-06",
-            "period_2_end": "2024-01-10",
-        }))
+        result = asyncio.run(
+            portfolio_tools.handle_tool(
+                "compare_periods",
+                {
+                    "period_1_start": "bad-date",
+                    "period_1_end": "2024-01-05",
+                    "period_2_start": "2024-01-06",
+                    "period_2_end": "2024-01-10",
+                },
+            )
+        )
         assert "YYYY-MM-DD" in result[0].text

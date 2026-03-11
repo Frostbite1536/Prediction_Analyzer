@@ -2,6 +2,7 @@
 """
 Professional/advanced chart generation with Plotly
 """
+
 import logging
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -15,7 +16,14 @@ logger = logging.getLogger(__name__)
 # Default output directory: charts_output/ under project root
 _DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "charts_output"
 
-def generate_pro_chart(trades: List[Trade], market_name: str, resolved_outcome: str = None, output_dir: Optional[str] = None, show: bool = True):
+
+def generate_pro_chart(
+    trades: List[Trade],
+    market_name: str,
+    resolved_outcome: str = None,
+    output_dir: Optional[str] = None,
+    show: bool = True,
+):
     """
     Generate an interactive professional chart using Plotly
 
@@ -68,11 +76,12 @@ def generate_pro_chart(trades: List[Trade], market_name: str, resolved_outcome: 
 
     # Create subplots
     fig = make_subplots(
-        rows=3, cols=1,
+        rows=3,
+        cols=1,
         shared_xaxes=True,
         vertical_spacing=0.08,
         subplot_titles=("Trade Prices", "Cumulative PnL", "Net Exposure"),
-        row_heights=[0.4, 0.3, 0.3]
+        row_heights=[0.4, 0.3, 0.3],
     )
 
     # Plot 1: Price line with trade markers
@@ -83,9 +92,10 @@ def generate_pro_chart(trades: List[Trade], market_name: str, resolved_outcome: 
             mode="lines",
             line=dict(color="#1f77b4", width=2),
             name="Price",
-            showlegend=False
+            showlegend=False,
         ),
-        row=1, col=1
+        row=1,
+        col=1,
     )
 
     fig.add_trace(
@@ -95,10 +105,14 @@ def generate_pro_chart(trades: List[Trade], market_name: str, resolved_outcome: 
             mode="markers",
             marker=dict(color=colors, size=10, line=dict(width=1, color="black")),
             name="Trades",
-            text=[f"{t}<br>{s}<br>${c:.2f}" for t, s, c in zip(types, sides, [tr.cost for tr in sorted_trades])],
-            hoverinfo="text+x+y"
+            text=[
+                f"{t}<br>{s}<br>${c:.2f}"
+                for t, s, c in zip(types, sides, [tr.cost for tr in sorted_trades])
+            ],
+            hoverinfo="text+x+y",
         ),
-        row=1, col=1
+        row=1,
+        col=1,
     )
 
     # Plot 2: Cumulative PnL
@@ -110,10 +124,11 @@ def generate_pro_chart(trades: List[Trade], market_name: str, resolved_outcome: 
             line=dict(color="green" if cumulative_pnl[-1] >= 0 else "red", width=3),
             marker=dict(size=6),
             name="Cumulative PnL",
-            fill='tozeroy',
-            fillcolor='rgba(0,255,0,0.1)' if cumulative_pnl[-1] >= 0 else 'rgba(255,0,0,0.1)'
+            fill="tozeroy",
+            fillcolor="rgba(0,255,0,0.1)" if cumulative_pnl[-1] >= 0 else "rgba(255,0,0,0.1)",
         ),
-        row=2, col=1
+        row=2,
+        col=1,
     )
 
     # Plot 3: Net Exposure
@@ -124,10 +139,11 @@ def generate_pro_chart(trades: List[Trade], market_name: str, resolved_outcome: 
             mode="lines",
             line=dict(color="orange", width=2),
             name="Net Exposure",
-            fill='tozeroy',
-            fillcolor='rgba(255,165,0,0.2)'
+            fill="tozeroy",
+            fillcolor="rgba(255,165,0,0.2)",
         ),
-        row=3, col=1
+        row=3,
+        col=1,
     )
 
     # Update layout
@@ -135,12 +151,7 @@ def generate_pro_chart(trades: List[Trade], market_name: str, resolved_outcome: 
     if resolved_outcome:
         title_text += f" (Resolved: {resolved_outcome})"
 
-    fig.update_layout(
-        height=900,
-        title_text=title_text,
-        showlegend=True,
-        hovermode='x unified'
-    )
+    fig.update_layout(height=900, title_text=title_text, showlegend=True, hovermode="x unified")
 
     # Update axes
     fig.update_yaxes(title_text="Price (¢)", row=1, col=1)

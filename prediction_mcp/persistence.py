@@ -11,6 +11,7 @@ Usage:
     store.restore(session)    # reload from disk
     store.close()
 """
+
 import json
 import logging
 import sqlite3
@@ -85,16 +86,29 @@ class SessionStore:
         cur.execute("DELETE FROM session_meta")
 
         for trade in session.trades:
-            ts = trade.timestamp.isoformat() if hasattr(trade.timestamp, "isoformat") else str(trade.timestamp)
+            ts = (
+                trade.timestamp.isoformat()
+                if hasattr(trade.timestamp, "isoformat")
+                else str(trade.timestamp)
+            )
             cur.execute(
                 "INSERT INTO trades (market, market_slug, timestamp, price, shares, cost, type, side, pnl, pnl_is_set, tx_hash, source, currency) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (trade.market, trade.market_slug, ts, trade.price, trade.shares,
-                 trade.cost, trade.type, trade.side, trade.pnl,
-                 1 if trade.pnl_is_set else 0,
-                 trade.tx_hash,
-                 getattr(trade, "source", "limitless"),
-                 getattr(trade, "currency", "USD")),
+                (
+                    trade.market,
+                    trade.market_slug,
+                    ts,
+                    trade.price,
+                    trade.shares,
+                    trade.cost,
+                    trade.type,
+                    trade.side,
+                    trade.pnl,
+                    1 if trade.pnl_is_set else 0,
+                    trade.tx_hash,
+                    getattr(trade, "source", "limitless"),
+                    getattr(trade, "currency", "USD"),
+                ),
             )
 
         # Save sources list
@@ -124,28 +138,35 @@ class SessionStore:
         trades = []
         row_keys = rows[0].keys() if rows else []
         for row in rows:
-            pnl_is_set = bool(row["pnl_is_set"]) if "pnl_is_set" in row_keys else (row["pnl"] != 0.0)
-            trades.append(Trade(
-                market=row["market"],
-                market_slug=row["market_slug"],
-                timestamp=datetime.fromisoformat(row["timestamp"]),
-                price=row["price"],
-                shares=row["shares"],
-                cost=row["cost"],
-                type=row["type"],
-                side=row["side"],
-                pnl=row["pnl"],
-                pnl_is_set=pnl_is_set,
-                tx_hash=row["tx_hash"],
-                source=row["source"] if "source" in row_keys else "limitless",
-                currency=row["currency"] if "currency" in row_keys else "USD",
-            ))
+            pnl_is_set = (
+                bool(row["pnl_is_set"]) if "pnl_is_set" in row_keys else (row["pnl"] != 0.0)
+            )
+            trades.append(
+                Trade(
+                    market=row["market"],
+                    market_slug=row["market_slug"],
+                    timestamp=datetime.fromisoformat(row["timestamp"]),
+                    price=row["price"],
+                    shares=row["shares"],
+                    cost=row["cost"],
+                    type=row["type"],
+                    side=row["side"],
+                    pnl=row["pnl"],
+                    pnl_is_set=pnl_is_set,
+                    tx_hash=row["tx_hash"],
+                    source=row["source"] if "source" in row_keys else "limitless",
+                    currency=row["currency"] if "currency" in row_keys else "USD",
+                )
+            )
 
         session.trades = trades
         session.filtered_trades = list(trades)
 
         # Restore metadata
-        meta = {r["key"]: r["value"] for r in cur.execute("SELECT key, value FROM session_meta").fetchall()}
+        meta = {
+            r["key"]: r["value"]
+            for r in cur.execute("SELECT key, value FROM session_meta").fetchall()
+        }
 
         sources_json = meta.get("sources")
         if sources_json:

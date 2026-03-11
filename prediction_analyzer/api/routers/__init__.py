@@ -2,6 +2,7 @@
 """
 API route handlers
 """
+
 from .auth import router as auth_router
 from .users import router as users_router
 from .trades import router as trades_router

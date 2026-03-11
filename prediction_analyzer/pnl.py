@@ -2,12 +2,14 @@
 """
 PnL calculation and analysis functions
 """
+
 from decimal import Decimal
 from typing import List, Dict
 import pandas as pd
 import numpy as np
 from .trade_loader import Trade
 from .inference import detect_market_resolution
+
 
 def calculate_pnl(trades: List[Trade]) -> pd.DataFrame:
     """
@@ -50,14 +52,23 @@ def calculate_pnl(trades: List[Trade]) -> pd.DataFrame:
 
     return df
 
+
 def _summarize_trades(trades: List[Trade]) -> Dict:
     """Compute summary stats for a list of trades (single currency group)."""
     if not trades:
         return {
-            "total_trades": 0, "total_volume": 0.0, "total_pnl": 0.0,
-            "win_rate": 0.0, "avg_pnl_per_trade": 0.0, "avg_pnl": 0.0,
-            "winning_trades": 0, "losing_trades": 0, "breakeven_trades": 0,
-            "total_invested": 0.0, "total_returned": 0.0, "roi": 0.0,
+            "total_trades": 0,
+            "total_volume": 0.0,
+            "total_pnl": 0.0,
+            "win_rate": 0.0,
+            "avg_pnl_per_trade": 0.0,
+            "avg_pnl": 0.0,
+            "winning_trades": 0,
+            "losing_trades": 0,
+            "breakeven_trades": 0,
+            "total_invested": 0.0,
+            "total_returned": 0.0,
+            "roi": 0.0,
         }
     df = pd.DataFrame([vars(t) for t in trades])
 
@@ -123,7 +134,7 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
             "total_invested": 0.0,
             "total_returned": 0.0,
             "roi": 0.0,
-            "avg_pnl": 0.0
+            "avg_pnl": 0.0,
         }
 
     # Group trades by currency
@@ -164,11 +175,14 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
             by_source[source] = {
                 "total_trades": len(source_trades),
                 "total_pnl": source_pnl,
-                "currency": getattr(source_trades[0], "currency", "USD") if source_trades else "USD",
+                "currency": (
+                    getattr(source_trades[0], "currency", "USD") if source_trades else "USD"
+                ),
             }
         result["by_source"] = by_source
 
     return result
+
 
 def calculate_market_pnl(trades: List[Trade]) -> Dict[str, Dict]:
     """
@@ -186,7 +200,7 @@ def calculate_market_pnl(trades: List[Trade]) -> Dict[str, Dict]:
                 "market_name": trade.market,
                 "total_volume": 0.0,
                 "total_pnl": 0.0,
-                "trade_count": 0
+                "trade_count": 0,
             }
 
         market_stats[slug]["total_volume"] += trade.cost
@@ -194,6 +208,7 @@ def calculate_market_pnl(trades: List[Trade]) -> Dict[str, Dict]:
         market_stats[slug]["trade_count"] += 1
 
     return market_stats
+
 
 def calculate_market_pnl_summary(trades: List[Trade]) -> Dict:
     """
@@ -217,7 +232,7 @@ def calculate_market_pnl_summary(trades: List[Trade]) -> Dict:
             "total_invested": 0.0,
             "total_returned": 0.0,
             "roi": 0.0,
-            "market_outcome": None
+            "market_outcome": None,
         }
 
     # Get market title from first trade
@@ -262,5 +277,5 @@ def calculate_market_pnl_summary(trades: List[Trade]) -> Dict:
         "total_invested": total_invested,
         "total_returned": total_returned,
         "roi": roi,
-        "market_outcome": market_outcome
+        "market_outcome": market_outcome,
     }

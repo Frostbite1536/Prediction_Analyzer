@@ -2,6 +2,7 @@
 """
 Limitless Exchange provider — refactored from utils/data.py.
 """
+
 import logging
 import requests
 from typing import List, Optional, Dict, Any
@@ -71,9 +72,7 @@ class LimitlessProvider(MarketProvider):
             market_title = market_data.get("title") or "Unknown"
             market_slug = market_data.get("slug") or "unknown"
         else:
-            market_title = (
-                raw.get("market") if isinstance(raw.get("market"), str) else "Unknown"
-            )
+            market_title = raw.get("market") if isinstance(raw.get("market"), str) else "Unknown"
             market_slug = raw.get("market_slug") or "unknown"
 
         if not market_title:
@@ -133,9 +132,7 @@ class LimitlessProvider(MarketProvider):
         return Trade(
             market=market_title,
             market_slug=market_slug,
-            timestamp=_parse_timestamp(
-                raw.get("timestamp") or raw.get("blockTimestamp") or 0
-            ),
+            timestamp=_parse_timestamp(raw.get("timestamp") or raw.get("blockTimestamp") or 0),
             price=raw_price,
             shares=shares,
             cost=cost,
@@ -166,8 +163,5 @@ class LimitlessProvider(MarketProvider):
         return (
             "collateralAmount" in first
             or "outcomeTokenAmount" in first
-            or (
-                isinstance(first.get("market"), dict)
-                and "slug" in first["market"]
-            )
+            or (isinstance(first.get("market"), dict) and "slug" in first["market"])
         )

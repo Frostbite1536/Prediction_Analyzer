@@ -5,6 +5,7 @@ In-memory session state for the MCP server.
 Maintains loaded trades, active filters, and filtered results so that
 the LLM can load trades once and run multiple analyses without re-loading.
 """
+
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 

@@ -1,5 +1,6 @@
 # tests/mcp/test_server.py
 """Tests for MCP server dispatch logic."""
+
 import asyncio
 
 import pytest

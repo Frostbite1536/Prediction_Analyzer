@@ -2,6 +2,7 @@
 """
 Chart data endpoints - returns JSON data for frontend rendering
 """
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -21,7 +22,7 @@ async def get_price_chart_data(
     market_slug: Optional[str] = None,
     filters: Optional[FilterParams] = None,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Get price history chart data.
@@ -29,10 +30,7 @@ async def get_price_chart_data(
     Returns trade prices over time with styling information.
     """
     return chart_service.get_price_chart_data(
-        db,
-        user_id=current_user.id,
-        market_slug=market_slug,
-        filters=filters
+        db, user_id=current_user.id, market_slug=market_slug, filters=filters
     )
 
 
@@ -41,7 +39,7 @@ async def get_pnl_chart_data(
     market_slug: Optional[str] = None,
     filters: Optional[FilterParams] = None,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Get cumulative PnL chart data.
@@ -49,10 +47,7 @@ async def get_pnl_chart_data(
     Returns cumulative PnL over time.
     """
     return chart_service.get_pnl_chart_data(
-        db,
-        user_id=current_user.id,
-        market_slug=market_slug,
-        filters=filters
+        db, user_id=current_user.id, market_slug=market_slug, filters=filters
     )
 
 
@@ -61,7 +56,7 @@ async def get_exposure_chart_data(
     market_slug: Optional[str] = None,
     filters: Optional[FilterParams] = None,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Get net exposure chart data.
@@ -69,10 +64,7 @@ async def get_exposure_chart_data(
     Returns net share exposure over time.
     """
     return chart_service.get_exposure_chart_data(
-        db,
-        user_id=current_user.id,
-        market_slug=market_slug,
-        filters=filters
+        db, user_id=current_user.id, market_slug=market_slug, filters=filters
     )
 
 
@@ -80,15 +72,11 @@ async def get_exposure_chart_data(
 async def get_dashboard_data(
     filters: Optional[FilterParams] = None,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Get multi-market dashboard data.
 
     Returns per-market PnL data and overall summary.
     """
-    return chart_service.get_dashboard_data(
-        db,
-        user_id=current_user.id,
-        filters=filters
-    )
+    return chart_service.get_dashboard_data(db, user_id=current_user.id, filters=filters)

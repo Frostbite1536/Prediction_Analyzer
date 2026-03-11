@@ -5,6 +5,7 @@ PnL Calculation Contract Tests
 These tests verify that PnL calculation functions maintain their
 behavior contracts. PnL calculations must be accurate and consistent.
 """
+
 import pytest
 import pandas as pd
 from datetime import datetime
@@ -62,11 +63,7 @@ class TestCalculatePnLContracts:
 
         result = calculate_pnl(sample_trades_list)
         expected_cumsum = result["trade_pnl"].cumsum()
-        pd.testing.assert_series_equal(
-            result["cumulative_pnl"],
-            expected_cumsum,
-            check_names=False
-        )
+        pd.testing.assert_series_equal(result["cumulative_pnl"], expected_cumsum, check_names=False)
 
     def test_sorted_by_timestamp(self, sample_trades_list):
         """Result should be sorted by timestamp."""
@@ -145,9 +142,7 @@ class TestCalculateGlobalPnLSummaryContracts:
 
         result = calculate_global_pnl_summary(sample_trades_list)
         count_sum = (
-            result["winning_trades"] +
-            result["losing_trades"] +
-            result.get("breakeven_trades", 0)
+            result["winning_trades"] + result["losing_trades"] + result.get("breakeven_trades", 0)
         )
         assert count_sum <= result["total_trades"]
 
@@ -212,9 +207,7 @@ class TestCalculateMarketPnLContracts:
         result = calculate_market_pnl(multi_market_trades)
 
         for slug, stats in result.items():
-            expected_count = len([
-                t for t in multi_market_trades if t.market_slug == slug
-            ])
+            expected_count = len([t for t in multi_market_trades if t.market_slug == slug])
             assert stats["trade_count"] == expected_count
 
 
@@ -249,8 +242,13 @@ class TestCalculateMarketPnLSummaryContracts:
 
         result = calculate_market_pnl_summary(sample_trades_list)
         required_keys = {
-            "market_title", "total_trades", "total_pnl",
-            "avg_pnl", "winning_trades", "losing_trades", "win_rate"
+            "market_title",
+            "total_trades",
+            "total_pnl",
+            "avg_pnl",
+            "winning_trades",
+            "losing_trades",
+            "win_rate",
         }
         assert required_keys.issubset(set(result.keys()))
 

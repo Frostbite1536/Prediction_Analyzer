@@ -5,6 +5,7 @@ JSON-safe serialization helpers for MCP tool responses.
 Ensures all data returned from tools is JSON-serializable,
 handling NaN/Infinity, datetime objects, and dataclass conversion.
 """
+
 import json
 import math
 from typing import Any, Dict, List
@@ -37,7 +38,7 @@ def _sanitize_value(value: Any) -> Any:
         return sanitize_dict(value)
     if isinstance(value, (list, tuple)):
         return [_sanitize_value(v) for v in value]
-    if hasattr(value, 'isoformat'):
+    if hasattr(value, "isoformat"):
         return value.isoformat()
     return value
 

@@ -1,5 +1,6 @@
 # tests/mcp/test_validators.py
 """Tests for MCP input validators."""
+
 import math
 
 import pytest

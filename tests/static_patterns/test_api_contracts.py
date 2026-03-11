@@ -5,6 +5,7 @@ API Contract Tests
 These tests verify that public function signatures and return types
 remain stable. This helps catch breaking changes to the API.
 """
+
 import pytest
 import inspect
 from typing import get_type_hints, List, Dict, Optional
@@ -17,6 +18,7 @@ class TestTradeLoaderAPIContracts:
     def test_load_trades_signature(self):
         """load_trades should accept file_path and return List[Trade]."""
         from prediction_analyzer.trade_loader import load_trades
+
         sig = inspect.signature(load_trades)
         params = list(sig.parameters.keys())
 
@@ -26,6 +28,7 @@ class TestTradeLoaderAPIContracts:
     def test_save_trades_signature(self):
         """save_trades should accept trades and file_path."""
         from prediction_analyzer.trade_loader import save_trades
+
         sig = inspect.signature(save_trades)
         params = list(sig.parameters.keys())
 
@@ -35,11 +38,13 @@ class TestTradeLoaderAPIContracts:
     def test_parse_timestamp_exists(self):
         """_parse_timestamp helper should exist."""
         from prediction_analyzer.trade_loader import _parse_timestamp
+
         assert callable(_parse_timestamp)
 
     def test_sanitize_filename_exists(self):
         """_sanitize_filename helper should exist."""
         from prediction_analyzer.trade_loader import _sanitize_filename
+
         assert callable(_sanitize_filename)
 
 
@@ -93,10 +98,7 @@ class TestPnLAPIContracts:
         from prediction_analyzer.pnl import calculate_global_pnl_summary
 
         result = calculate_global_pnl_summary(sample_trades_list)
-        expected_keys = {
-            "total_trades", "total_pnl", "win_rate",
-            "winning_trades", "losing_trades"
-        }
+        expected_keys = {"total_trades", "total_pnl", "win_rate", "winning_trades", "losing_trades"}
         assert expected_keys.issubset(set(result.keys()))
 
     def test_calculate_market_pnl_signature(self):

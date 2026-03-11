@@ -5,6 +5,7 @@ Edge Case Tests
 These tests verify that the codebase handles edge cases gracefully.
 Edge cases often cause crashes or unexpected behavior when not handled.
 """
+
 import pytest
 from datetime import datetime, timezone
 import numpy as np
@@ -93,12 +94,7 @@ class TestZeroValueHandling:
 
     def test_trade_with_zero_values(self, sample_trade_factory):
         """Trade with zero values should be valid."""
-        trade = sample_trade_factory(
-            price=0.0,
-            shares=0.0,
-            cost=0.0,
-            pnl=0.0
-        )
+        trade = sample_trade_factory(price=0.0, shares=0.0, cost=0.0, pnl=0.0)
         assert trade.price == 0.0
         assert trade.shares == 0.0
 

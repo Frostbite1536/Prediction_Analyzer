@@ -7,6 +7,7 @@ Base URL: https://api.manifold.markets
 Auth: API key via "Authorization: Key <key>" header.
 Currency: MANA (play money).
 """
+
 import logging
 import requests
 from typing import List, Optional, Dict, Any
@@ -35,8 +36,7 @@ class ManifoldProvider(MarketProvider):
         user_id = data.get("id")
         if not user_id:
             raise ValueError(
-                "Manifold /v0/me response missing 'id' field. "
-                "Verify your API key is valid."
+                "Manifold /v0/me response missing 'id' field. " "Verify your API key is valid."
             )
         return user_id
 
@@ -83,9 +83,7 @@ class ManifoldProvider(MarketProvider):
                 params["before"] = cursor
 
             try:
-                resp = requests.get(
-                    f"{BASE_URL}/v0/bets", params=params, timeout=15
-                )
+                resp = requests.get(f"{BASE_URL}/v0/bets", params=params, timeout=15)
                 resp.raise_for_status()
                 bets = resp.json()
             except requests.RequestException as exc:
@@ -103,9 +101,7 @@ class ManifoldProvider(MarketProvider):
             cursor = bets[-1]["id"]
 
         # Step 2: Fetch market metadata for unique contractIds
-        contract_ids = list(
-            {b.get("contractId", "") for b in all_bets if b.get("contractId")}
-        )
+        contract_ids = list({b.get("contractId", "") for b in all_bets if b.get("contractId")})
         logger.info("Fetching metadata for %d Manifold markets...", len(contract_ids))
         market_meta = self._fetch_market_metadata(contract_ids)
 
@@ -158,7 +154,9 @@ class ManifoldProvider(MarketProvider):
                 if resp.status_code == 200:
                     return resp.json()
             except Exception as exc:
-                logger.warning("Failed to fetch Manifold market %s via %s: %s", market_id, endpoint, exc)
+                logger.warning(
+                    "Failed to fetch Manifold market %s via %s: %s", market_id, endpoint, exc
+                )
         return None
 
     def detect_file_format(self, records: List[dict]) -> bool:

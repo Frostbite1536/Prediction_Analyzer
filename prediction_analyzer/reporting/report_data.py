@@ -2,6 +2,7 @@
 """
 Data export functionality (CSV, Excel, JSON)
 """
+
 import logging
 import pandas as pd
 from typing import List
@@ -9,6 +10,7 @@ from ..trade_loader import Trade
 from ..exceptions import NoTradesError, ExportError
 
 logger = logging.getLogger(__name__)
+
 
 def export_to_csv(trades: List[Trade], filename: str = "trades_export.csv"):
     """
@@ -30,6 +32,7 @@ def export_to_csv(trades: List[Trade], filename: str = "trades_export.csv"):
         logger.error("Error exporting to CSV: %s", e)
         raise ExportError(f"Error exporting to CSV {filename}: {e}") from e
 
+
 def export_to_excel(trades: List[Trade], filename: str = "trades_export.xlsx"):
     """
     Export trades to Excel file with multiple sheets
@@ -44,24 +47,25 @@ def export_to_excel(trades: List[Trade], filename: str = "trades_export.xlsx"):
     try:
         df = pd.DataFrame([t.to_dict() for t in trades])
 
-        with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+        with pd.ExcelWriter(filename, engine="openpyxl") as writer:
             # Main trades sheet
-            df.to_excel(writer, sheet_name='All Trades', index=False)
+            df.to_excel(writer, sheet_name="All Trades", index=False)
 
             # Summary by market (group by slug for consistency with pnl.py)
-            summary = df.groupby('market_slug').agg({
-                'cost': 'sum',
-                'pnl': 'sum',
-                'market': 'first'
-            }).rename(columns={'market': 'market_name'})
-            summary['trade_count'] = df.groupby('market_slug').size()
-            summary.to_excel(writer, sheet_name='Market Summary')
+            summary = (
+                df.groupby("market_slug")
+                .agg({"cost": "sum", "pnl": "sum", "market": "first"})
+                .rename(columns={"market": "market_name"})
+            )
+            summary["trade_count"] = df.groupby("market_slug").size()
+            summary.to_excel(writer, sheet_name="Market Summary")
 
         logger.info("Trades exported to: %s", filename)
         return True
     except Exception as e:
         logger.error("Error exporting to Excel: %s", e)
         raise ExportError(f"Error exporting to Excel {filename}: {e}") from e
+
 
 def export_to_json(trades: List[Trade], filename: str = "trades_export.json"):
     """
@@ -79,7 +83,7 @@ def export_to_json(trades: List[Trade], filename: str = "trades_export.json"):
     try:
         trades_dict = [t.to_dict() for t in trades]
 
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(filename, "w", encoding="utf-8") as f:
             json.dump(trades_dict, f, indent=2)
 
         logger.info("Trades exported to: %s", filename)

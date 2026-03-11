@@ -2,6 +2,7 @@
 """
 FastAPI application - main entry point
 """
+
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -41,10 +42,10 @@ async def lifespan(app: FastAPI):
 # state across multiple workers/servers. For multi-instance deployments,
 # replace with a Redis-backed solution (e.g. fastapi-limiter).
 _rate_store: dict = defaultdict(list)  # key -> list of timestamps
-_RATE_LIMIT_AUTH = 5       # max requests per window on /auth/*
-_RATE_LIMIT_GENERAL = 60   # max requests per window on all other endpoints
-_RATE_WINDOW = 60          # window size in seconds
-_RATE_MAX_KEYS = 10_000    # max tracked IPs before evicting oldest entries
+_RATE_LIMIT_AUTH = 5  # max requests per window on /auth/*
+_RATE_LIMIT_GENERAL = 60  # max requests per window on all other endpoints
+_RATE_WINDOW = 60  # window size in seconds
+_RATE_MAX_KEYS = 10_000  # max tracked IPs before evicting oldest entries
 
 
 # Create FastAPI application
@@ -89,9 +90,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
         # HSTS — only enable when actually serving over TLS
         if request.url.scheme == "https":
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=63072000; includeSubDomains"
-            )
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
 
 
@@ -116,6 +115,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
+
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     """Enforce per-IP rate limits (stricter on auth endpoints)."""
@@ -131,10 +131,7 @@ async def rate_limit_middleware(request: Request, call_next):
 
     # Evict stale keys to bound memory usage
     if len(_rate_store) > _RATE_MAX_KEYS:
-        stale = [
-            k for k, v in _rate_store.items()
-            if not v or (now - v[-1]) >= _RATE_WINDOW
-        ]
+        stale = [k for k, v in _rate_store.items() if not v or (now - v[-1]) >= _RATE_WINDOW]
         for k in stale:
             del _rate_store[k]
 
@@ -167,7 +164,7 @@ async def root():
         "version": settings.APP_VERSION,
         "docs": "/docs",
         "redoc": "/redoc",
-        "api_prefix": API_PREFIX
+        "api_prefix": API_PREFIX,
     }
 
 

@@ -4,6 +4,7 @@ Fixtures for FastAPI integration tests.
 
 Uses an in-memory SQLite database so tests are fast and isolated.
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -13,7 +14,6 @@ from sqlalchemy.pool import StaticPool
 from prediction_analyzer.api.database import Base
 from prediction_analyzer.api.dependencies import get_db
 from prediction_analyzer.api.main import app, _rate_store
-
 
 # In-memory SQLite for tests
 _TEST_ENGINE = create_engine(
@@ -62,13 +62,19 @@ def db_session():
 
 # ---- Helpers ---------------------------------------------------------------
 
-def signup_user(client: TestClient, email="test@example.com", username="testuser", password="password123"):
+
+def signup_user(
+    client: TestClient, email="test@example.com", username="testuser", password="password123"
+):
     """Register a user and return the response."""
-    resp = client.post("/api/v1/auth/signup", json={
-        "email": email,
-        "username": username,
-        "password": password,
-    })
+    resp = client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": email,
+            "username": username,
+            "password": password,
+        },
+    )
     return resp
 
 
@@ -77,7 +83,9 @@ def auth_header(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def create_authenticated_user(client: TestClient, email="test@example.com", username="testuser", password="password123"):
+def create_authenticated_user(
+    client: TestClient, email="test@example.com", username="testuser", password="password123"
+):
     """Register a user and return (response_json, auth_headers)."""
     resp = signup_user(client, email, username, password)
     assert resp.status_code == 201, f"Signup failed: {resp.status_code} {resp.text}"

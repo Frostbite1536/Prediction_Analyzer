@@ -30,10 +30,20 @@ jobs:
             ${{ runner.os }}-pip-${{ matrix.python-version }}-
 
       - name: Install dependencies
-        run: pip install -e ".[api,mcp,dev]"
+        run: |
+          if [[ "${{ matrix.python-version }}" == "3.9" ]]; then
+            pip install -e ".[api,dev]"
+          else
+            pip install -e ".[api,mcp,dev]"
+          fi
 
       - name: Run tests
-        run: pytest --cov=prediction_analyzer --cov=prediction_mcp --cov-report=xml -q
+        run: |
+          if [[ "${{ matrix.python-version }}" == "3.9" ]]; then
+            pytest --cov=prediction_analyzer --cov-report=xml -q --ignore=tests/mcp
+          else
+            pytest --cov=prediction_analyzer --cov=prediction_mcp --cov-report=xml -q
+          fi
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'

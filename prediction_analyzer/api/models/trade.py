@@ -2,6 +2,7 @@
 """
 Trade and TradeUpload models for storing user trading data
 """
+
 from sqlalchemy import Column, Integer, String, Float, Numeric, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from ..database import Base
 
 class TradeUpload(Base):
     """Metadata for trade file uploads"""
+
     __tablename__ = "trade_uploads"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -31,6 +33,7 @@ class TradeUpload(Base):
 
 class Trade(Base):
     """Individual trade record"""
+
     __tablename__ = "trades"
 
     id = Column(Integer, primary_key=True, index=True)

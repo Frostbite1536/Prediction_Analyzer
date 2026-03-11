@@ -2,6 +2,7 @@
 """
 Tax reporting: capital gains/losses with FIFO, LIFO, and average cost basis methods.
 """
+
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
@@ -34,7 +35,9 @@ def calculate_capital_gains(
         Dict with tax summary and per-transaction breakdown
     """
     if cost_basis_method not in VALID_METHODS:
-        raise ValueError(f"Invalid cost basis method: {cost_basis_method}. Valid: {sorted(VALID_METHODS)}")
+        raise ValueError(
+            f"Invalid cost basis method: {cost_basis_method}. Valid: {sorted(VALID_METHODS)}"
+        )
 
     sorted_trades = sorted(trades, key=lambda t: t.timestamp)
 
@@ -61,12 +64,14 @@ def calculate_capital_gains(
             # other providers bundle fees into cost implicitly)
             total_fees += getattr(trade, "fee", 0.0)
             # Add to buy lots
-            buy_lots.setdefault(slug, []).append({
-                "date": trade.timestamp,
-                "shares": trade.shares,
-                "price": trade.price,
-                "cost_per_share": (trade.cost / trade.shares) if trade.shares > 0 else 0.0,
-            })
+            buy_lots.setdefault(slug, []).append(
+                {
+                    "date": trade.timestamp,
+                    "shares": trade.shares,
+                    "price": trade.price,
+                    "cost_per_share": (trade.cost / trade.shares) if trade.shares > 0 else 0.0,
+                }
+            )
 
         elif trade.type in _SELL_TYPES:
             # Track fees
@@ -159,7 +164,9 @@ def calculate_capital_gains(
                 logger.warning(
                     "Tax report: %.4f shares of %s sold on %s have no matching buy lots "
                     "(missing cost basis data)",
-                    remaining_shares, slug, trade.timestamp.strftime("%Y-%m-%d"),
+                    remaining_shares,
+                    slug,
+                    trade.timestamp.strftime("%Y-%m-%d"),
                 )
 
         else:
@@ -169,13 +176,14 @@ def calculate_capital_gains(
     if skipped_types:
         logger.warning(
             "Tax report skipped %d trades with unrecognized types: %s",
-            sum(skipped_types.values()), skipped_types,
+            sum(skipped_types.values()),
+            skipped_types,
         )
 
     # Detect wash sales
     wash_sales = _detect_wash_sales(transactions, sorted_trades)
 
-    net_gain_loss = (short_term_gains - short_term_losses + long_term_gains - long_term_losses)
+    net_gain_loss = short_term_gains - short_term_losses + long_term_gains - long_term_losses
 
     result = {
         "tax_year": tax_year,
@@ -295,14 +303,16 @@ def _detect_wash_sales(
 
             delta = abs((buy_date - sell_date).days)
             if 0 < delta <= 30:
-                wash_sales.append({
-                    "market": tx["market"],
-                    "market_slug": slug,
-                    "date_sold": tx["date_sold"],
-                    "date_repurchased": buy_date.strftime("%Y-%m-%d"),
-                    "disallowed_loss": sanitize_numeric(abs(tx["gain_loss"])),
-                    "shares": tx["shares"],
-                })
+                wash_sales.append(
+                    {
+                        "market": tx["market"],
+                        "market_slug": slug,
+                        "date_sold": tx["date_sold"],
+                        "date_repurchased": buy_date.strftime("%Y-%m-%d"),
+                        "disallowed_loss": sanitize_numeric(abs(tx["gain_loss"])),
+                        "shares": tx["shares"],
+                    }
+                )
                 flagged_tx_ids.add(tx_id)
                 break  # One wash sale per loss transaction
 

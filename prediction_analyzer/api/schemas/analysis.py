@@ -2,6 +2,7 @@
 """
 Analysis-related Pydantic schemas
 """
+
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List, Dict, Any
@@ -9,6 +10,7 @@ from typing import Optional, List, Dict, Any
 
 class FilterParams(BaseModel):
     """Parameters for filtering trades"""
+
     start_date: Optional[str] = None  # YYYY-MM-DD format
     end_date: Optional[str] = None
     types: Optional[List[str]] = None  # ["Buy", "Sell"]
@@ -20,6 +22,7 @@ class FilterParams(BaseModel):
 
 class GlobalSummaryResponse(BaseModel):
     """Global portfolio summary"""
+
     total_trades: int
     total_volume: float
     total_pnl: float
@@ -39,6 +42,7 @@ class GlobalSummaryResponse(BaseModel):
 
 class MarketSummaryResponse(BaseModel):
     """Per-market analysis summary"""
+
     market_title: str
     market_slug: str
     total_trades: int
@@ -56,6 +60,7 @@ class MarketSummaryResponse(BaseModel):
 
 class MarketBreakdownItem(BaseModel):
     """Single market in breakdown"""
+
     market: str
     market_slug: str
     trade_count: int
@@ -64,6 +69,7 @@ class MarketBreakdownItem(BaseModel):
 
 class SavedAnalysisCreate(BaseModel):
     """Schema for saving an analysis"""
+
     name: str
     description: Optional[str] = None
     filter_params: Optional[FilterParams] = None
@@ -73,6 +79,7 @@ class SavedAnalysisCreate(BaseModel):
 
 class SavedAnalysisResponse(BaseModel):
     """Schema for saved analysis response"""
+
     id: int
     name: str
     description: Optional[str]

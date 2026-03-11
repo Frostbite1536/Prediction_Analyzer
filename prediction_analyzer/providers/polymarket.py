@@ -9,6 +9,7 @@ CLOB API (auth):    https://clob.polymarket.com
 Auth for public Data API: none — just pass wallet address as 'user' query param.
 Currency: USDC on Polygon.
 """
+
 import json
 import logging
 import requests
@@ -52,9 +53,7 @@ class PolymarketProvider(MarketProvider):
             }
 
             try:
-                resp = requests.get(
-                    f"{DATA_API_URL}/activity", params=params, timeout=15
-                )
+                resp = requests.get(f"{DATA_API_URL}/activity", params=params, timeout=15)
                 resp.raise_for_status()
                 data = resp.json()
             except requests.RequestException as exc:

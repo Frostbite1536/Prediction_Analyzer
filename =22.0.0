@@ -1,0 +1,10 @@
+WARNING: Skipping /usr/lib/python3/dist-packages/PyJWT-2.7.0.dist-info due to invalid metadata entry 'name'
+Requirement already satisfied: black in /usr/local/lib/python3.11/dist-packages (26.3.0)
+Requirement already satisfied: click>=8.0.0 in /usr/local/lib/python3.11/dist-packages (from black) (8.3.1)
+Requirement already satisfied: mypy-extensions>=0.4.3 in /usr/local/lib/python3.11/dist-packages (from black) (1.1.0)
+Requirement already satisfied: packaging>=22.0 in /usr/lib/python3/dist-packages (from black) (24.0)
+Requirement already satisfied: pathspec>=1.0.0 in /usr/local/lib/python3.11/dist-packages (from black) (1.0.4)
+Requirement already satisfied: platformdirs>=2 in /usr/local/lib/python3.11/dist-packages (from black) (4.9.4)
+Requirement already satisfied: pytokens~=0.4.0 in /usr/local/lib/python3.11/dist-packages (from black) (0.4.1)
+WARNING: Skipping /usr/lib/python3/dist-packages/PyJWT-2.7.0.dist-info due to invalid metadata entry 'name'
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv

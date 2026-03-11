@@ -1,5 +1,6 @@
 # tests/api/test_trades.py
 """Tests for trade CRUD, upload, export, and provider listing."""
+
 import io
 import json
 import pytest
@@ -7,28 +8,30 @@ import pytest
 from .conftest import create_authenticated_user, auth_header, signup_user
 
 # Minimal valid trade file (Limitless format)
-_SAMPLE_TRADES_JSON = json.dumps([
-    {
-        "market": {"title": "Test Market", "slug": "test-market"},
-        "timestamp": 1704067200,
-        "strategy": "Buy",
-        "outcomeIndex": 0,
-        "outcomeTokenAmount": 100,
-        "collateralAmount": 50,
-        "pnl": 5,
-        "blockTimestamp": 1704067200,
-    },
-    {
-        "market": {"title": "Test Market", "slug": "test-market"},
-        "timestamp": 1704153600,
-        "strategy": "Sell",
-        "outcomeIndex": 0,
-        "outcomeTokenAmount": 50,
-        "collateralAmount": 30,
-        "pnl": -2,
-        "blockTimestamp": 1704153600,
-    },
-])
+_SAMPLE_TRADES_JSON = json.dumps(
+    [
+        {
+            "market": {"title": "Test Market", "slug": "test-market"},
+            "timestamp": 1704067200,
+            "strategy": "Buy",
+            "outcomeIndex": 0,
+            "outcomeTokenAmount": 100,
+            "collateralAmount": 50,
+            "pnl": 5,
+            "blockTimestamp": 1704067200,
+        },
+        {
+            "market": {"title": "Test Market", "slug": "test-market"},
+            "timestamp": 1704153600,
+            "strategy": "Sell",
+            "outcomeIndex": 0,
+            "outcomeTokenAmount": 50,
+            "collateralAmount": 30,
+            "pnl": -2,
+            "blockTimestamp": 1704153600,
+        },
+    ]
+)
 
 
 def _upload_trades(client, headers, content=None, filename="trades.json"):
@@ -83,7 +86,10 @@ class TestUpload:
             files={"file": ("big.json", io.BytesIO(big), "application/json")},
         )
         assert resp.status_code == 400
-        assert "too large" in resp.json()["detail"].lower() or "File too large" in resp.json()["detail"]
+        assert (
+            "too large" in resp.json()["detail"].lower()
+            or "File too large" in resp.json()["detail"]
+        )
 
 
 class TestListTrades:

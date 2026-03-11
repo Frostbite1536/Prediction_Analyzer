@@ -35,14 +35,24 @@ logger = logging.getLogger(__name__)
 
 # Import tool modules
 from .tools import (
-    data_tools, analysis_tools, filter_tools, chart_tools,
-    export_tools, portfolio_tools, tax_tools,
+    data_tools,
+    analysis_tools,
+    filter_tools,
+    chart_tools,
+    export_tools,
+    portfolio_tools,
+    tax_tools,
 )
 
 # Collect all tool modules for dispatch
 _TOOL_MODULES = [
-    data_tools, analysis_tools, filter_tools, chart_tools,
-    export_tools, portfolio_tools, tax_tools,
+    data_tools,
+    analysis_tools,
+    filter_tools,
+    chart_tools,
+    export_tools,
+    portfolio_tools,
+    tax_tools,
 ]
 
 # Create the MCP server instance
@@ -72,35 +82,43 @@ async def list_tools() -> list[types.Tool]:
 # MCP Resources — expose session data for direct LLM reading
 # ---------------------------------------------------------------------------
 
+
 @app.list_resources()
 async def list_resources() -> list[types.Resource]:
     """List available resources based on current session state."""
     from .state import session
+
     resources: list[types.Resource] = []
 
     if session.has_trades:
-        resources.append(types.Resource(
-            uri="prediction://trades/summary",
-            name="Trade Summary",
-            description=(
-                f"Summary of {session.trade_count} loaded trades "
-                f"from {', '.join(session.sources) or 'unknown'} providers."
-            ),
-            mimeType="application/json",
-        ))
-        resources.append(types.Resource(
-            uri="prediction://trades/markets",
-            name="Market List",
-            description="List of all unique markets in the current session.",
-            mimeType="application/json",
-        ))
-        if session.active_filters:
-            resources.append(types.Resource(
-                uri="prediction://trades/filters",
-                name="Active Filters",
-                description="Currently applied trade filters.",
+        resources.append(
+            types.Resource(
+                uri="prediction://trades/summary",
+                name="Trade Summary",
+                description=(
+                    f"Summary of {session.trade_count} loaded trades "
+                    f"from {', '.join(session.sources) or 'unknown'} providers."
+                ),
                 mimeType="application/json",
-            ))
+            )
+        )
+        resources.append(
+            types.Resource(
+                uri="prediction://trades/markets",
+                name="Market List",
+                description="List of all unique markets in the current session.",
+                mimeType="application/json",
+            )
+        )
+        if session.active_filters:
+            resources.append(
+                types.Resource(
+                    uri="prediction://trades/filters",
+                    name="Active Filters",
+                    description="Currently applied trade filters.",
+                    mimeType="application/json",
+                )
+            )
 
     return resources
 
@@ -126,12 +144,14 @@ async def read_resource(uri: str) -> str:
         result = []
         for slug, title in sorted(markets.items()):
             market_trades = filter_trades_by_market_slug(session.trades, slug)
-            result.append({
-                "slug": slug,
-                "title": title,
-                "trade_count": len(market_trades),
-                "sources": list({t.source for t in market_trades}),
-            })
+            result.append(
+                {
+                    "slug": slug,
+                    "title": title,
+                    "trade_count": len(market_trades),
+                    "sources": list({t.source for t in market_trades}),
+                }
+            )
         return to_json_text(result)
 
     elif uri == "prediction://trades/filters":
@@ -143,6 +163,7 @@ async def read_resource(uri: str) -> str:
 # ---------------------------------------------------------------------------
 # MCP Prompts — pre-built templates for common analysis workflows
 # ---------------------------------------------------------------------------
+
 
 @app.list_prompts()
 async def list_prompts() -> list[types.Prompt]:
@@ -316,15 +337,18 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             if _session_store and name in _STATE_MODIFYING_TOOLS:
                 try:
                     from .state import session
+
                     _session_store.save(session)
                 except Exception:
                     logger.exception("Failed to persist session after %s", name)
             return result
 
-    return [types.TextContent(
-        type="text",
-        text=f"Unknown tool: {name}",
-    )]
+    return [
+        types.TextContent(
+            type="text",
+            text=f"Unknown tool: {name}",
+        )
+    ]
 
 
 async def run_stdio():
@@ -354,16 +378,15 @@ def create_sse_app(sse_path: str = "/sse", message_path: str = "/messages"):
 
     async def handle_sse(request):
         """Handle SSE connection — long-lived event stream."""
-        async with sse_transport.connect_sse(
-            request.scope, request.receive, request._send
-        ) as (read_stream, write_stream):
+        async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (
+            read_stream,
+            write_stream,
+        ):
             await app.run(read_stream, write_stream, app.create_initialization_options())
 
     async def handle_messages(request):
         """Handle client-to-server JSON-RPC messages."""
-        await sse_transport.handle_post_message(
-            request.scope, request.receive, request._send
-        )
+        await sse_transport.handle_post_message(request.scope, request.receive, request._send)
 
     async def health(request):
         return JSONResponse({"status": "ok", "server": "prediction-analyzer", "version": "1.0.0"})
@@ -381,6 +404,7 @@ def create_sse_app(sse_path: str = "/sse", message_path: str = "/messages"):
 def run_sse(host: str = "0.0.0.0", port: int = 8000):
     """Run the MCP server over HTTP/SSE transport."""
     import uvicorn
+
     logger.info("Starting Prediction Analyzer MCP server (SSE) on %s:%d", host, port)
     starlette_app = create_sse_app()
     uvicorn.run(starlette_app, host=host, port=port, log_level="info")
@@ -402,19 +426,24 @@ def main():
     """Entry point for the MCP server."""
     parser = argparse.ArgumentParser(description="Prediction Analyzer MCP Server")
     parser.add_argument(
-        "--sse", action="store_true",
+        "--sse",
+        action="store_true",
         help="Use HTTP/SSE transport instead of stdio",
     )
     parser.add_argument(
-        "--host", default="0.0.0.0",
+        "--host",
+        default="0.0.0.0",
         help="Host to bind SSE server (default: 0.0.0.0)",
     )
     parser.add_argument(
-        "--port", type=int, default=8000,
+        "--port",
+        type=int,
+        default=8000,
         help="Port for SSE server (default: 8000)",
     )
     parser.add_argument(
-        "--persist", metavar="DB_PATH",
+        "--persist",
+        metavar="DB_PATH",
         default=os.environ.get("PREDICTION_MCP_DB"),
         help="SQLite database path for session persistence (or set PREDICTION_MCP_DB env var)",
     )

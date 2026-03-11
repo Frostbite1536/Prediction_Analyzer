@@ -6,6 +6,7 @@ Regression tests for issues critical to high-value traders:
 - Timestamp parsing failure visibility
 - Tax report diagnostics for unrecognized trade types
 """
+
 import json
 import math
 import pytest
@@ -38,6 +39,7 @@ def _make_trade(**kwargs):
 # CSV/Excel exports: NaN/Inf sanitization (previously used vars(t))
 # ===========================================================================
 
+
 class TestCsvExportSanitization:
     """CSV export should sanitize NaN/Inf values via to_dict()."""
 
@@ -45,7 +47,7 @@ class TestCsvExportSanitization:
         from prediction_analyzer.reporting.report_data import export_to_csv
         import pandas as pd
 
-        trades = [_make_trade(pnl=float('nan'), pnl_is_set=True)]
+        trades = [_make_trade(pnl=float("nan"), pnl_is_set=True)]
         outfile = str(tmp_path / "test.csv")
         export_to_csv(trades, filename=outfile)
 
@@ -57,7 +59,7 @@ class TestCsvExportSanitization:
         from prediction_analyzer.reporting.report_data import export_to_csv
         import pandas as pd
 
-        trades = [_make_trade(cost=float('inf'))]
+        trades = [_make_trade(cost=float("inf"))]
         outfile = str(tmp_path / "test.csv")
         export_to_csv(trades, filename=outfile)
 
@@ -72,7 +74,7 @@ class TestExcelExportSanitization:
         from prediction_analyzer.reporting.report_data import export_to_excel
         import pandas as pd
 
-        trades = [_make_trade(pnl=float('nan'), pnl_is_set=True)]
+        trades = [_make_trade(pnl=float("nan"), pnl_is_set=True)]
         outfile = str(tmp_path / "test.xlsx")
         export_to_excel(trades, filename=outfile)
 
@@ -84,6 +86,7 @@ class TestExcelExportSanitization:
 # Tax: Claim/Won/Loss trade types are taxable settlement events
 # ===========================================================================
 
+
 class TestTaxClaimWonLossCoverage:
     """Tax report must handle Claim/Won/Loss as sell-like dispositions."""
 
@@ -92,10 +95,12 @@ class TestTaxClaimWonLossCoverage:
         from prediction_analyzer.tax import calculate_capital_gains
 
         trades = [
-            _make_trade(timestamp=datetime(2024, 1, 1), type="Buy",
-                        price=0.40, shares=100, cost=40.0),
-            _make_trade(timestamp=datetime(2024, 6, 1), type="Claim",
-                        price=1.00, shares=100, cost=100.0),
+            _make_trade(
+                timestamp=datetime(2024, 1, 1), type="Buy", price=0.40, shares=100, cost=40.0
+            ),
+            _make_trade(
+                timestamp=datetime(2024, 6, 1), type="Claim", price=1.00, shares=100, cost=100.0
+            ),
         ]
 
         result = calculate_capital_gains(trades, tax_year=2024, cost_basis_method="fifo")
@@ -111,10 +116,12 @@ class TestTaxClaimWonLossCoverage:
         from prediction_analyzer.tax import calculate_capital_gains
 
         trades = [
-            _make_trade(timestamp=datetime(2024, 1, 1), type="Buy",
-                        price=0.30, shares=50, cost=15.0),
-            _make_trade(timestamp=datetime(2024, 9, 1), type="Won",
-                        price=1.00, shares=50, cost=50.0),
+            _make_trade(
+                timestamp=datetime(2024, 1, 1), type="Buy", price=0.30, shares=50, cost=15.0
+            ),
+            _make_trade(
+                timestamp=datetime(2024, 9, 1), type="Won", price=1.00, shares=50, cost=50.0
+            ),
         ]
 
         result = calculate_capital_gains(trades, tax_year=2024, cost_basis_method="fifo")
@@ -126,10 +133,12 @@ class TestTaxClaimWonLossCoverage:
         from prediction_analyzer.tax import calculate_capital_gains
 
         trades = [
-            _make_trade(timestamp=datetime(2024, 1, 1), type="Buy",
-                        price=0.70, shares=100, cost=70.0),
-            _make_trade(timestamp=datetime(2024, 6, 1), type="Loss",
-                        price=0.00, shares=100, cost=0.0),
+            _make_trade(
+                timestamp=datetime(2024, 1, 1), type="Buy", price=0.70, shares=100, cost=70.0
+            ),
+            _make_trade(
+                timestamp=datetime(2024, 6, 1), type="Loss", price=0.00, shares=100, cost=0.0
+            ),
         ]
 
         result = calculate_capital_gains(trades, tax_year=2024, cost_basis_method="fifo")
@@ -142,6 +151,7 @@ class TestTaxClaimWonLossCoverage:
 # Tax: Unrecognized trade types are reported in diagnostics
 # ===========================================================================
 
+
 class TestTaxDiagnostics:
     """Tax report should surface unrecognized trade types so traders notice gaps."""
 
@@ -149,12 +159,15 @@ class TestTaxDiagnostics:
         from prediction_analyzer.tax import calculate_capital_gains
 
         trades = [
-            _make_trade(timestamp=datetime(2024, 1, 1), type="Buy",
-                        price=0.50, shares=10, cost=5.0),
-            _make_trade(timestamp=datetime(2024, 3, 1), type="Dividend",
-                        price=0.0, shares=0, cost=1.0),
-            _make_trade(timestamp=datetime(2024, 6, 1), type="Rebate",
-                        price=0.0, shares=0, cost=0.5),
+            _make_trade(
+                timestamp=datetime(2024, 1, 1), type="Buy", price=0.50, shares=10, cost=5.0
+            ),
+            _make_trade(
+                timestamp=datetime(2024, 3, 1), type="Dividend", price=0.0, shares=0, cost=1.0
+            ),
+            _make_trade(
+                timestamp=datetime(2024, 6, 1), type="Rebate", price=0.0, shares=0, cost=0.5
+            ),
         ]
 
         result = calculate_capital_gains(trades, tax_year=2024, cost_basis_method="fifo")
@@ -167,10 +180,12 @@ class TestTaxDiagnostics:
         from prediction_analyzer.tax import calculate_capital_gains
 
         trades = [
-            _make_trade(timestamp=datetime(2024, 1, 1), type="Buy",
-                        price=0.50, shares=10, cost=5.0),
-            _make_trade(timestamp=datetime(2024, 6, 1), type="Sell",
-                        price=0.60, shares=10, cost=6.0),
+            _make_trade(
+                timestamp=datetime(2024, 1, 1), type="Buy", price=0.50, shares=10, cost=5.0
+            ),
+            _make_trade(
+                timestamp=datetime(2024, 6, 1), type="Sell", price=0.60, shares=10, cost=6.0
+            ),
         ]
 
         result = calculate_capital_gains(trades, tax_year=2024, cost_basis_method="fifo")
@@ -180,8 +195,9 @@ class TestTaxDiagnostics:
         from prediction_analyzer.tax import calculate_capital_gains
 
         trades = [
-            _make_trade(timestamp=datetime(2024, 1, 1), type="Unknown Type",
-                        price=0.0, shares=0, cost=0.0),
+            _make_trade(
+                timestamp=datetime(2024, 1, 1), type="Unknown Type", price=0.0, shares=0, cost=0.0
+            ),
         ]
 
         with patch("prediction_analyzer.tax.logger") as mock_logger:
@@ -194,12 +210,14 @@ class TestTaxDiagnostics:
 # Timestamp parsing: failures should be visible, not silent
 # ===========================================================================
 
+
 class TestTimestampParsingVisibility:
     """Unparseable timestamps should log a warning, not silently return epoch."""
 
     def test_unparseable_value_logs_warning(self, caplog):
         """An unparseable timestamp should produce a warning."""
         import logging
+
         with caplog.at_level(logging.WARNING, logger="prediction_analyzer.trade_loader"):
             result = _parse_timestamp("completely-invalid-timestamp-xyz")
             # Should still return epoch fallback
@@ -210,6 +228,7 @@ class TestTimestampParsingVisibility:
     def test_valid_timestamps_no_warning(self, caplog):
         """Valid timestamps should NOT produce warnings."""
         import logging
+
         with caplog.at_level(logging.WARNING, logger="prediction_analyzer.trade_loader"):
             _parse_timestamp("2024-06-15T12:00:00Z")
             _parse_timestamp(1704067200)

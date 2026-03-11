@@ -41,20 +41,20 @@ PROVIDER_CONFIGS = {
 # Chart Styling - includes all trade type variants
 STYLES = {
     # Standard Buy/Sell
-    ("Buy", "YES"):         ("#008f00", "x", "Buy YES"),   # strong green
-    ("Sell", "YES"):        ("#00c800", "o", "Sell YES"),  # vivid lime
-    ("Buy", "NO"):          ("#d000d0", "x", "Buy NO"),    # strong magenta
-    ("Sell", "NO"):         ("#d40000", "o", "Sell NO"),   # strong red
+    ("Buy", "YES"): ("#008f00", "x", "Buy YES"),  # strong green
+    ("Sell", "YES"): ("#00c800", "o", "Sell YES"),  # vivid lime
+    ("Buy", "NO"): ("#d000d0", "x", "Buy NO"),  # strong magenta
+    ("Sell", "NO"): ("#d40000", "o", "Sell NO"),  # strong red
     # Market orders
-    ("Market Buy", "YES"):  ("#008f00", "x", "Buy YES"),   # same as Buy
+    ("Market Buy", "YES"): ("#008f00", "x", "Buy YES"),  # same as Buy
     ("Market Sell", "YES"): ("#00c800", "o", "Sell YES"),  # same as Sell
-    ("Market Buy", "NO"):   ("#d000d0", "x", "Buy NO"),
-    ("Market Sell", "NO"):  ("#d40000", "o", "Sell NO"),
+    ("Market Buy", "NO"): ("#d000d0", "x", "Buy NO"),
+    ("Market Sell", "NO"): ("#d40000", "o", "Sell NO"),
     # Limit orders
-    ("Limit Buy", "YES"):   ("#008f00", "^", "Limit Buy YES"),
-    ("Limit Sell", "YES"):  ("#00c800", "v", "Limit Sell YES"),
-    ("Limit Buy", "NO"):    ("#d000d0", "^", "Limit Buy NO"),
-    ("Limit Sell", "NO"):   ("#d40000", "v", "Limit Sell NO"),
+    ("Limit Buy", "YES"): ("#008f00", "^", "Limit Buy YES"),
+    ("Limit Sell", "YES"): ("#00c800", "v", "Limit Sell YES"),
+    ("Limit Buy", "NO"): ("#d000d0", "^", "Limit Buy NO"),
+    ("Limit Sell", "NO"): ("#d40000", "v", "Limit Sell NO"),
 }
 
 

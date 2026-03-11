@@ -2,6 +2,7 @@
 """
 Database configuration and session management
 """
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pathlib import Path
@@ -27,10 +28,7 @@ elif _db_url.startswith("sqlite:///") and not Path(_db_url.replace("sqlite:///",
     _db_url = f"sqlite:///{_abs_path}"
 
 # Create SQLAlchemy engine
-engine = create_engine(
-    _db_url,
-    connect_args={"check_same_thread": False}  # SQLite specific
-)
+engine = create_engine(_db_url, connect_args={"check_same_thread": False})  # SQLite specific
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -42,6 +40,7 @@ Base = declarative_base()
 def init_db():
     """Initialize database - create all tables"""
     from .models import user, trade, analysis  # noqa: F401 - Import models to register them
+
     Base.metadata.create_all(bind=engine)
 
 

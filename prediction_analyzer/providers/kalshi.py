@@ -10,6 +10,7 @@ Currency: USD.
 IMPORTANT: Integer cent fields (price, yes_price, etc.) are deprecated and will be
 removed March 12, 2026. This provider uses the _fixed/_fp/_dollars string fields.
 """
+
 import base64
 import datetime
 import logging
@@ -52,9 +53,7 @@ class KalshiProvider(MarketProvider):
             self._api_key_id, pem_path = key_str.split(":", 1)
         else:
             self._api_key_id = key_str
-            pem_path = os.environ.get(
-                "KALSHI_PRIVATE_KEY_PATH", "kalshi_private_key.pem"
-            )
+            pem_path = os.environ.get("KALSHI_PRIVATE_KEY_PATH", "kalshi_private_key.pem")
 
         with open(pem_path, "rb") as f:
             self._private_key = serialization.load_pem_private_key(
@@ -70,9 +69,7 @@ class KalshiProvider(MarketProvider):
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import padding
 
-        timestamp_ms = str(
-            int(datetime.datetime.now().timestamp() * 1000)
-        )
+        timestamp_ms = str(int(datetime.datetime.now().timestamp() * 1000))
         path_without_query = path.split("?")[0]
         message = (timestamp_ms + method.upper() + path_without_query).encode("utf-8")
 
@@ -117,9 +114,7 @@ class KalshiProvider(MarketProvider):
 
             headers = self._sign_request("GET", path)
             try:
-                resp = requests.get(
-                    f"{self._base_url}{path}", headers=headers, timeout=15
-                )
+                resp = requests.get(f"{self._base_url}{path}", headers=headers, timeout=15)
                 resp.raise_for_status()
                 data = resp.json()
             except requests.RequestException as exc:
@@ -173,9 +168,7 @@ class KalshiProvider(MarketProvider):
 
             headers = self._sign_request("GET", path)
             try:
-                resp = requests.get(
-                    f"{self._base_url}{path}", headers=headers, timeout=15
-                )
+                resp = requests.get(f"{self._base_url}{path}", headers=headers, timeout=15)
                 resp.raise_for_status()
                 data = resp.json()
             except requests.RequestException:
@@ -256,16 +249,21 @@ class KalshiProvider(MarketProvider):
             try:
                 price = float(fixed)
             except (ValueError, TypeError):
-                logger.warning("Kalshi fill %s: bad %s_price_fixed=%r, falling back to legacy",
-                               fill_id, side_str.lower(), fixed)
+                logger.warning(
+                    "Kalshi fill %s: bad %s_price_fixed=%r, falling back to legacy",
+                    fill_id,
+                    side_str.lower(),
+                    fixed,
+                )
                 fixed = None
 
         if fixed is None or not str(fixed).strip():
             try:
                 price = float(legacy or 0) / 100.0
             except (ValueError, TypeError):
-                logger.warning("Kalshi fill %s: bad legacy price=%r, defaulting to 0",
-                               fill_id, legacy)
+                logger.warning(
+                    "Kalshi fill %s: bad legacy price=%r, defaulting to 0", fill_id, legacy
+                )
                 price = 0.0
 
         count_str = raw.get("count_fp", str(raw.get("count", 0)))
@@ -291,9 +289,7 @@ class KalshiProvider(MarketProvider):
         return Trade(
             market=raw.get("ticker") or raw.get("market_ticker") or "Unknown",
             market_slug=raw.get("ticker") or raw.get("market_ticker") or "unknown",
-            timestamp=_parse_timestamp(
-                raw.get("created_time") or raw.get("ts") or 0
-            ),
+            timestamp=_parse_timestamp(raw.get("created_time") or raw.get("ts") or 0),
             price=price,
             shares=count,
             cost=cost,
@@ -310,9 +306,7 @@ class KalshiProvider(MarketProvider):
     def fetch_market_details(self, market_id: str) -> Optional[Dict[str, Any]]:
         """Fetch market by ticker (public, no auth)."""
         try:
-            resp = requests.get(
-                f"{PROD_BASE_URL}/trade-api/v2/markets/{market_id}", timeout=10
-            )
+            resp = requests.get(f"{PROD_BASE_URL}/trade-api/v2/markets/{market_id}", timeout=10)
             if resp.status_code == 200:
                 return resp.json().get("market")
         except Exception as exc:

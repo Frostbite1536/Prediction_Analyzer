@@ -2,6 +2,7 @@
 """
 User model for authentication
 """
+
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from ..database import Base
 
 class User(Base):
     """User account model"""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -19,12 +21,18 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
     # Relationships
     trades = relationship("Trade", back_populates="user", cascade="all, delete-orphan")
     uploads = relationship("TradeUpload", back_populates="user", cascade="all, delete-orphan")
-    saved_analyses = relationship("SavedAnalysis", back_populates="user", cascade="all, delete-orphan")
+    saved_analyses = relationship(
+        "SavedAnalysis", back_populates="user", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}')>"

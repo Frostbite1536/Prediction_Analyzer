@@ -5,6 +5,7 @@ Structured error responses for MCP tools.
 Converts internal exceptions into user-friendly error messages
 with recovery hints that help the LLM agent self-correct.
 """
+
 import functools
 import logging
 
@@ -65,6 +66,7 @@ def safe_tool(func):
 
     Eliminates try/except boilerplate from individual handlers.
     """
+
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         try:
@@ -74,4 +76,5 @@ def safe_tool(func):
         except Exception as e:
             logger.exception("Unhandled error in MCP tool %s", func.__name__)
             return error_result(e).content
+
     return wrapper

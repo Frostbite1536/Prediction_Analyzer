@@ -5,11 +5,17 @@ Shared filter application helper for MCP tool handlers.
 Extracts common filter parameters from tool arguments and applies
 them using the core library filter functions.
 """
+
 from typing import List, Dict, Any
 
 from prediction_analyzer.trade_loader import Trade
 from prediction_analyzer.exceptions import InvalidFilterError
-from prediction_analyzer.filters import filter_by_date, filter_by_trade_type, filter_by_side, filter_by_pnl
+from prediction_analyzer.filters import (
+    filter_by_date,
+    filter_by_trade_type,
+    filter_by_side,
+    filter_by_pnl,
+)
 from prediction_analyzer.trade_filter import filter_trades_by_market_slug
 
 from .validators import validate_date, validate_trade_types, validate_sides, validate_numeric
@@ -57,9 +63,7 @@ def apply_filters(trades: List[Trade], arguments: Dict[str, Any]) -> List[Trade]
     min_pnl = validate_numeric(arguments.get("min_pnl"), "min_pnl")
     max_pnl = validate_numeric(arguments.get("max_pnl"), "max_pnl")
     if min_pnl is not None and max_pnl is not None and min_pnl > max_pnl:
-        raise InvalidFilterError(
-            f"min_pnl ({min_pnl}) must not exceed max_pnl ({max_pnl})"
-        )
+        raise InvalidFilterError(f"min_pnl ({min_pnl}) must not exceed max_pnl ({max_pnl})")
     if min_pnl is not None or max_pnl is not None:
         result = filter_by_pnl(result, min_pnl=min_pnl, max_pnl=max_pnl)
 
