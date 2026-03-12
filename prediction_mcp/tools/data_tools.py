@@ -15,7 +15,7 @@ from prediction_analyzer.trade_loader import load_trades as _load_trades
 from prediction_analyzer.trade_filter import get_unique_markets, filter_trades_by_market_slug
 from prediction_analyzer.exceptions import TradeLoadError, NoTradesError, InvalidFilterError
 
-from ..state import session
+from ..state import get_session
 from ..errors import error_result, safe_tool
 from ..serializers import to_json_text, serialize_trades
 from ..validators import (
@@ -153,6 +153,7 @@ async def handle_tool(name: str, arguments: dict):
 
 @safe_tool
 async def _handle_load_trades(arguments: dict):
+    session = get_session()
     file_path = arguments.get("file_path")
     if not file_path:
         return error_result(ValueError("file_path is required")).content
@@ -164,13 +165,14 @@ async def _handle_load_trades(arguments: dict):
     session.trades = trades
     session.filtered_trades = list(trades)
     session.active_filters.clear()
-    session.source = f"file:{file_path}"
 
-    # Detect sources from loaded trades
-    loaded_sources = list({t.source for t in trades})
-    for src in loaded_sources:
-        if src not in session.sources:
-            session.sources.append(src)
+    # Populate sources from provider names found in loaded trades.
+    # Do NOT add file paths to sources — sources should only contain
+    # provider names (e.g. "limitless", "polymarket") for display and
+    # persistence consistency.
+    session.sources.clear()
+    for src in sorted({t.source for t in trades}):
+        session.sources.append(src)
 
     markets = get_unique_markets(trades)
     result = {
@@ -183,6 +185,7 @@ async def _handle_load_trades(arguments: dict):
 
 @safe_tool
 async def _handle_fetch_trades(arguments: dict):
+    session = get_session()
     api_key = arguments.get("api_key", "")
     provider_name = arguments.get("provider", "auto")
     page_limit = arguments.get("page_limit", 100)
@@ -222,9 +225,6 @@ async def _handle_fetch_trades(arguments: dict):
     if provider.name not in session.sources:
         session.sources.append(provider.name)
 
-    key_prefix = api_key[:10] + "..." if len(api_key) > 10 else api_key
-    session.source = f"api:{provider.name}:{key_prefix}"
-
     markets = get_unique_markets(trades)
     result = {
         "trade_count": len(trades),
@@ -238,6 +238,7 @@ async def _handle_fetch_trades(arguments: dict):
 
 @safe_tool
 async def _handle_list_markets(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -261,6 +262,7 @@ async def _handle_list_markets(arguments: dict):
 
 @safe_tool
 async def _handle_get_trade_details(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 

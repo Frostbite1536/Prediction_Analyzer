@@ -53,7 +53,9 @@ class TestLoadTrades:
             )
         )
         assert session.has_trades
-        assert session.source.startswith("file:")
+        # Sources should contain provider names (e.g. "limitless"), not file paths
+        assert len(session.sources) > 0
+        assert all(not s.startswith("file:") for s in session.sources)
         assert len(session.filtered_trades) == len(session.trades)
 
 

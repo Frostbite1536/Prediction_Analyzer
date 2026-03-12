@@ -53,5 +53,26 @@ class SessionState:
         return len(self.trades) > 0
 
 
-# Module-level singleton — one state per server process
+# Module-level singleton — one state per server process.
+#
+# WARNING: This is safe for stdio transport (single client per process) but
+# NOT safe for SSE transport where multiple clients share the process.  The
+# SSE transport should use per-connection state via contextvars or middleware.
+# See server.py create_sse_app() for the per-connection override.
 session = SessionState()
+
+
+# Per-connection session support for SSE transport.
+# When running under SSE, each connection gets its own SessionState via
+# a contextvar.  Tools import `session` from this module which is the
+# default, but SSE handler overrides it per-connection.
+import contextvars
+
+_session_var: contextvars.ContextVar[SessionState] = contextvars.ContextVar(
+    "mcp_session", default=session
+)
+
+
+def get_session() -> SessionState:
+    """Return the current session (per-connection under SSE, singleton under stdio)."""
+    return _session_var.get()

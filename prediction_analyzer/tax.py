@@ -302,7 +302,9 @@ def _detect_wash_sales(
                 continue
 
             delta = abs((buy_date - sell_date).days)
-            if 0 < delta <= 30:
+            # IRS §1091: the wash sale window includes same-day repurchases
+            # (delta == 0) as well as purchases within 30 days before/after.
+            if delta <= 30:
                 wash_sales.append(
                     {
                         "market": tx["market"],

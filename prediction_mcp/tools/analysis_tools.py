@@ -15,11 +15,12 @@ from prediction_analyzer.pnl import (
     calculate_market_pnl_summary,
     calculate_market_pnl,
 )
+from prediction_analyzer.trade_loader import sanitize_numeric
 from prediction_analyzer.metrics import calculate_advanced_metrics
 from prediction_analyzer.trade_filter import filter_trades_by_market_slug, get_unique_markets
 from prediction_analyzer.exceptions import NoTradesError
 
-from ..state import session
+from ..state import get_session
 from ..errors import safe_tool
 from ..serializers import to_json_text, sanitize_dict
 from .._apply_filters import apply_filters
@@ -152,6 +153,7 @@ async def handle_tool(name: str, arguments: dict):
 
 @safe_tool
 async def _handle_global_summary(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -162,6 +164,7 @@ async def _handle_global_summary(arguments: dict):
 
 @safe_tool
 async def _handle_market_summary(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -182,6 +185,7 @@ async def _handle_market_summary(arguments: dict):
 
 @safe_tool
 async def _handle_advanced_metrics(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -198,6 +202,7 @@ async def _handle_advanced_metrics(arguments: dict):
 
 @safe_tool
 async def _handle_market_breakdown(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -211,8 +216,8 @@ async def _handle_market_breakdown(arguments: dict):
                 "market_slug": slug,
                 "market": stats["market_name"],
                 "trade_count": stats["trade_count"],
-                "pnl": stats["total_pnl"],
-                "volume": stats["total_volume"],
+                "pnl": sanitize_numeric(stats["total_pnl"]),
+                "volume": sanitize_numeric(stats["total_volume"]),
             }
         )
 
@@ -221,6 +226,7 @@ async def _handle_market_breakdown(arguments: dict):
 
 @safe_tool
 async def _handle_provider_breakdown(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -248,8 +254,8 @@ async def _handle_provider_breakdown(arguments: dict):
                 "provider": src,
                 "display_name": cfg.get("display_name", src.title()),
                 "total_trades": stats["total_trades"],
-                "total_pnl": stats["total_pnl"],
-                "total_volume": stats["total_volume"],
+                "total_pnl": sanitize_numeric(stats["total_pnl"]),
+                "total_volume": sanitize_numeric(stats["total_volume"]),
                 "currency": stats["currency"],
             }
         )

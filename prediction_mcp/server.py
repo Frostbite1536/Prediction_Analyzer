@@ -86,7 +86,8 @@ async def list_tools() -> list[types.Tool]:
 @app.list_resources()
 async def list_resources() -> list[types.Resource]:
     """List available resources based on current session state."""
-    from .state import session
+    from .state import get_session
+    session = get_session()
 
     resources: list[types.Resource] = []
 
@@ -126,7 +127,8 @@ async def list_resources() -> list[types.Resource]:
 @app.read_resource()
 async def read_resource(uri: str) -> str:
     """Read a resource by URI."""
-    from .state import session
+    from .state import get_session
+    session = get_session()
     from .serializers import to_json_text, sanitize_dict
     from prediction_analyzer.trade_filter import get_unique_markets, filter_trades_by_market_slug
     from prediction_analyzer.pnl import calculate_global_pnl_summary
@@ -336,9 +338,9 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             # Auto-save session after state-modifying tools
             if _session_store and name in _STATE_MODIFYING_TOOLS:
                 try:
-                    from .state import session
+                    from .state import get_session
 
-                    _session_store.save(session)
+                    _session_store.save(get_session())
                 except Exception:
                     logger.exception("Failed to persist session after %s", name)
             return result
@@ -377,12 +379,23 @@ def create_sse_app(sse_path: str = "/sse", message_path: str = "/messages"):
     sse_transport = SseServerTransport(message_path)
 
     async def handle_sse(request):
-        """Handle SSE connection — long-lived event stream."""
-        async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (
-            read_stream,
-            write_stream,
-        ):
-            await app.run(read_stream, write_stream, app.create_initialization_options())
+        """Handle SSE connection — long-lived event stream.
+
+        Each SSE client gets its own SessionState so concurrent clients
+        don't corrupt each other's loaded trades and filters.
+        """
+        from .state import SessionState, _session_var
+
+        conn_session = SessionState()
+        token = _session_var.set(conn_session)
+        try:
+            async with sse_transport.connect_sse(request.scope, request.receive, request._send) as (
+                read_stream,
+                write_stream,
+            ):
+                await app.run(read_stream, write_stream, app.create_initialization_options())
+        finally:
+            _session_var.reset(token)
 
     async def handle_messages(request):
         """Handle client-to-server JSON-RPC messages."""
@@ -414,12 +427,12 @@ def _setup_persistence(db_path: str) -> None:
     """Initialize SQLite session persistence."""
     global _session_store
     from .persistence import SessionStore
-    from .state import session
+    from .state import get_session
 
     _session_store = SessionStore(db_path)
-    restored = _session_store.restore(session)
+    restored = _session_store.restore(get_session())
     if restored:
-        logger.info("Restored %d trades from %s", session.trade_count, db_path)
+        logger.info("Restored %d trades from %s", get_session().trade_count, db_path)
 
 
 def main():
