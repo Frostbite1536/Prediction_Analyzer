@@ -15,6 +15,7 @@ Usage:
 import json
 import logging
 import sqlite3
+import threading
 from datetime import datetime
 from typing import Optional
 
@@ -55,7 +56,8 @@ class SessionStore:
 
     def __init__(self, db_path: str):
         self.db_path = db_path
-        self._conn = sqlite3.connect(db_path)
+        self._lock = threading.Lock()
+        self._conn = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
         # Add source/currency columns if upgrading from old schema
@@ -89,6 +91,11 @@ class SessionStore:
 
     def save(self, session) -> None:
         """Persist session trades and metadata to SQLite."""
+        with self._lock:
+            self._save_unlocked(session)
+
+    def _save_unlocked(self, session) -> None:
+        """Internal save implementation (caller must hold _lock)."""
         cur = self._conn.cursor()
         cur.execute("DELETE FROM trades")
         cur.execute("DELETE FROM session_meta")
@@ -138,6 +145,11 @@ class SessionStore:
 
     def restore(self, session) -> bool:
         """Restore session state from SQLite. Returns True if trades were restored."""
+        with self._lock:
+            return self._restore_unlocked(session)
+
+    def _restore_unlocked(self, session) -> bool:
+        """Internal restore implementation (caller must hold _lock)."""
         cur = self._conn.cursor()
         rows = cur.execute("SELECT * FROM trades ORDER BY id").fetchall()
 

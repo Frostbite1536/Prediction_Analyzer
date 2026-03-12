@@ -46,6 +46,8 @@ class PredictionAnalyzerGUI:
         self.filtered_trades: List[Trade] = []
         self.current_file_path: Optional[str] = None
         self.market_slugs: List[str] = []  # Initialize to prevent AttributeError
+        self._fetch_lock = threading.Lock()
+        self._fetch_in_progress = False
 
         # Configure style
         self.setup_style()
@@ -678,10 +680,12 @@ class PredictionAnalyzerGUI:
 
     def load_from_api(self):
         """Load trades from API using API key (runs in background thread)"""
-        # Prevent concurrent fetches
-        if getattr(self, '_fetch_in_progress', False):
-            messagebox.showinfo("Busy", "A fetch is already in progress. Please wait.")
-            return
+        # Atomic check-and-set to prevent concurrent fetches
+        with self._fetch_lock:
+            if self._fetch_in_progress:
+                messagebox.showinfo("Busy", "A fetch is already in progress. Please wait.")
+                return
+            self._fetch_in_progress = True
         from prediction_analyzer.utils.auth import detect_provider_from_key
 
         api_key_raw = self.api_key_entry.get().strip()
@@ -690,6 +694,7 @@ class PredictionAnalyzerGUI:
         api_key = get_api_key(api_key_raw, provider=provider_name if provider_name != "auto" else "limitless")
 
         if not api_key:
+            self._fetch_in_progress = False
             messagebox.showwarning(
                 "Missing API Key",
                 "Please enter your API key or wallet address.\n\n"
@@ -706,8 +711,7 @@ class PredictionAnalyzerGUI:
         if provider_name == "auto":
             provider_name = detect_provider_from_key(api_key)
 
-        # Disable buttons while fetching
-        self._fetch_in_progress = True
+        # Disable buttons while fetching (flag already set inside _fetch_lock above)
         self.status_label.config(text=f"Fetching trades from {provider_name}...")
         self._set_api_controls_enabled(False)
 
