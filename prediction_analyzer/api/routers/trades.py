@@ -26,6 +26,16 @@ from prediction_analyzer.trade_loader import sanitize_numeric
 
 router = APIRouter(prefix="/trades", tags=["trades"])
 
+# Characters that trigger formula evaluation in Excel/Sheets/Calc
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r", "\n")
+
+
+def _sanitize_csv_field(value) -> str:
+    """Prevent CSV formula injection by prefixing dangerous strings with a single quote."""
+    if isinstance(value, str) and value and value[0] in _CSV_FORMULA_PREFIXES:
+        return "'" + value
+    return value
+
 
 @router.get("", response_model=TradeListResponse)
 async def list_trades(
@@ -147,20 +157,21 @@ async def export_trades_csv(
         )
 
     # Convert to DataFrame, sanitizing numeric fields to prevent NaN in output
+    # and string fields to prevent CSV formula injection (=, +, -, @).
     df = pd.DataFrame(
         [
             {
-                "market": t.market,
-                "market_slug": t.market_slug,
+                "market": _sanitize_csv_field(t.market),
+                "market_slug": _sanitize_csv_field(t.market_slug),
                 "timestamp": t.timestamp.isoformat(),
                 "price": sanitize_numeric(t.price),
                 "shares": sanitize_numeric(t.shares),
                 "cost": sanitize_numeric(t.cost),
-                "type": t.type,
+                "type": _sanitize_csv_field(t.type),
                 "side": t.side,
                 "pnl": sanitize_numeric(t.pnl),
-                "tx_hash": t.tx_hash,
-                "source": getattr(t, "source", "limitless"),
+                "tx_hash": _sanitize_csv_field(t.tx_hash),
+                "source": _sanitize_csv_field(getattr(t, "source", "limitless")),
                 "currency": getattr(t, "currency", "USD"),
             }
             for t in trades

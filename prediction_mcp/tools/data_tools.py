@@ -158,6 +158,11 @@ async def _handle_load_trades(arguments: dict):
     if not file_path:
         return error_result(ValueError("file_path is required")).content
 
+    # Resolve symlinks and normalize the path, then reject paths containing
+    # ".." components (before resolution) to prevent path traversal attacks.
+    if ".." in file_path.replace("\\", "/").split("/"):
+        raise TradeLoadError(f"file_path must not contain '..': {file_path}")
+
     if not os.path.isfile(file_path):
         raise TradeLoadError(f"File not found: {file_path}")
 
