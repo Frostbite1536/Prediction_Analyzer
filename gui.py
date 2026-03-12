@@ -678,6 +678,10 @@ class PredictionAnalyzerGUI:
 
     def load_from_api(self):
         """Load trades from API using API key (runs in background thread)"""
+        # Prevent concurrent fetches
+        if getattr(self, '_fetch_in_progress', False):
+            messagebox.showinfo("Busy", "A fetch is already in progress. Please wait.")
+            return
         from prediction_analyzer.utils.auth import detect_provider_from_key
 
         api_key_raw = self.api_key_entry.get().strip()
@@ -703,6 +707,7 @@ class PredictionAnalyzerGUI:
             provider_name = detect_provider_from_key(api_key)
 
         # Disable buttons while fetching
+        self._fetch_in_progress = True
         self.status_label.config(text=f"Fetching trades from {provider_name}...")
         self._set_api_controls_enabled(False)
 
@@ -735,6 +740,7 @@ class PredictionAnalyzerGUI:
 
     def _on_api_fetch_complete(self, raw_trades):
         """Handle successful API fetch (called on main thread)"""
+        self._fetch_in_progress = False
         self._set_api_controls_enabled(True)
 
         if not raw_trades:
@@ -781,6 +787,7 @@ class PredictionAnalyzerGUI:
 
     def _on_provider_fetch_complete(self, trades, provider_name: str):
         """Handle successful provider fetch (called on main thread)"""
+        self._fetch_in_progress = False
         self._set_api_controls_enabled(True)
 
         if not trades:
@@ -807,6 +814,7 @@ class PredictionAnalyzerGUI:
 
     def _on_api_fetch_error(self, error_msg: str):
         """Handle API fetch error (called on main thread)"""
+        self._fetch_in_progress = False
         self._set_api_controls_enabled(True)
         messagebox.showerror("Error", f"Failed to load trades from API:\n{error_msg}")
         self.status_label.config(text="Failed to load from API")
@@ -861,6 +869,7 @@ class PredictionAnalyzerGUI:
             return
 
         self.market_listbox.delete(0, tk.END)
+        self.market_listbox.selection_clear(0, tk.END)
 
         markets = get_unique_markets(self.filtered_trades)
         trades_by_market = group_trades_by_market(self.filtered_trades)
@@ -1284,6 +1293,8 @@ class PredictionAnalyzerGUI:
             output.append(f"Cost Basis Method: {cost_basis.upper()}")
             output.append("=" * 60)
 
+            output.append(f"\nNote: Tax report uses all trades regardless of active filters.")
+            output.append(f"Total trades in scope: {report.get('total_trades_in_scope', 0)}")
             output.append(f"\nShort-Term Gains: ${report.get('short_term_gains', 0):.2f}")
             output.append(f"Short-Term Losses: ${report.get('short_term_losses', 0):.2f}")
             output.append(f"Long-Term Gains: ${report.get('long_term_gains', 0):.2f}")
@@ -1294,6 +1305,15 @@ class PredictionAnalyzerGUI:
 
             if report.get('wash_sales'):
                 output.append(f"\nPotential Wash Sales: {len(report['wash_sales'])}")
+                if report.get('wash_sale_disallowed_loss') is not None:
+                    output.append(f"Total Disallowed Loss: ${report['wash_sale_disallowed_loss']:.2f}")
+                for ws in report['wash_sales'][:10]:
+                    market = ws.get('market', 'N/A')
+                    if len(market) > 30:
+                        market = market[:30] + "..."
+                    output.append(f"  {market}: sold {ws.get('date_sold', '?')}, "
+                                  f"repurchased {ws.get('date_repurchased', '?')}, "
+                                  f"disallowed ${ws.get('disallowed_loss', 0):.2f}")
 
             transactions = report.get('transactions', [])
             if transactions:
