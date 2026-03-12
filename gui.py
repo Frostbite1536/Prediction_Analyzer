@@ -17,16 +17,20 @@ sys.path.insert(0, str(package_dir))
 
 from prediction_analyzer.trade_loader import load_trades, Trade
 from prediction_analyzer.trade_filter import filter_trades_by_market_slug, get_unique_markets, group_trades_by_market
-from prediction_analyzer.filters import filter_by_date, filter_by_trade_type, filter_by_pnl
+from prediction_analyzer.filters import filter_by_date, filter_by_trade_type, filter_by_pnl, filter_by_side
 from prediction_analyzer.pnl import calculate_global_pnl_summary, calculate_market_pnl_summary
 from prediction_analyzer.charts.simple import generate_simple_chart
 from prediction_analyzer.charts.pro import generate_pro_chart
 from prediction_analyzer.charts.enhanced import generate_enhanced_chart
 from prediction_analyzer.charts.global_chart import generate_global_dashboard
-from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel
+from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel, export_to_json
 from prediction_analyzer.utils.auth import get_api_key
 from prediction_analyzer.utils.data import fetch_trade_history
 from prediction_analyzer.metrics import calculate_advanced_metrics
+from prediction_analyzer.positions import calculate_open_positions, calculate_concentration_risk
+from prediction_analyzer.drawdown import analyze_drawdowns
+from prediction_analyzer.tax import calculate_capital_gains
+from prediction_analyzer.comparison import compare_periods
 
 
 class PredictionAnalyzerGUI:
@@ -80,6 +84,7 @@ class PredictionAnalyzerGUI:
         file_menu.add_separator()
         file_menu.add_command(label="Export to CSV...", command=lambda: self.export_data('csv'))
         file_menu.add_command(label="Export to Excel...", command=lambda: self.export_data('excel'))
+        file_menu.add_command(label="Export to JSON...", command=lambda: self.export_data('json'))
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
 
@@ -88,6 +93,8 @@ class PredictionAnalyzerGUI:
         menubar.add_cascade(label="Analysis", menu=analysis_menu)
         analysis_menu.add_command(label="Global PnL Summary", command=self.show_global_summary)
         analysis_menu.add_command(label="Generate Dashboard", command=self.generate_dashboard)
+        analysis_menu.add_separator()
+        analysis_menu.add_command(label="Compare Periods...", command=self.show_compare_periods_dialog)
 
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -119,7 +126,10 @@ class PredictionAnalyzerGUI:
         # Create tabs
         self.create_summary_tab()
         self.create_markets_tab()
+        self.create_trades_tab()
         self.create_filters_tab()
+        self.create_portfolio_tab()
+        self.create_tax_tab()
         self.create_charts_tab()
 
     def create_header(self, parent):
@@ -298,13 +308,97 @@ class PredictionAnalyzerGUI:
         )
         self.market_details_text.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
 
+    def create_trades_tab(self):
+        """Create trade browser tab for viewing individual trades"""
+        trades_frame = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(trades_frame, text="Trade Browser")
+
+        trades_frame.columnconfigure(0, weight=1)
+        trades_frame.rowconfigure(1, weight=1)
+
+        # Controls row
+        controls_frame = ttk.Frame(trades_frame)
+        controls_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+
+        ttk.Label(controls_frame, text="Trade Browser", style='Subtitle.TLabel').grid(row=0, column=0, sticky=tk.W)
+
+        self.trades_count_label = ttk.Label(controls_frame, text="", style='Info.TLabel')
+        self.trades_count_label.grid(row=0, column=1, sticky=tk.W, padx=20)
+
+        # Sort controls
+        ttk.Label(controls_frame, text="Sort by:").grid(row=0, column=2, sticky=tk.W, padx=(20, 5))
+        self.sort_var = tk.StringVar(value="timestamp")
+        sort_combo = ttk.Combobox(
+            controls_frame, textvariable=self.sort_var,
+            values=["timestamp", "pnl", "cost", "market"],
+            state="readonly", width=12
+        )
+        sort_combo.grid(row=0, column=3, padx=5)
+
+        self.sort_desc_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(controls_frame, text="Descending", variable=self.sort_desc_var).grid(row=0, column=4, padx=5)
+
+        ttk.Button(controls_frame, text="Refresh", command=self.refresh_trades_browser).grid(row=0, column=5, padx=5)
+
+        # Treeview for trade data
+        tree_frame = ttk.Frame(trades_frame)
+        tree_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        tree_frame.columnconfigure(0, weight=1)
+        tree_frame.rowconfigure(0, weight=1)
+
+        columns = ("timestamp", "market", "type", "side", "price", "shares", "cost", "pnl", "source", "currency")
+        self.trades_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=20)
+
+        # Column headings and widths
+        col_config = {
+            "timestamp": ("Timestamp", 140),
+            "market": ("Market", 200),
+            "type": ("Type", 80),
+            "side": ("Side", 50),
+            "price": ("Price", 70),
+            "shares": ("Shares", 70),
+            "cost": ("Cost", 80),
+            "pnl": ("PnL", 80),
+            "source": ("Source", 80),
+            "currency": ("Currency", 60),
+        }
+        for col, (heading, width) in col_config.items():
+            self.trades_tree.heading(col, text=heading)
+            self.trades_tree.column(col, width=width, minwidth=40)
+
+        # Scrollbars
+        tree_yscroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.trades_tree.yview)
+        tree_xscroll = ttk.Scrollbar(tree_frame, orient=tk.HORIZONTAL, command=self.trades_tree.xview)
+        self.trades_tree.configure(yscrollcommand=tree_yscroll.set, xscrollcommand=tree_xscroll.set)
+
+        self.trades_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        tree_yscroll.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        tree_xscroll.grid(row=1, column=0, sticky=(tk.W, tk.E))
+
     def create_filters_tab(self):
         """Create filters tab"""
         filters_frame = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(filters_frame, text="Filters")
 
+        # Use a canvas with scrollbar for the filters content
+        filters_canvas = tk.Canvas(filters_frame)
+        filters_scrollbar = ttk.Scrollbar(filters_frame, orient=tk.VERTICAL, command=filters_canvas.yview)
+        filters_content = ttk.Frame(filters_canvas)
+
+        filters_content.bind(
+            "<Configure>",
+            lambda e: filters_canvas.configure(scrollregion=filters_canvas.bbox("all"))
+        )
+        filters_canvas.create_window((0, 0), window=filters_content, anchor="nw")
+        filters_canvas.configure(yscrollcommand=filters_scrollbar.set)
+
+        filters_frame.columnconfigure(0, weight=1)
+        filters_frame.rowconfigure(0, weight=1)
+        filters_canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        filters_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+
         # Date filters
-        date_frame = ttk.LabelFrame(filters_frame, text="Date Range", padding="10")
+        date_frame = ttk.LabelFrame(filters_content, text="Date Range", padding="10")
         date_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
         ttk.Label(date_frame, text="Start Date (YYYY-MM-DD):").grid(row=0, column=0, sticky=tk.W)
@@ -322,18 +416,28 @@ class PredictionAnalyzerGUI:
         ttk.Label(date_frame, text="(e.g., 2024-01-15)", style='Info.TLabel').grid(row=0, column=2, sticky=tk.W, padx=5)
 
         # Trade type filters
-        type_frame = ttk.LabelFrame(filters_frame, text="Trade Type", padding="10")
+        type_frame = ttk.LabelFrame(filters_content, text="Trade Type", padding="10")
         type_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
         self.buy_var = tk.BooleanVar(value=True)
         self.sell_var = tk.BooleanVar(value=True)
 
-        ttk.Checkbutton(type_frame, text="Buy", variable=self.buy_var).grid(row=0, column=0, sticky=tk.W)
+        ttk.Checkbutton(type_frame, text="Buy", variable=self.buy_var).grid(row=0, column=0, sticky=tk.W, padx=(0, 15))
         ttk.Checkbutton(type_frame, text="Sell", variable=self.sell_var).grid(row=0, column=1, sticky=tk.W)
 
+        # Side filters
+        side_frame = ttk.LabelFrame(filters_content, text="Side", padding="10")
+        side_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        self.yes_var = tk.BooleanVar(value=True)
+        self.no_var = tk.BooleanVar(value=True)
+
+        ttk.Checkbutton(side_frame, text="YES", variable=self.yes_var).grid(row=0, column=0, sticky=tk.W, padx=(0, 15))
+        ttk.Checkbutton(side_frame, text="NO", variable=self.no_var).grid(row=0, column=1, sticky=tk.W)
+
         # PnL filters
-        pnl_frame = ttk.LabelFrame(filters_frame, text="PnL Range", padding="10")
-        pnl_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        pnl_frame = ttk.LabelFrame(filters_content, text="PnL Range", padding="10")
+        pnl_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
         ttk.Label(pnl_frame, text="Minimum PnL ($):").grid(row=0, column=0, sticky=tk.W)
         self.min_pnl_entry = ttk.Entry(pnl_frame, width=20)
@@ -349,8 +453,8 @@ class PredictionAnalyzerGUI:
         ttk.Label(pnl_frame, text="(e.g., -100.50, 500)", style='Info.TLabel').grid(row=0, column=2, sticky=tk.W, padx=5)
 
         # Filter buttons
-        button_frame = ttk.Frame(filters_frame)
-        button_frame.grid(row=3, column=0, sticky=tk.W, pady=10)
+        button_frame = ttk.Frame(filters_content)
+        button_frame.grid(row=4, column=0, sticky=tk.W, pady=10)
 
         ttk.Button(
             button_frame,
@@ -366,44 +470,155 @@ class PredictionAnalyzerGUI:
 
         # Filter status
         self.filter_status_label = ttk.Label(
-            filters_frame,
+            filters_content,
             text="No filters applied",
             style='Info.TLabel'
         )
-        self.filter_status_label.grid(row=4, column=0, sticky=tk.W)
+        self.filter_status_label.grid(row=5, column=0, sticky=tk.W)
+
+    def create_portfolio_tab(self):
+        """Create portfolio analysis tab with positions, concentration, and drawdown"""
+        portfolio_frame = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(portfolio_frame, text="Portfolio")
+
+        portfolio_frame.columnconfigure(0, weight=1)
+        portfolio_frame.rowconfigure(1, weight=1)
+
+        # Buttons row
+        buttons_frame = ttk.Frame(portfolio_frame)
+        buttons_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        ttk.Button(
+            buttons_frame,
+            text="Open Positions",
+            command=self.show_open_positions
+        ).grid(row=0, column=0, padx=5)
+
+        ttk.Button(
+            buttons_frame,
+            text="Concentration Risk",
+            command=self.show_concentration_risk
+        ).grid(row=0, column=1, padx=5)
+
+        ttk.Button(
+            buttons_frame,
+            text="Drawdown Analysis",
+            command=self.show_drawdown_analysis
+        ).grid(row=0, column=2, padx=5)
+
+        # Display area
+        self.portfolio_text = scrolledtext.ScrolledText(
+            portfolio_frame,
+            width=80,
+            height=25,
+            font=(self.mono_font[0], 10)
+        )
+        self.portfolio_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+    def create_tax_tab(self):
+        """Create tax reporting tab"""
+        tax_frame = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(tax_frame, text="Tax Report")
+
+        tax_frame.columnconfigure(0, weight=1)
+        tax_frame.rowconfigure(2, weight=1)
+
+        # Controls
+        controls_frame = ttk.LabelFrame(tax_frame, text="Tax Report Settings", padding="10")
+        controls_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        ttk.Label(controls_frame, text="Tax Year:").grid(row=0, column=0, sticky=tk.W, padx=5)
+        self.tax_year_var = tk.StringVar(value=str(datetime.now().year - 1))
+        tax_year_entry = ttk.Entry(controls_frame, textvariable=self.tax_year_var, width=8)
+        tax_year_entry.grid(row=0, column=1, padx=5)
+
+        ttk.Label(controls_frame, text="Cost Basis Method:").grid(row=0, column=2, sticky=tk.W, padx=(20, 5))
+        self.cost_basis_var = tk.StringVar(value="fifo")
+        cost_basis_combo = ttk.Combobox(
+            controls_frame, textvariable=self.cost_basis_var,
+            values=["fifo", "lifo", "average"],
+            state="readonly", width=10
+        )
+        cost_basis_combo.grid(row=0, column=3, padx=5)
+
+        ttk.Button(
+            controls_frame,
+            text="Generate Tax Report",
+            command=self.generate_tax_report
+        ).grid(row=0, column=4, padx=15)
+
+        # Method descriptions
+        method_text = (
+            "FIFO: First-In, First-Out (most common)  |  "
+            "LIFO: Last-In, First-Out  |  "
+            "Average: Average cost basis"
+        )
+        ttk.Label(controls_frame, text=method_text, style='Info.TLabel').grid(
+            row=1, column=0, columnspan=5, sticky=tk.W, pady=(5, 0)
+        )
+
+        # Results display
+        self.tax_text = scrolledtext.ScrolledText(
+            tax_frame,
+            width=80,
+            height=25,
+            font=(self.mono_font[0], 10)
+        )
+        self.tax_text.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
     def create_charts_tab(self):
         """Create charts tab"""
         charts_frame = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(charts_frame, text="Charts")
 
+        charts_frame.columnconfigure(0, weight=1)
+        charts_frame.columnconfigure(1, weight=1)
+
         ttk.Label(
             charts_frame,
             text="Chart Generation",
             style='Subtitle.TLabel'
-        ).grid(row=0, column=0, sticky=tk.W, pady=(0, 10))
+        ).grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
 
-        info_text = (
-            "Generate various types of charts to visualize your trading data.\n\n"
-            "- Simple Chart: Basic matplotlib chart for quick visualization\n"
-            "- Pro Chart: Interactive Plotly chart with advanced features\n"
-            "- Enhanced Chart: Battlefield-style visualization\n"
-            "- Dashboard: Multi-market overview dashboard\n\n"
-            "Note: For market-specific charts, go to the Market Analysis tab and select a market."
+        # Global charts section
+        global_frame = ttk.LabelFrame(charts_frame, text="Global Charts", padding="10")
+        global_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N), padx=(0, 5), pady=(0, 10))
+
+        ttk.Label(global_frame, text="Multi-market overview dashboard\nshowing cumulative PnL across\nall loaded markets.", justify=tk.LEFT).grid(
+            row=0, column=0, sticky=tk.W, pady=(0, 10)
         )
 
-        info_label = ttk.Label(charts_frame, text=info_text, justify=tk.LEFT)
-        info_label.grid(row=1, column=0, sticky=tk.W, pady=(0, 20))
-
-        # Dashboard button
-        dashboard_frame = ttk.LabelFrame(charts_frame, text="Global Charts", padding="10")
-        dashboard_frame.grid(row=2, column=0, sticky=(tk.W, tk.E))
-
         ttk.Button(
-            dashboard_frame,
-            text="Generate Multi-Market Dashboard",
+            global_frame,
+            text="Generate Dashboard",
             command=self.generate_dashboard
-        ).grid(row=0, column=0, pady=5)
+        ).grid(row=1, column=0, sticky=tk.W, pady=5)
+
+        # Per-market charts section
+        market_frame = ttk.LabelFrame(charts_frame, text="Market-Specific Charts", padding="10")
+        market_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N), padx=(5, 0), pady=(0, 10))
+
+        chart_descriptions = (
+            "Simple Chart\n"
+            "  Basic matplotlib PNG with price history\n"
+            "  and net cash invested over time.\n\n"
+            "Pro Chart\n"
+            "  Interactive Plotly HTML dashboard\n"
+            "  with advanced multi-metric display.\n\n"
+            "Enhanced Chart\n"
+            "  Battlefield-style Plotly visualization\n"
+            "  with P&L tracking and risk panels."
+        )
+        ttk.Label(market_frame, text=chart_descriptions, justify=tk.LEFT).grid(
+            row=0, column=0, sticky=tk.W, pady=(0, 10)
+        )
+
+        ttk.Label(
+            market_frame,
+            text="Select a market in the Market Analysis\ntab, then use the chart buttons there.",
+            style='Info.TLabel',
+            justify=tk.LEFT
+        ).grid(row=1, column=0, sticky=tk.W, pady=5)
 
     def load_file(self):
         """Load trades from a file"""
@@ -435,6 +650,7 @@ class PredictionAnalyzerGUI:
             # Update displays
             self.update_markets_list()
             self.update_summary_display()
+            self.refresh_trades_browser()
 
             messagebox.showinfo(
                 "Success",
@@ -530,6 +746,7 @@ class PredictionAnalyzerGUI:
 
                 self.update_markets_list()
                 self.update_summary_display()
+                self.refresh_trades_browser()
 
                 messagebox.showinfo(
                     "Success",
@@ -565,6 +782,7 @@ class PredictionAnalyzerGUI:
 
         self.update_markets_list()
         self.update_summary_display()
+        self.refresh_trades_browser()
 
         messagebox.showinfo(
             "Success",
@@ -594,16 +812,21 @@ class PredictionAnalyzerGUI:
             return
 
         markets = get_unique_markets(self.filtered_trades)
+        # Count trades per market for display
+        trades_by_market = group_trades_by_market(self.filtered_trades)
         self.market_slugs = sorted(markets.keys())
 
         new_selection_idx = None
         for i, slug in enumerate(self.market_slugs):
             title = markets[slug]
-            # Truncate with "..." indicator if title is too long
-            if len(title) > 67:
-                display_text = f"{title[:67]}..."
+            trade_count = len(trades_by_market.get(slug, []))
+            # Show trade count next to market name
+            count_suffix = f" ({trade_count} trades)"
+            max_title_len = 60 - len(count_suffix)
+            if len(title) > max_title_len:
+                display_text = f"{title[:max_title_len]}...{count_suffix}"
             else:
-                display_text = title
+                display_text = f"{title}{count_suffix}"
             self.market_listbox.insert(tk.END, display_text)
 
             # Check if this was the previously selected market
@@ -640,6 +863,30 @@ class PredictionAnalyzerGUI:
             output.append(f"Total Returned: ${summary['total_returned']:.2f}")
             output.append(f"ROI: {summary['roi']:.2f}%")
 
+            # Currency breakdown if multiple currencies present
+            if summary.get('by_currency'):
+                output.append("\n" + "-" * 60)
+                output.append("CURRENCY BREAKDOWN")
+                output.append("-" * 60)
+                for currency, data in summary['by_currency'].items():
+                    output.append(f"\n  {currency}:")
+                    output.append(f"    Trades: {data.get('total_trades', 'N/A')}")
+                    if isinstance(data.get('total_pnl'), (int, float)):
+                        output.append(f"    PnL: {data['total_pnl']:.2f} {currency}")
+
+            # Provider/source breakdown
+            sources = set(t.source for t in self.filtered_trades)
+            if len(sources) > 1:
+                output.append("\n" + "-" * 60)
+                output.append("PROVIDER BREAKDOWN")
+                output.append("-" * 60)
+                for source in sorted(sources):
+                    source_trades = [t for t in self.filtered_trades if t.source == source]
+                    source_pnl = sum(t.pnl for t in source_trades)
+                    output.append(f"\n  {source.capitalize()}:")
+                    output.append(f"    Trades: {len(source_trades)}")
+                    output.append(f"    PnL: ${source_pnl:.2f}")
+
             # Advanced metrics
             metrics = calculate_advanced_metrics(self.filtered_trades)
             output.append("\n" + "=" * 60)
@@ -661,6 +908,46 @@ class PredictionAnalyzerGUI:
 
         except Exception as e:
             self.summary_text.insert(tk.END, f"Error calculating summary:\n{str(e)}")
+
+    def refresh_trades_browser(self):
+        """Populate the trade browser treeview with current filtered trades"""
+        # Clear existing items
+        for item in self.trades_tree.get_children():
+            self.trades_tree.delete(item)
+
+        if not self.filtered_trades:
+            self.trades_count_label.config(text="No trades loaded")
+            return
+
+        # Sort trades
+        sort_key = self.sort_var.get()
+        reverse = self.sort_desc_var.get()
+
+        sorted_trades = list(self.filtered_trades)
+        if sort_key == "timestamp":
+            sorted_trades.sort(key=lambda t: t.timestamp, reverse=reverse)
+        elif sort_key == "pnl":
+            sorted_trades.sort(key=lambda t: t.pnl, reverse=reverse)
+        elif sort_key == "cost":
+            sorted_trades.sort(key=lambda t: t.cost, reverse=reverse)
+        elif sort_key == "market":
+            sorted_trades.sort(key=lambda t: t.market, reverse=reverse)
+
+        for trade in sorted_trades:
+            self.trades_tree.insert("", tk.END, values=(
+                trade.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                trade.market[:40] + "..." if len(trade.market) > 40 else trade.market,
+                trade.type,
+                trade.side,
+                f"{trade.price:.2f}",
+                f"{trade.shares:.4f}",
+                f"{trade.cost:.2f}",
+                f"{trade.pnl:.2f}",
+                trade.source,
+                trade.currency,
+            ))
+
+        self.trades_count_label.config(text=f"{len(sorted_trades)} trades")
 
     def show_global_summary(self):
         """Show global summary and switch to summary tab"""
@@ -686,7 +973,7 @@ class PredictionAnalyzerGUI:
         market_trades = filter_trades_by_market_slug(self.filtered_trades, market_slug)
 
         if not market_trades:
-            messagebox.showinfo("No Trades", f"No trades found for this market.")
+            messagebox.showinfo("No Trades", "No trades found for this market.")
             return
 
         try:
@@ -710,6 +997,12 @@ class PredictionAnalyzerGUI:
 
             if summary.get('market_outcome'):
                 output.append(f"\nMarket Outcome: {summary['market_outcome']}")
+
+            # Show currency and source for this market
+            currencies = set(t.currency for t in market_trades)
+            sources = set(t.source for t in market_trades)
+            output.append(f"\nCurrency: {', '.join(currencies)}")
+            output.append(f"Source: {', '.join(s.capitalize() for s in sources)}")
 
             output.append("\n" + "=" * 60)
 
@@ -737,7 +1030,7 @@ class PredictionAnalyzerGUI:
         market_trades = filter_trades_by_market_slug(self.filtered_trades, market_slug)
 
         if not market_trades:
-            messagebox.showinfo("No Trades", f"No trades found for this market.")
+            messagebox.showinfo("No Trades", "No trades found for this market.")
             return
 
         try:
@@ -767,6 +1060,312 @@ class PredictionAnalyzerGUI:
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate dashboard:\n{str(e)}")
+
+    def show_open_positions(self):
+        """Show open positions in the portfolio tab"""
+        if not self.filtered_trades:
+            messagebox.showwarning("No Data", "Please load a trades file first.")
+            return
+
+        self.portfolio_text.delete(1.0, tk.END)
+
+        try:
+            positions = calculate_open_positions(self.filtered_trades)
+
+            output = []
+            output.append("=" * 60)
+            output.append("OPEN POSITIONS")
+            output.append("=" * 60)
+
+            if not positions:
+                output.append("\nNo open positions found.")
+            else:
+                for pos in positions:
+                    output.append(f"\n  Market: {pos.get('market', 'N/A')}")
+                    output.append(f"  Side: {pos.get('side', 'N/A')}")
+                    output.append(f"  Net Shares: {pos.get('net_shares', 0):.4f}")
+                    output.append(f"  Avg Entry Price: {pos.get('avg_entry_price', 0):.2f}")
+                    if pos.get('current_price') is not None:
+                        output.append(f"  Current Price: {pos['current_price']:.2f}")
+                    if pos.get('unrealized_pnl') is not None:
+                        output.append(f"  Unrealized PnL: ${pos['unrealized_pnl']:.2f}")
+                    output.append(f"  Cost Basis: ${pos.get('cost_basis', 0):.2f}")
+                    output.append("  " + "-" * 40)
+
+            output.append("\n" + "=" * 60)
+            self.portfolio_text.insert(tk.END, "\n".join(output))
+
+        except Exception as e:
+            self.portfolio_text.insert(tk.END, f"Error calculating positions:\n{str(e)}")
+
+    def show_concentration_risk(self):
+        """Show concentration risk analysis"""
+        if not self.filtered_trades:
+            messagebox.showwarning("No Data", "Please load a trades file first.")
+            return
+
+        self.portfolio_text.delete(1.0, tk.END)
+
+        try:
+            risk = calculate_concentration_risk(self.filtered_trades)
+
+            output = []
+            output.append("=" * 60)
+            output.append("CONCENTRATION RISK ANALYSIS")
+            output.append("=" * 60)
+            output.append(f"\nTotal Markets: {risk.get('total_markets', 0)}")
+            output.append(f"Total Exposure: ${risk.get('total_exposure', 0):.2f}")
+            output.append(f"Herfindahl Index (HHI): {risk.get('herfindahl_index', 0):.4f}")
+            output.append(f"Top 3 Concentration: {risk.get('top_3_concentration_pct', 0):.1f}%")
+
+            # Diversification assessment
+            hhi = risk.get('herfindahl_index', 0)
+            if hhi < 0.15:
+                assessment = "Well diversified"
+            elif hhi < 0.25:
+                assessment = "Moderately concentrated"
+            else:
+                assessment = "Highly concentrated"
+            output.append(f"Assessment: {assessment}")
+
+            markets = risk.get('markets', [])
+            if markets:
+                output.append("\n" + "-" * 60)
+                output.append("PER-MARKET EXPOSURE")
+                output.append("-" * 60)
+                for m in markets[:20]:  # Show top 20
+                    name = m.get('market', 'N/A')
+                    if len(name) > 35:
+                        name = name[:35] + "..."
+                    exposure = m.get('exposure', 0)
+                    pct = m.get('exposure_pct', 0)
+                    trades_count = m.get('trade_count', 0)
+                    output.append(f"  {name:<38} ${exposure:>8.2f} ({pct:>5.1f}%) [{trades_count} trades]")
+
+            output.append("\n" + "=" * 60)
+            self.portfolio_text.insert(tk.END, "\n".join(output))
+
+        except Exception as e:
+            self.portfolio_text.insert(tk.END, f"Error calculating concentration:\n{str(e)}")
+
+    def show_drawdown_analysis(self):
+        """Show detailed drawdown analysis"""
+        if not self.filtered_trades:
+            messagebox.showwarning("No Data", "Please load a trades file first.")
+            return
+
+        self.portfolio_text.delete(1.0, tk.END)
+
+        try:
+            dd = analyze_drawdowns(self.filtered_trades)
+
+            output = []
+            output.append("=" * 60)
+            output.append("DRAWDOWN ANALYSIS")
+            output.append("=" * 60)
+            output.append(f"\nMax Drawdown: ${dd.get('max_drawdown_amount', 0):.2f} ({dd.get('max_drawdown_pct', 0):.1f}%)")
+            output.append(f"Peak Value: ${dd.get('peak_value', 0):.2f}")
+            output.append(f"Trough Value: ${dd.get('trough_value', 0):.2f}")
+
+            if dd.get('drawdown_start_date'):
+                output.append(f"\nDrawdown Start: {dd['drawdown_start_date']}")
+            if dd.get('drawdown_end_date'):
+                output.append(f"Drawdown End: {dd['drawdown_end_date']}")
+            if dd.get('recovery_date'):
+                output.append(f"Recovery Date: {dd['recovery_date']}")
+            if dd.get('drawdown_duration_days') is not None:
+                output.append(f"Drawdown Duration: {dd['drawdown_duration_days']} days")
+            if dd.get('recovery_duration_days') is not None:
+                output.append(f"Recovery Duration: {dd['recovery_duration_days']} days")
+
+            output.append(f"\nCurrently In Drawdown: {'Yes' if dd.get('is_in_drawdown') else 'No'}")
+            if dd.get('is_in_drawdown') and dd.get('current_drawdown') is not None:
+                output.append(f"Current Drawdown: ${dd['current_drawdown']:.2f}")
+
+            periods = dd.get('drawdown_periods', [])
+            if periods:
+                output.append("\n" + "-" * 60)
+                output.append(f"DRAWDOWN PERIODS ({len(periods)} total)")
+                output.append("-" * 60)
+                for i, period in enumerate(periods[:10], 1):  # Show top 10
+                    output.append(f"\n  Period {i}:")
+                    output.append(f"    Amount: ${period.get('amount', 0):.2f} ({period.get('pct', 0):.1f}%)")
+                    if period.get('start_date'):
+                        output.append(f"    Start: {period['start_date']}")
+                    if period.get('end_date'):
+                        output.append(f"    End: {period['end_date']}")
+
+            output.append("\n" + "=" * 60)
+            self.portfolio_text.insert(tk.END, "\n".join(output))
+
+        except Exception as e:
+            self.portfolio_text.insert(tk.END, f"Error analyzing drawdowns:\n{str(e)}")
+
+    def generate_tax_report(self):
+        """Generate capital gains tax report"""
+        if not self.all_trades:
+            messagebox.showwarning("No Data", "Please load a trades file first.")
+            return
+
+        # Validate tax year
+        tax_year_str = self.tax_year_var.get().strip()
+        try:
+            tax_year = int(tax_year_str)
+            if tax_year < 2000 or tax_year > 2100:
+                raise ValueError("Year out of range")
+        except ValueError:
+            messagebox.showerror("Invalid Year", f"'{tax_year_str}' is not a valid tax year.\nPlease enter a 4-digit year (e.g., 2025).")
+            return
+
+        cost_basis = self.cost_basis_var.get()
+
+        self.tax_text.delete(1.0, tk.END)
+
+        try:
+            report = calculate_capital_gains(self.all_trades, tax_year, cost_basis)
+
+            output = []
+            output.append("=" * 60)
+            output.append(f"TAX REPORT - {tax_year}")
+            output.append(f"Cost Basis Method: {cost_basis.upper()}")
+            output.append("=" * 60)
+
+            output.append(f"\nShort-Term Gains: ${report.get('short_term_gains', 0):.2f}")
+            output.append(f"Short-Term Losses: ${report.get('short_term_losses', 0):.2f}")
+            output.append(f"Long-Term Gains: ${report.get('long_term_gains', 0):.2f}")
+            output.append(f"Long-Term Losses: ${report.get('long_term_losses', 0):.2f}")
+            output.append(f"\nNet Gain/Loss: ${report.get('net_gain_loss', 0):.2f}")
+            output.append(f"Total Fees: ${report.get('total_fees', 0):.2f}")
+            output.append(f"Transaction Count: {report.get('transaction_count', 0)}")
+
+            if report.get('wash_sales'):
+                output.append(f"\nPotential Wash Sales: {len(report['wash_sales'])}")
+
+            transactions = report.get('transactions', [])
+            if transactions:
+                output.append("\n" + "-" * 60)
+                output.append("TRANSACTIONS")
+                output.append("-" * 60)
+                for txn in transactions[:50]:  # Show first 50
+                    term = "ST" if txn.get('holding_period') == 'short_term' else "LT"
+                    market = txn.get('market', 'N/A')
+                    if len(market) > 30:
+                        market = market[:30] + "..."
+                    gain = txn.get('gain_loss', 0)
+                    output.append(f"  [{term}] {market:<33} ${gain:>10.2f}")
+
+            output.append("\n" + "=" * 60)
+            output.append("DISCLAIMER: This is an estimate only. Consult a tax")
+            output.append("professional for actual tax filing requirements.")
+            output.append("=" * 60)
+
+            self.tax_text.insert(tk.END, "\n".join(output))
+
+        except Exception as e:
+            self.tax_text.insert(tk.END, f"Error generating tax report:\n{str(e)}")
+
+    def show_compare_periods_dialog(self):
+        """Show dialog for comparing two time periods"""
+        if not self.all_trades:
+            messagebox.showwarning("No Data", "Please load a trades file first.")
+            return
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Compare Periods")
+        dialog.geometry("450x350")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        main_frame = ttk.Frame(dialog, padding="15")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(main_frame, text="Compare Trading Performance", style='Subtitle.TLabel').grid(
+            row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 15)
+        )
+
+        # Period 1
+        p1_frame = ttk.LabelFrame(main_frame, text="Period 1", padding="10")
+        p1_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        ttk.Label(p1_frame, text="Start:").grid(row=0, column=0, sticky=tk.W)
+        p1_start = ttk.Entry(p1_frame, width=15)
+        p1_start.grid(row=0, column=1, padx=5)
+        ttk.Label(p1_frame, text="End:").grid(row=0, column=2, sticky=tk.W, padx=(10, 0))
+        p1_end = ttk.Entry(p1_frame, width=15)
+        p1_end.grid(row=0, column=3, padx=5)
+
+        # Period 2
+        p2_frame = ttk.LabelFrame(main_frame, text="Period 2", padding="10")
+        p2_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        ttk.Label(p2_frame, text="Start:").grid(row=0, column=0, sticky=tk.W)
+        p2_start = ttk.Entry(p2_frame, width=15)
+        p2_start.grid(row=0, column=1, padx=5)
+        ttk.Label(p2_frame, text="End:").grid(row=0, column=2, sticky=tk.W, padx=(10, 0))
+        p2_end = ttk.Entry(p2_frame, width=15)
+        p2_end.grid(row=0, column=3, padx=5)
+
+        ttk.Label(main_frame, text="Date format: YYYY-MM-DD", style='Info.TLabel').grid(
+            row=3, column=0, columnspan=2, sticky=tk.W, pady=(0, 10)
+        )
+
+        def do_compare():
+            dates = [p1_start.get().strip(), p1_end.get().strip(),
+                     p2_start.get().strip(), p2_end.get().strip()]
+            for d in dates:
+                if not self._validate_date_format(d):
+                    messagebox.showerror("Invalid Date", f"'{d}' is not a valid date.\nUse YYYY-MM-DD format.", parent=dialog)
+                    return
+
+            try:
+                result = compare_periods(
+                    self.all_trades, dates[0], dates[1], dates[2], dates[3]
+                )
+                dialog.destroy()
+                self._show_comparison_result(result)
+            except Exception as e:
+                messagebox.showerror("Error", f"Comparison failed:\n{str(e)}", parent=dialog)
+
+        ttk.Button(main_frame, text="Compare", command=do_compare).grid(
+            row=4, column=0, columnspan=2, pady=10
+        )
+
+    def _show_comparison_result(self, result):
+        """Display period comparison results in the summary tab"""
+        self.summary_text.delete(1.0, tk.END)
+
+        output = []
+        output.append("=" * 60)
+        output.append("PERIOD COMPARISON")
+        output.append("=" * 60)
+
+        for label, key in [("PERIOD 1", "period_1"), ("PERIOD 2", "period_2")]:
+            period = result.get(key, {})
+            output.append(f"\n{label}:")
+            output.append(f"  Trades: {period.get('total_trades', 0)}")
+            output.append(f"  PnL: ${period.get('total_pnl', 0):.2f}")
+            output.append(f"  Win Rate: {period.get('win_rate', 0):.1f}%")
+            output.append(f"  Avg PnL: ${period.get('avg_pnl', 0):.2f}")
+            if period.get('sharpe_ratio') is not None:
+                output.append(f"  Sharpe Ratio: {period['sharpe_ratio']:.4f}")
+
+        changes = result.get('changes', {})
+        if changes:
+            output.append("\n" + "-" * 60)
+            output.append("CHANGES (Period 1 -> Period 2)")
+            output.append("-" * 60)
+            if changes.get('pnl_change_pct') is not None:
+                output.append(f"  PnL Change: {changes['pnl_change_pct']:+.1f}%")
+            if changes.get('win_rate_change') is not None:
+                output.append(f"  Win Rate Change: {changes['win_rate_change']:+.1f} pp")
+            if changes.get('sharpe_change') is not None:
+                output.append(f"  Sharpe Change: {changes['sharpe_change']:+.4f}")
+            if changes.get('avg_pnl_change_pct') is not None:
+                output.append(f"  Avg PnL Change: {changes['avg_pnl_change_pct']:+.1f}%")
+
+        output.append("\n" + "=" * 60)
+        self.summary_text.insert(tk.END, "\n".join(output))
+        self.notebook.select(0)
 
     def _validate_date_format(self, date_str: str) -> bool:
         """Validate date string is in YYYY-MM-DD format"""
@@ -892,6 +1491,20 @@ class PredictionAnalyzerGUI:
                 filtered = filter_by_trade_type(filtered, trade_types)
                 filters_applied.append(f"Type: {', '.join(trade_types)}")
 
+            # Side filters
+            sides = []
+            if self.yes_var.get():
+                sides.append("YES")
+            if self.no_var.get():
+                sides.append("NO")
+
+            if not sides:
+                filtered = []
+                filters_applied.append("Side: None (no trades match)")
+            elif len(sides) < 2:
+                filtered = filter_by_side(filtered, sides)
+                filters_applied.append(f"Side: {', '.join(sides)}")
+
             # PnL filters
             min_pnl = float(min_pnl_str) if min_pnl_str else None
             max_pnl = float(max_pnl_str) if max_pnl_str else None
@@ -906,6 +1519,7 @@ class PredictionAnalyzerGUI:
             # Update displays
             self.update_markets_list()
             self.update_summary_display()
+            self.refresh_trades_browser()
 
             # Update status
             if filters_applied:
@@ -934,6 +1548,8 @@ class PredictionAnalyzerGUI:
         # Reset checkboxes
         self.buy_var.set(True)
         self.sell_var.set(True)
+        self.yes_var.set(True)
+        self.no_var.set(True)
 
         # Reset filtered trades only if we have data
         if self.all_trades:
@@ -942,6 +1558,7 @@ class PredictionAnalyzerGUI:
             # Update displays
             self.update_markets_list()
             self.update_summary_display()
+            self.refresh_trades_browser()
 
             # Update status
             self.filter_status_label.config(text="Filters cleared")
@@ -963,53 +1580,66 @@ class PredictionAnalyzerGUI:
             return f"trades_export_{timestamp}.{extension}"
 
     def export_data(self, format_type):
-        """Export data to CSV or Excel"""
+        """Export data to CSV, Excel, or JSON"""
         if not self.filtered_trades:
             messagebox.showwarning("No Data", "Please load a trades file first.")
             return
 
-        if format_type == 'csv':
-            default_filename = self._generate_export_filename("csv")
-            file_path = filedialog.asksaveasfilename(
-                title="Export to CSV",
-                defaultextension=".csv",
-                initialfile=default_filename,
-                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
-            )
-            if file_path:
-                try:
-                    export_to_csv(self.filtered_trades, file_path)
-                    messagebox.showinfo("Success", f"Exported {len(self.filtered_trades)} trades to:\n{file_path}")
-                except Exception as e:
-                    messagebox.showerror("Error", f"Export failed:\n{str(e)}")
+        format_config = {
+            'csv': ("Export to CSV", ".csv", "csv", [("CSV files", "*.csv"), ("All files", "*.*")]),
+            'excel': ("Export to Excel", ".xlsx", "xlsx", [("Excel files", "*.xlsx"), ("All files", "*.*")]),
+            'json': ("Export to JSON", ".json", "json", [("JSON files", "*.json"), ("All files", "*.*")]),
+        }
 
-        elif format_type == 'excel':
-            default_filename = self._generate_export_filename("xlsx")
-            file_path = filedialog.asksaveasfilename(
-                title="Export to Excel",
-                defaultextension=".xlsx",
-                initialfile=default_filename,
-                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
-            )
-            if file_path:
-                try:
-                    export_to_excel(self.filtered_trades, file_path)
-                    messagebox.showinfo("Success", f"Exported {len(self.filtered_trades)} trades to:\n{file_path}")
-                except Exception as e:
-                    messagebox.showerror("Error", f"Export failed:\n{str(e)}")
+        if format_type not in format_config:
+            return
+
+        title, ext, file_ext, filetypes = format_config[format_type]
+        default_filename = self._generate_export_filename(file_ext)
+
+        file_path = filedialog.asksaveasfilename(
+            title=title,
+            defaultextension=ext,
+            initialfile=default_filename,
+            filetypes=filetypes
+        )
+
+        if not file_path:
+            return
+
+        try:
+            if format_type == 'csv':
+                export_to_csv(self.filtered_trades, file_path)
+            elif format_type == 'excel':
+                export_to_excel(self.filtered_trades, file_path)
+            elif format_type == 'json':
+                export_to_json(self.filtered_trades, file_path)
+
+            messagebox.showinfo("Success", f"Exported {len(self.filtered_trades)} trades to:\n{file_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Export failed:\n{str(e)}")
 
     def show_about(self):
         """Show about dialog"""
         about_text = (
             "Prediction Market Trade Analyzer\n\n"
-            "A comprehensive tool for analyzing prediction market trades.\n\n"
+            "A comprehensive tool for analyzing prediction market trades\n"
+            "across multiple providers and currencies.\n\n"
+            "Supported Providers:\n"
+            "- Limitless Exchange (USDC)\n"
+            "- Polymarket (USDC)\n"
+            "- Kalshi (USD)\n"
+            "- Manifold Markets (MANA)\n\n"
             "Features:\n"
-            "- Load trades from JSON, CSV, or Excel\n"
-            "- Calculate global and market-specific PnL\n"
-            "- Filter trades by date, type, and PnL\n"
-            "- Generate multiple chart types\n"
-            "- Export data in various formats\n\n"
-            "Version: 1.0\n"
+            "- Load trades from JSON, CSV, Excel, or API\n"
+            "- Global and per-market PnL analysis\n"
+            "- Advanced metrics (Sharpe, Sortino, drawdown)\n"
+            "- Portfolio analysis and concentration risk\n"
+            "- Tax reporting (FIFO/LIFO/Average)\n"
+            "- Period comparison\n"
+            "- Filter by date, type, side, and PnL\n"
+            "- Multiple chart types (Simple, Pro, Enhanced)\n"
+            "- Export to CSV, Excel, and JSON\n\n"
             "License: AGPL-3.0"
         )
         messagebox.showinfo("About", about_text)
