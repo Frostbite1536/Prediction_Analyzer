@@ -196,6 +196,8 @@ async def _handle_advanced_metrics(arguments: dict):
         trades = filter_trades_by_market_slug(trades, market_slug)
 
     trades = apply_filters(trades, arguments)
+    if not trades:
+        raise NoTradesError("No trades match the applied filters")
     metrics = calculate_advanced_metrics(trades)
     return [types.TextContent(type="text", text=to_json_text(sanitize_dict(metrics)))]
 

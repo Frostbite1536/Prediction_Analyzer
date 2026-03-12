@@ -3,7 +3,7 @@
 Trade and TradeUpload models for storing user trading data
 """
 
-from sqlalchemy import Column, Integer, String, Float, Numeric, DateTime, ForeignKey, Index
+from sqlalchemy import Boolean, Column, Integer, String, Float, Numeric, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -50,9 +50,11 @@ class Trade(Base):
     type = Column(String(50), nullable=False)  # Buy, Sell, Market Buy, Limit Sell, etc.
     side = Column(String(10), nullable=False)  # YES or NO
     pnl = Column(Numeric(precision=18, scale=8), default=0.0)
+    pnl_is_set = Column(Boolean, nullable=False, default=False)
     tx_hash = Column(String(100), nullable=True)
     source = Column(String(50), nullable=False, default="limitless", index=True)
     currency = Column(String(10), nullable=False, default="USD")
+    fee = Column(Numeric(precision=18, scale=8), nullable=False, default=0.0)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

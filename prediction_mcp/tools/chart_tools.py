@@ -115,6 +115,8 @@ async def _handle_generate_chart(arguments: dict):
     validate_market_slug(market_slug, get_unique_markets(session.trades))
 
     trades = filter_trades_by_market_slug(session.trades, market_slug)
+    if not trades:
+        raise NoTradesError(f"No trades found for market '{market_slug}'")
 
     market_name = trades[0].market
     generator = _CHART_GENERATORS[chart_type]
