@@ -234,19 +234,21 @@ async def _handle_provider_breakdown(arguments: dict):
 
     from prediction_analyzer.config import PROVIDER_CONFIGS
 
+    from decimal import Decimal
+
     sources = {}
     for trade in session.trades:
         src = getattr(trade, "source", "limitless")
         if src not in sources:
             sources[src] = {
                 "total_trades": 0,
-                "total_pnl": 0.0,
-                "total_volume": 0.0,
+                "total_pnl": Decimal("0"),
+                "total_volume": Decimal("0"),
                 "currency": getattr(trade, "currency", "USD"),
             }
         sources[src]["total_trades"] += 1
-        sources[src]["total_pnl"] += trade.pnl
-        sources[src]["total_volume"] += trade.cost
+        sources[src]["total_pnl"] += Decimal(str(trade.pnl))
+        sources[src]["total_volume"] += Decimal(str(trade.cost))
 
     result = []
     for src, stats in sorted(sources.items(), key=lambda x: x[1]["total_pnl"], reverse=True):
@@ -256,8 +258,8 @@ async def _handle_provider_breakdown(arguments: dict):
                 "provider": src,
                 "display_name": cfg.get("display_name", src.title()),
                 "total_trades": stats["total_trades"],
-                "total_pnl": sanitize_numeric(stats["total_pnl"]),
-                "total_volume": sanitize_numeric(stats["total_volume"]),
+                "total_pnl": sanitize_numeric(float(stats["total_pnl"])),
+                "total_volume": sanitize_numeric(float(stats["total_volume"])),
                 "currency": stats["currency"],
             }
         )

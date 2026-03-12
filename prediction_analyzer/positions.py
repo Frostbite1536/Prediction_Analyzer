@@ -43,26 +43,36 @@ def calculate_open_positions(
         market_name = market_trades[0].market
 
         # Calculate net shares and cost basis using FIFO lot tracking.
-        # Simply subtracting sell proceeds from total buy cost would conflate
-        # cost basis with net investment, producing incorrect avg_entry_price.
-        buy_lots: deque = deque()  # Each lot: [price_per_share, remaining_shares]
-        net_shares = 0.0
+        # Track YES and NO buy lots separately so sells consume the
+        # correct side's lots (a YES sell should not consume NO lots).
+        yes_lots: deque = deque()  # Each lot: [price_per_share, remaining_shares]
+        no_lots: deque = deque()
+        net_shares = 0.0  # Positive = net YES, negative = net NO
 
         for t in sorted(market_trades, key=lambda x: x.timestamp):
             if t.type in ("Buy", "Market Buy", "Limit Buy"):
-                net_shares += t.shares
                 price_per = (t.cost / t.shares) if t.shares > 0 else 0.0
-                buy_lots.append([price_per, t.shares])
+                if t.side == "YES":
+                    net_shares += t.shares
+                    yes_lots.append([price_per, t.shares])
+                else:
+                    net_shares -= t.shares
+                    no_lots.append([price_per, t.shares])
             elif t.type in ("Sell", "Market Sell", "Limit Sell"):
-                net_shares -= t.shares
+                if t.side == "YES":
+                    net_shares -= t.shares
+                    lots = yes_lots
+                else:
+                    net_shares += t.shares
+                    lots = no_lots
                 # Consume buy lots FIFO to keep cost basis accurate
                 remaining = t.shares
-                while remaining > 1e-10 and buy_lots:
-                    matched = min(remaining, buy_lots[0][1])
-                    buy_lots[0][1] -= matched
+                while remaining > 1e-10 and lots:
+                    matched = min(remaining, lots[0][1])
+                    lots[0][1] -= matched
                     remaining -= matched
-                    if buy_lots[0][1] <= 1e-10:
-                        buy_lots.popleft()
+                    if lots[0][1] <= 1e-10:
+                        lots.popleft()
 
         # Skip markets with no open position
         if abs(net_shares) < 1e-10:
@@ -71,7 +81,8 @@ def calculate_open_positions(
         side = "YES" if net_shares > 0 else "NO"
         abs_shares = abs(net_shares)
 
-        # Remaining buy lots represent the cost basis of the open position
+        # Remaining buy lots for the dominant side represent the cost basis
+        buy_lots = yes_lots if side == "YES" else no_lots
         remaining_cost = sum(lot[0] * lot[1] for lot in buy_lots)
         remaining_lot_shares = sum(lot[1] for lot in buy_lots)
         avg_entry = (remaining_cost / remaining_lot_shares) if remaining_lot_shares > 1e-10 else 0.0
@@ -89,7 +100,11 @@ def calculate_open_positions(
 
         unrealized_pnl = None
         if current_price is not None:
-            unrealized_pnl = abs_shares * (current_price - avg_entry)
+            if side == "YES":
+                unrealized_pnl = abs_shares * (current_price - avg_entry)
+            else:
+                # NO (short) positions profit when price drops
+                unrealized_pnl = abs_shares * (avg_entry - current_price)
 
         positions.append(
             {

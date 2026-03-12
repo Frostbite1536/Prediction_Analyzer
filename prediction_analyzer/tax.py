@@ -4,6 +4,7 @@ Tax reporting: capital gains/losses with FIFO, LIFO, and average cost basis meth
 """
 
 import logging
+from decimal import Decimal
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 from .trade_loader import Trade, sanitize_numeric
@@ -49,37 +50,47 @@ def calculate_capital_gains(
     buy_lots: Dict[str, List[Dict]] = {}  # market_slug -> list of {date, shares, price, cost}
 
     transactions = []
-    short_term_gains = 0.0
-    short_term_losses = 0.0
-    long_term_gains = 0.0
-    long_term_losses = 0.0
-    total_fees = 0.0
+    short_term_gains = Decimal("0")
+    short_term_losses = Decimal("0")
+    long_term_gains = Decimal("0")
+    long_term_losses = Decimal("0")
+    total_fees = Decimal("0")
+    tax_year_fees = Decimal("0")
     skipped_types: Dict[str, int] = {}  # trade types not recognized
 
     for trade in sorted_trades:
         slug = trade.market_slug
 
         if trade.type in _BUY_TYPES:
-            # Track fees (fee is already included in cost for Kalshi;
-            # other providers bundle fees into cost implicitly)
-            total_fees += getattr(trade, "fee", 0.0)
+            # Track fees
+            fee_d = Decimal(str(getattr(trade, "fee", 0.0)))
+            total_fees += fee_d
+            in_tax_year_buy = year_start <= trade.timestamp < year_end
+            if in_tax_year_buy:
+                tax_year_fees += fee_d
             # Add to buy lots
             buy_lots.setdefault(slug, []).append(
                 {
                     "date": trade.timestamp,
                     "shares": trade.shares,
                     "price": trade.price,
-                    "cost_per_share": (trade.cost / trade.shares) if trade.shares > 0 else 0.0,
+                    "cost_per_share": (
+                        Decimal(str(trade.cost / trade.shares))
+                        if trade.shares > 0
+                        else Decimal("0")
+                    ),
                 }
             )
 
         elif trade.type in _SELL_TYPES:
             # Track fees
-            sell_fee = getattr(trade, "fee", 0.0)
+            sell_fee = Decimal(str(getattr(trade, "fee", 0.0)))
             total_fees += sell_fee
 
             # Determine if this sell falls within the tax year
             in_tax_year = year_start <= trade.timestamp < year_end
+            if in_tax_year:
+                tax_year_fees += sell_fee
 
             # ALWAYS consume buy lots to keep FIFO/LIFO state correct,
             # even for sells outside the tax year.  Otherwise, lots
@@ -87,7 +98,9 @@ def calculate_capital_gains(
             # cost basis for later sells.
             lots = buy_lots.get(slug, [])
             remaining_shares = trade.shares
-            proceeds_per_share = (trade.cost / trade.shares) if trade.shares > 0 else 0.0
+            proceeds_per_share = (
+                Decimal(str(trade.cost / trade.shares)) if trade.shares > 0 else Decimal("0")
+            )
 
             while remaining_shares > 1e-10 and lots:
                 if cost_basis_method == "fifo":
@@ -101,8 +114,9 @@ def calculate_capital_gains(
 
                 # Only record transaction details for sells in the tax year
                 if in_tax_year:
-                    cost_basis = matched_shares * lot["cost_per_share"]
-                    proceeds = matched_shares * proceeds_per_share
+                    matched_d = Decimal(str(matched_shares))
+                    cost_basis = float(matched_d * lot["cost_per_share"])
+                    proceeds = float(matched_d * proceeds_per_share)
                     gain_loss = proceeds - cost_basis
 
                     # Determine holding period
@@ -122,19 +136,20 @@ def calculate_capital_gains(
                         "holding_period": holding_period,
                     }
                     if sell_fee > 0:
-                        tx["fee"] = sanitize_numeric(sell_fee)
+                        tx["fee"] = sanitize_numeric(float(sell_fee))
                     transactions.append(tx)
 
+                    gain_loss_d = Decimal(str(gain_loss))
                     if is_long_term:
-                        if gain_loss >= 0:
-                            long_term_gains += gain_loss
+                        if gain_loss_d >= 0:
+                            long_term_gains += gain_loss_d
                         else:
-                            long_term_losses += abs(gain_loss)
+                            long_term_losses += abs(gain_loss_d)
                     else:
-                        if gain_loss >= 0:
-                            short_term_gains += gain_loss
+                        if gain_loss_d >= 0:
+                            short_term_gains += gain_loss_d
                         else:
-                            short_term_losses += abs(gain_loss)
+                            short_term_losses += abs(gain_loss_d)
 
                 remaining_shares -= matched_shares
 
@@ -189,12 +204,12 @@ def calculate_capital_gains(
         "tax_year": tax_year,
         "method": cost_basis_method,
         "total_trades_in_scope": len(sorted_trades),
-        "short_term_gains": sanitize_numeric(short_term_gains),
-        "short_term_losses": sanitize_numeric(short_term_losses),
-        "long_term_gains": sanitize_numeric(long_term_gains),
-        "long_term_losses": sanitize_numeric(long_term_losses),
-        "net_gain_loss": sanitize_numeric(net_gain_loss),
-        "total_fees": sanitize_numeric(total_fees),
+        "short_term_gains": sanitize_numeric(float(short_term_gains)),
+        "short_term_losses": sanitize_numeric(float(short_term_losses)),
+        "long_term_gains": sanitize_numeric(float(long_term_gains)),
+        "long_term_losses": sanitize_numeric(float(long_term_losses)),
+        "net_gain_loss": sanitize_numeric(float(net_gain_loss)),
+        "total_fees": sanitize_numeric(float(tax_year_fees)),
         "transaction_count": len(transactions),
         "transactions": transactions,
     }
@@ -220,9 +235,16 @@ def _average_lot(lots: List[Dict]) -> Dict:
     """
     total_shares = sum(l["shares"] for l in lots)
     if total_shares <= 0:
-        return {"date": datetime(1970, 1, 1), "shares": 0, "price": 0, "cost_per_share": 0}
+        return {
+            "date": datetime(1970, 1, 1),
+            "shares": 0,
+            "price": 0,
+            "cost_per_share": Decimal("0"),
+        }
 
-    weighted_cost = sum(l["shares"] * l["cost_per_share"] for l in lots) / total_shares
+    weighted_cost = sum(Decimal(str(l["shares"])) * l["cost_per_share"] for l in lots) / Decimal(
+        str(total_shares)
+    )
     # FIFO holding period: use the earliest lot's date (first lot consumed)
     earliest_date = min(l["date"] for l in lots)
 
