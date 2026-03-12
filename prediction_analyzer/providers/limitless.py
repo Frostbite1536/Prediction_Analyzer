@@ -156,7 +156,7 @@ class LimitlessProvider(MarketProvider):
         return None
 
     def detect_file_format(self, records: List[dict]) -> bool:
-        """Limitless format: has collateralAmount, outcomeTokenAmount, or nested market dict with slug."""
+        """Detect Limitless format by field signatures."""
         if not records:
             return False
         first = records[0]

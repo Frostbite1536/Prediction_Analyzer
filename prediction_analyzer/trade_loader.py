@@ -6,7 +6,7 @@ Trade loading functionality - supports JSON, CSV, XLSX
 import json
 import logging
 import pandas as pd
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import List, Union, Optional, Dict, Any
 from datetime import datetime, timezone
 import math

@@ -200,9 +200,6 @@ def generate_enhanced_chart(
     # Panel 2: The Scoreboard (Running P&L)
     # ==========================================
 
-    # Determine colors for P&L line segments
-    pnl_colors = ["green" if pnl >= 0 else "red" for pnl in running_pnl]
-
     # P&L line with fill
     fig.add_trace(
         go.Scatter(

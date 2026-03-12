@@ -7,7 +7,6 @@ handling NaN/Infinity, datetime objects, and dataclass conversion.
 """
 
 import json
-import math
 from typing import Any, Dict, List
 
 from prediction_analyzer.trade_loader import Trade, sanitize_numeric

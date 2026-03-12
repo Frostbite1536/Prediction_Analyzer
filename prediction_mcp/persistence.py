@@ -17,7 +17,6 @@ import logging
 import sqlite3
 import threading
 from datetime import datetime
-from typing import Optional
 
 from prediction_analyzer.trade_loader import Trade
 
@@ -107,8 +106,10 @@ class SessionStore:
                 else str(trade.timestamp)
             )
             cur.execute(
-                "INSERT INTO trades (market, market_slug, timestamp, price, shares, cost, type, side, pnl, pnl_is_set, tx_hash, source, currency, fee) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO trades (market, market_slug, timestamp, price,"
+                " shares, cost, type, side, pnl, pnl_is_set, tx_hash,"
+                " source, currency, fee) VALUES"
+                " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     trade.market,
                     trade.market_slug,

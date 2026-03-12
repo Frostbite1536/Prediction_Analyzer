@@ -66,7 +66,7 @@ session = SessionState()
 # When running under SSE, each connection gets its own SessionState via
 # a contextvar.  Tools import `session` from this module which is the
 # default, but SSE handler overrides it per-connection.
-import contextvars
+import contextvars  # noqa: E402
 
 _session_var: contextvars.ContextVar[SessionState] = contextvars.ContextVar(
     "mcp_session", default=session

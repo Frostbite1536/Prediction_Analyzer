@@ -72,7 +72,7 @@ def get_tool_definitions() -> list[types.Tool]:
                     "provider": {
                         "type": "string",
                         "enum": ["auto", "limitless", "polymarket", "kalshi", "manifold"],
-                        "description": "Provider name or 'auto' to detect from key format (default: auto)",
+                        "description": "Provider name or 'auto' to detect from key format",
                         "default": "auto",
                     },
                     "page_limit": {

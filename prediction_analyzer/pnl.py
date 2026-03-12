@@ -6,7 +6,6 @@ PnL calculation and analysis functions
 from decimal import Decimal
 from typing import List, Dict
 import pandas as pd
-import numpy as np
 from .trade_loader import Trade
 from .inference import detect_market_resolution
 
@@ -81,7 +80,7 @@ def _summarize_trades(trades: List[Trade]) -> Dict:
     total_trades = len(df)
 
     # Only count wins/losses among trades that have PnL set
-    settled = df[df["pnl_is_set"] == True]
+    settled = df[df["pnl_is_set"].eq(True)]
     winning_trades = len(settled[settled["pnl"] > 0])
     losing_trades = len(settled[settled["pnl"] < 0])
     breakeven_trades = len(settled[settled["pnl"] == 0])
@@ -244,7 +243,7 @@ def calculate_market_pnl_summary(trades: List[Trade]) -> Dict:
     total_trades = len(df)
 
     # Only count wins/losses among trades that have PnL set
-    settled = df[df["pnl_is_set"] == True]
+    settled = df[df["pnl_is_set"].eq(True)]
     winning_trades = len(settled[settled["pnl"] > 0])
     losing_trades = len(settled[settled["pnl"] < 0])
     breakeven_trades = len(settled[settled["pnl"] == 0])

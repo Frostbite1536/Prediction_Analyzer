@@ -17,7 +17,7 @@ from prediction_analyzer.exceptions import NoTradesError
 
 from ..state import get_session
 from ..errors import safe_tool
-from ..serializers import to_json_text, sanitize_dict
+from ..serializers import to_json_text
 from ..validators import validate_date
 
 logger = logging.getLogger(__name__)
@@ -57,8 +57,9 @@ def get_tool_definitions() -> list[types.Tool]:
         types.Tool(
             name="get_drawdown_analysis",
             description=(
-                "Analyze maximum drawdown periods including duration, recovery, and all drawdown events. "
-                "Optionally limited to a specific market."
+                "Analyze maximum drawdown periods including duration, "
+                "recovery, and all drawdown events. "
+                "Optionally limited to a market."
             ),
             inputSchema={
                 "type": "object",

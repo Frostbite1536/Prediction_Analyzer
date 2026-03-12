@@ -10,8 +10,7 @@ Provides risk-adjusted metrics beyond basic PnL:
 - Period-over-period comparison
 """
 
-from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+from typing import List, Dict
 import numpy as np
 from .trade_loader import Trade, INF_CAP
 

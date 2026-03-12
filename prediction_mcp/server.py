@@ -33,8 +33,8 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# Import tool modules
-from .tools import (
+# Import tool modules (after logging config so tool imports log to stderr)
+from .tools import (  # noqa: E402
     data_tools,
     analysis_tools,
     filter_tools,
@@ -263,7 +263,8 @@ async def get_prompt(name: str, arguments: dict | None = None) -> types.GetPromp
                         type="text",
                         text=(
                             "Analyze my prediction market portfolio. "
-                            f"{focus_instructions.get(focus, focus_instructions['performance'])}\n\n"
+                            f"{focus_instructions.get(focus, focus_instructions['performance'])}"
+                            "\n\n"
                             "Structure your response with:\n"
                             "1. Executive Summary (2-3 sentences)\n"
                             "2. Key Metrics table\n"
@@ -375,7 +376,7 @@ def create_sse_app(sse_path: str = "/sse", message_path: str = "/messages"):
     """
     from mcp.server.sse import SseServerTransport
     from starlette.applications import Starlette
-    from starlette.routing import Route, Mount
+    from starlette.routing import Route
     from starlette.responses import JSONResponse
 
     sse_transport = SseServerTransport(message_path)

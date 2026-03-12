@@ -3,7 +3,7 @@
 Trade and TradeUpload models for storing user trading data
 """
 
-from sqlalchemy import Boolean, Column, Integer, String, Float, Numeric, DateTime, ForeignKey, Index
+from sqlalchemy import Boolean, Column, Integer, String, Numeric, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 

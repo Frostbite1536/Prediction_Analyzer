@@ -7,7 +7,6 @@ Data export tools.
 Tools: export_trades
 """
 import logging
-import os
 
 from mcp import types
 
