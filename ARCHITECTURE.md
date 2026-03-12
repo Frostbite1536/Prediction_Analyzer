@@ -46,6 +46,17 @@ Prediction Analyzer is a modular Python application for analyzing prediction mar
 │  - Source filtering  │                      │  - API settings           │
 │  - Fuzzy matching    │                      │  - Chart styling          │
 │  - Deduplication     │                      │  - Constants              │
+├──────────────────────┴──────────────────────┴───────────────────────────┤
+│  metrics.py          │  positions.py        │  drawdown.py              │
+│  - Sharpe/Sortino    │  - Open positions    │  - Drawdown periods       │
+│  - Profit factor     │  - Concentration     │  - Recovery analysis      │
+│  - Win/loss streaks  │    risk (HHI)        │  - Duration tracking      │
+│  - Trade frequency   │  - Unrealized PnL    │                           │
+├──────────────────────┴──────────────────────┴───────────────────────────┤
+│  tax.py              │  comparison.py       │  exceptions.py            │
+│  - Capital gains     │  - Period comparison │  - Custom exceptions      │
+│  - FIFO/LIFO/Avg     │  - Sharpe/win rate   │                           │
+│  - Wash sale detect  │    change tracking   │                           │
 └─────────────────────────────────────────────────────────────────────────┘
                                        │
                     ┌──────────────────┼──────────────────┐
@@ -73,7 +84,13 @@ prediction_analyzer/
 ├── trade_filter.py          # Market filtering, source filtering, deduplication
 ├── filters.py               # Advanced filters (date, type, PnL)
 ├── pnl.py                   # PnL calculation and analysis (per-source breakdown)
+├── metrics.py               # Advanced trading metrics (Sharpe, Sortino, drawdown, streaks)
+├── positions.py             # Open positions, unrealized PnL, concentration risk (HHI)
+├── drawdown.py              # Drawdown analysis with recovery tracking
+├── tax.py                   # Tax reporting (FIFO/LIFO/average cost basis, wash sales)
+├── comparison.py            # Period-over-period performance comparison
 ├── inference.py             # Market outcome inference
+├── exceptions.py            # Custom exception classes
 │
 ├── providers/               # Multi-market provider abstraction layer
 │   ├── __init__.py          # Auto-registers all 4 providers
@@ -94,7 +111,7 @@ prediction_analyzer/
 ├── reporting/               # Report generation
 │   ├── __init__.py
 │   ├── report_text.py       # Text/console reports
-│   └── report_data.py       # CSV/Excel exports
+│   └── report_data.py       # CSV/Excel/JSON exports
 │
 ├── utils/                   # Utility functions
 │   ├── __init__.py
@@ -183,6 +200,7 @@ class Trade:
     tx_hash: str          # Transaction hash (optional)
     source: str           # Provider: "limitless", "polymarket", "kalshi", "manifold"
     currency: str         # "USD", "USDC", or "MANA"
+    fee: float            # Transaction fee (default: 0.0)
 ```
 
 ### Provider Configuration
@@ -250,7 +268,8 @@ Manifold API ──── ManifoldProvider.fetch_trades() ────┘
 List[Trade]
     │
     ├──► filter_by_date()           ──┐
-    ├──► filter_by_trade_type()       ├──► Filtered List[Trade]
+    ├──► filter_by_trade_type()       │
+    ├──► filter_by_side()             ├──► Filtered List[Trade]
     ├──► filter_by_pnl()              │
     ├──► filter_trades_by_market()    │
     └──► filter_trades_by_source() ──┘
@@ -282,7 +301,8 @@ Filtered Trades + Stats
          │                  └──► generate_text_report()    ──► Text report
          │
          └──► Exports ──────┬──► export_to_csv()           ──► CSV file
-                            └──► export_to_excel()         ──► XLSX file
+                            ├──► export_to_excel()         ──► XLSX file
+                            └──► export_to_json()          ──► JSON file
 ```
 
 ## Component Details
@@ -410,7 +430,7 @@ Four chart types with different use cases:
 ### Reporting Module (`reporting/`)
 
 - **report_text.py**: Console/text output formatting
-- **report_data.py**: CSV and Excel export functionality
+- **report_data.py**: CSV, Excel, and JSON export functionality
 
 ### MCP Server (`prediction_mcp/`)
 
@@ -495,25 +515,29 @@ Tkinter-based desktop application:
 │ API Key / Wallet: [________________]                            │
 │ Quick Actions: [Load File] [Load API] [Summary] [Dashboard]    │
 ├─────────────────────────────────────────────────────────────────┤
-│ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ Tabs: [Global Summary] [Market Analysis] [Filters] [Charts]│ │
-│ ├─────────────────────────────────────────────────────────────┤ │
-│ │                                                             │ │
-│ │                     Tab Content Area                        │ │
-│ │                                                             │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+│ ┌──────────────────────────────────────────────────────────────────────────────────────┐ │
+│ │ Tabs: [Summary] [Market] [Trade Browser] [Filters] [Charts] [Portfolio] [Tax Report]│ │
+│ ├──────────────────────────────────────────────────────────────────────────────────────┤ │
+│ │                                                                                      │ │
+│ │                                Tab Content Area                                      │ │
+│ │                                                                                      │ │
+│ └──────────────────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 Features:
 - Provider selection dropdown (auto/limitless/polymarket/kalshi/manifold)
 - File loading with dialog (auto-detects provider format)
 - API authentication with provider-appropriate credentials
-- Tabbed interface for different views
-- Market listbox with selection preservation
-- Filter controls with validation
-- Chart generation buttons
-- Export functionality
+- 7-tab interface: Global Summary, Market Analysis, Trade Browser, Filters, Charts, Portfolio, Tax Report
+- Trade Browser with sortable treeview columns and market search
+- Filter controls with date, type, side (YES/NO), and PnL validation
+- Portfolio analysis: open positions, concentration risk (HHI), drawdown tracking
+- Tax reporting: capital gains with FIFO/LIFO/average cost basis, wash sale detection
+- Period-over-period performance comparison dialog
+- Chart generation buttons (Simple, Pro, Enhanced, Dashboard)
+- CSV, Excel, and JSON export functionality
+- Keyboard shortcuts (Ctrl+O open, Ctrl+S save, Ctrl+F find, Ctrl+Q quit)
 
 ### MCP Server (`prediction_mcp/server.py`)
 
@@ -627,7 +651,7 @@ tests/
     ├── test_api_contracts.py      # API contract validation
     ├── test_config_integrity.py   # Configuration tests
     ├── test_data_integrity.py     # Data handling tests
-    ├── test_dataclass_contracts.py # Dataclass validation (13 fields)
+    ├── test_dataclass_contracts.py # Dataclass validation (14 fields)
     ├── test_edge_cases.py         # Edge case handling
     ├── test_filter_contracts.py   # Filter function tests
     ├── test_imports.py            # Import validation
