@@ -79,20 +79,20 @@ class PredictionAnalyzerGUI:
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Load Trades from File...", command=self.load_file)
+        file_menu.add_command(label="Load Trades from File...", command=self.load_file, accelerator="Ctrl+O")
         file_menu.add_command(label="Load Trades from API...", command=self.load_from_api)
         file_menu.add_separator()
-        file_menu.add_command(label="Export to CSV...", command=lambda: self.export_data('csv'))
+        file_menu.add_command(label="Export to CSV...", command=lambda: self.export_data('csv'), accelerator="Ctrl+E")
         file_menu.add_command(label="Export to Excel...", command=lambda: self.export_data('excel'))
         file_menu.add_command(label="Export to JSON...", command=lambda: self.export_data('json'))
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.quit)
+        file_menu.add_command(label="Exit", command=self.root.quit, accelerator="Ctrl+Q")
 
         # Analysis menu
         analysis_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Analysis", menu=analysis_menu)
-        analysis_menu.add_command(label="Global PnL Summary", command=self.show_global_summary)
-        analysis_menu.add_command(label="Generate Dashboard", command=self.generate_dashboard)
+        analysis_menu.add_command(label="Global PnL Summary", command=self.show_global_summary, accelerator="Ctrl+G")
+        analysis_menu.add_command(label="Generate Dashboard", command=self.generate_dashboard, accelerator="Ctrl+D")
         analysis_menu.add_separator()
         analysis_menu.add_command(label="Compare Periods...", command=self.show_compare_periods_dialog)
 
@@ -131,6 +131,13 @@ class PredictionAnalyzerGUI:
         self.create_portfolio_tab()
         self.create_tax_tab()
         self.create_charts_tab()
+
+        # Keyboard shortcuts
+        self.root.bind('<Control-o>', lambda e: self.load_file())
+        self.root.bind('<Control-e>', lambda e: self.export_data('csv'))
+        self.root.bind('<Control-d>', lambda e: self.generate_dashboard())
+        self.root.bind('<Control-g>', lambda e: self.show_global_summary())
+        self.root.bind('<Control-q>', lambda e: self.root.quit())
 
     def create_header(self, parent):
         """Create header section"""
@@ -242,12 +249,21 @@ class PredictionAnalyzerGUI:
         markets_frame.columnconfigure(1, weight=1)
         markets_frame.rowconfigure(1, weight=1)
 
-        # Market selection
+        # Market selection header and search
+        header_frame = ttk.Frame(markets_frame)
+        header_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 5))
+
         ttk.Label(
-            markets_frame,
+            header_frame,
             text="Select Market:",
             style='Subtitle.TLabel'
-        ).grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
+        ).grid(row=0, column=0, sticky=tk.W)
+
+        ttk.Label(header_frame, text="Search:").grid(row=0, column=1, sticky=tk.W, padx=(20, 5))
+        self.market_search_var = tk.StringVar()
+        self.market_search_var.trace_add("write", lambda *args: self._filter_market_listbox())
+        market_search_entry = ttk.Entry(header_frame, textvariable=self.market_search_var, width=25)
+        market_search_entry.grid(row=0, column=2, sticky=tk.W, padx=5)
 
         # Market listbox with scrollbar
         listbox_frame = ttk.Frame(markets_frame)
@@ -439,12 +455,12 @@ class PredictionAnalyzerGUI:
         pnl_frame = ttk.LabelFrame(filters_content, text="PnL Range", padding="10")
         pnl_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-        ttk.Label(pnl_frame, text="Minimum PnL ($):").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(pnl_frame, text="Minimum PnL:").grid(row=0, column=0, sticky=tk.W)
         self.min_pnl_entry = ttk.Entry(pnl_frame, width=20)
         self.min_pnl_entry.grid(row=0, column=1, padx=5, pady=2)
         self.min_pnl_entry.bind('<Return>', lambda e: self.apply_filters())
 
-        ttk.Label(pnl_frame, text="Maximum PnL ($):").grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(pnl_frame, text="Maximum PnL:").grid(row=1, column=0, sticky=tk.W)
         self.max_pnl_entry = ttk.Entry(pnl_frame, width=20)
         self.max_pnl_entry.grid(row=1, column=1, padx=5, pady=2)
         self.max_pnl_entry.bind('<Return>', lambda e: self.apply_filters())
@@ -838,6 +854,34 @@ class PredictionAnalyzerGUI:
             self.market_listbox.selection_set(new_selection_idx)
             self.market_listbox.see(new_selection_idx)
 
+    def _filter_market_listbox(self):
+        """Filter market listbox based on search text"""
+        search_text = self.market_search_var.get().strip().lower()
+        if not self.filtered_trades:
+            return
+
+        self.market_listbox.delete(0, tk.END)
+
+        markets = get_unique_markets(self.filtered_trades)
+        trades_by_market = group_trades_by_market(self.filtered_trades)
+
+        # Filter and rebuild the visible slugs list
+        self.market_slugs = []
+        for slug in sorted(markets.keys()):
+            title = markets[slug]
+            if search_text and search_text not in title.lower() and search_text not in slug.lower():
+                continue
+
+            self.market_slugs.append(slug)
+            trade_count = len(trades_by_market.get(slug, []))
+            count_suffix = f" ({trade_count} trades)"
+            max_title_len = 60 - len(count_suffix)
+            if len(title) > max_title_len:
+                display_text = f"{title[:max_title_len]}...{count_suffix}"
+            else:
+                display_text = f"{title}{count_suffix}"
+            self.market_listbox.insert(tk.END, display_text)
+
     def update_summary_display(self):
         """Update the global summary display"""
         self.summary_text.delete(1.0, tk.END)
@@ -853,14 +897,17 @@ class PredictionAnalyzerGUI:
             output.append("=" * 60)
             output.append("GLOBAL PnL SUMMARY")
             output.append("=" * 60)
+            currency = summary.get('currency', 'USD')
+            cur_sym = "$" if currency in ("USD", "USDC") else f"{currency} "
             output.append(f"\nTotal Trades: {summary['total_trades']}")
-            output.append(f"Total PnL: ${summary['total_pnl']:.2f}")
-            output.append(f"Average PnL per Trade: ${summary['avg_pnl']:.2f}")
+            output.append(f"Total PnL: {cur_sym}{summary['total_pnl']:.2f}")
+            output.append(f"Average PnL per Trade: {cur_sym}{summary['avg_pnl']:.2f}")
             output.append(f"\nWinning Trades: {summary['winning_trades']}")
             output.append(f"Losing Trades: {summary['losing_trades']}")
+            output.append(f"Breakeven Trades: {summary.get('breakeven_trades', 0)}")
             output.append(f"Win Rate: {summary['win_rate']:.1f}%")
-            output.append(f"\nTotal Invested: ${summary['total_invested']:.2f}")
-            output.append(f"Total Returned: ${summary['total_returned']:.2f}")
+            output.append(f"\nTotal Invested: {cur_sym}{summary['total_invested']:.2f}")
+            output.append(f"Total Returned: {cur_sym}{summary['total_returned']:.2f}")
             output.append(f"ROI: {summary['roi']:.2f}%")
 
             # Currency breakdown if multiple currencies present
@@ -873,19 +920,20 @@ class PredictionAnalyzerGUI:
                     output.append(f"    Trades: {data.get('total_trades', 'N/A')}")
                     if isinstance(data.get('total_pnl'), (int, float)):
                         output.append(f"    PnL: {data['total_pnl']:.2f} {currency}")
+                    if isinstance(data.get('win_rate'), (int, float)):
+                        output.append(f"    Win Rate: {data['win_rate']:.1f}%")
 
-            # Provider/source breakdown
-            sources = set(t.source for t in self.filtered_trades)
-            if len(sources) > 1:
+            # Provider/source breakdown (use pre-computed by_source from summary)
+            if summary.get('by_source'):
                 output.append("\n" + "-" * 60)
                 output.append("PROVIDER BREAKDOWN")
                 output.append("-" * 60)
-                for source in sorted(sources):
-                    source_trades = [t for t in self.filtered_trades if t.source == source]
-                    source_pnl = sum(t.pnl for t in source_trades)
+                for source, data in sorted(summary['by_source'].items()):
                     output.append(f"\n  {source.capitalize()}:")
-                    output.append(f"    Trades: {len(source_trades)}")
-                    output.append(f"    PnL: ${source_pnl:.2f}")
+                    output.append(f"    Trades: {data.get('total_trades', 0)}")
+                    pnl_val = data.get('total_pnl', 0)
+                    cur = data.get('currency', 'USD')
+                    output.append(f"    PnL: {pnl_val:.2f} {cur}")
 
             # Advanced metrics
             metrics = calculate_advanced_metrics(self.filtered_trades)
@@ -895,11 +943,11 @@ class PredictionAnalyzerGUI:
             output.append(f"\nSharpe Ratio: {metrics['sharpe_ratio']:.4f}")
             output.append(f"Sortino Ratio: {metrics['sortino_ratio']:.4f}")
             output.append(f"Profit Factor: {metrics['profit_factor']:.2f}")
-            output.append(f"Expectancy: ${metrics['expectancy']:.4f}")
-            output.append(f"\nMax Drawdown: ${metrics['max_drawdown']:.2f} ({metrics['max_drawdown_pct']:.1f}%)")
+            output.append(f"Expectancy: {cur_sym}{metrics['expectancy']:.4f}")
+            output.append(f"\nMax Drawdown: {cur_sym}{metrics['max_drawdown']:.2f} ({metrics['max_drawdown_pct']:.1f}%)")
             output.append(f"Max DD Duration: {metrics['max_drawdown_duration_trades']} trades")
-            output.append(f"\nAvg Win: ${metrics['avg_win']:.2f}  |  Avg Loss: ${metrics['avg_loss']:.2f}")
-            output.append(f"Largest Win: ${metrics['largest_win']:.2f}  |  Largest Loss: ${metrics['largest_loss']:.2f}")
+            output.append(f"\nAvg Win: {cur_sym}{metrics['avg_win']:.2f}  |  Avg Loss: {cur_sym}{metrics['avg_loss']:.2f}")
+            output.append(f"Largest Win: {cur_sym}{metrics['largest_win']:.2f}  |  Largest Loss: {cur_sym}{metrics['largest_loss']:.2f}")
             output.append(f"Max Win Streak: {metrics['max_win_streak']}  |  Max Loss Streak: {metrics['max_loss_streak']}")
 
             output.append("\n" + "=" * 60)
@@ -982,25 +1030,29 @@ class PredictionAnalyzerGUI:
             self.market_details_text.delete(1.0, tk.END)
 
             output = []
+            # Determine currency from trades
+            currencies = set(t.currency for t in market_trades)
+            sources = set(t.source for t in market_trades)
+            market_cur = next(iter(currencies)) if len(currencies) == 1 else "USD"
+            mcur_sym = "$" if market_cur in ("USD", "USDC") else f"{market_cur} "
+
             output.append("=" * 60)
             output.append(f"MARKET: {summary['market_title']}")
             output.append("=" * 60)
             output.append(f"\nTotal Trades: {summary['total_trades']}")
-            output.append(f"Total PnL: ${summary['total_pnl']:.2f}")
-            output.append(f"Average PnL per Trade: ${summary['avg_pnl']:.2f}")
+            output.append(f"Total PnL: {mcur_sym}{summary['total_pnl']:.2f}")
+            output.append(f"Average PnL per Trade: {mcur_sym}{summary['avg_pnl']:.2f}")
             output.append(f"\nWinning Trades: {summary['winning_trades']}")
             output.append(f"Losing Trades: {summary['losing_trades']}")
+            output.append(f"Breakeven Trades: {summary.get('breakeven_trades', 0)}")
             output.append(f"Win Rate: {summary['win_rate']:.1f}%")
-            output.append(f"\nTotal Invested: ${summary['total_invested']:.2f}")
-            output.append(f"Total Returned: ${summary['total_returned']:.2f}")
+            output.append(f"\nTotal Invested: {mcur_sym}{summary['total_invested']:.2f}")
+            output.append(f"Total Returned: {mcur_sym}{summary['total_returned']:.2f}")
             output.append(f"ROI: {summary['roi']:.2f}%")
 
             if summary.get('market_outcome'):
                 output.append(f"\nMarket Outcome: {summary['market_outcome']}")
 
-            # Show currency and source for this market
-            currencies = set(t.currency for t in market_trades)
-            sources = set(t.source for t in market_trades)
             output.append(f"\nCurrency: {', '.join(currencies)}")
             output.append(f"Source: {', '.join(s.capitalize() for s in sources)}")
 
@@ -1118,11 +1170,11 @@ class PredictionAnalyzerGUI:
             output.append(f"Herfindahl Index (HHI): {risk.get('herfindahl_index', 0):.4f}")
             output.append(f"Top 3 Concentration: {risk.get('top_3_concentration_pct', 0):.1f}%")
 
-            # Diversification assessment
+            # Diversification assessment (HHI is on 0-10000 scale)
             hhi = risk.get('herfindahl_index', 0)
-            if hhi < 0.15:
+            if hhi < 1500:
                 assessment = "Well diversified"
-            elif hhi < 0.25:
+            elif hhi < 2500:
                 assessment = "Moderately concentrated"
             else:
                 assessment = "Highly concentrated"
@@ -1138,7 +1190,7 @@ class PredictionAnalyzerGUI:
                     if len(name) > 35:
                         name = name[:35] + "..."
                     exposure = m.get('exposure', 0)
-                    pct = m.get('exposure_pct', 0)
+                    pct = m.get('pct_of_total', 0)
                     trades_count = m.get('trade_count', 0)
                     output.append(f"  {name:<38} ${exposure:>8.2f} ({pct:>5.1f}%) [{trades_count} trades]")
 
@@ -1190,10 +1242,12 @@ class PredictionAnalyzerGUI:
                 for i, period in enumerate(periods[:10], 1):  # Show top 10
                     output.append(f"\n  Period {i}:")
                     output.append(f"    Amount: ${period.get('amount', 0):.2f} ({period.get('pct', 0):.1f}%)")
-                    if period.get('start_date'):
-                        output.append(f"    Start: {period['start_date']}")
-                    if period.get('end_date'):
-                        output.append(f"    End: {period['end_date']}")
+                    if period.get('start'):
+                        output.append(f"    Start: {period['start']}")
+                    if period.get('end'):
+                        output.append(f"    End: {period['end']}")
+                    if period.get('duration_days') is not None:
+                        output.append(f"    Duration: {period['duration_days']} days")
 
             output.append("\n" + "=" * 60)
             self.portfolio_text.insert(tk.END, "\n".join(output))
@@ -1313,6 +1367,9 @@ class PredictionAnalyzerGUI:
             dates = [p1_start.get().strip(), p1_end.get().strip(),
                      p2_start.get().strip(), p2_end.get().strip()]
             for d in dates:
+                if not d:
+                    messagebox.showerror("Missing Date", "All four date fields are required.", parent=dialog)
+                    return
                 if not self._validate_date_format(d):
                     messagebox.showerror("Invalid Date", f"'{d}' is not a valid date.\nUse YYYY-MM-DD format.", parent=dialog)
                     return
@@ -1341,13 +1398,13 @@ class PredictionAnalyzerGUI:
 
         for label, key in [("PERIOD 1", "period_1"), ("PERIOD 2", "period_2")]:
             period = result.get(key, {})
-            output.append(f"\n{label}:")
-            output.append(f"  Trades: {period.get('total_trades', 0)}")
-            output.append(f"  PnL: ${period.get('total_pnl', 0):.2f}")
+            output.append(f"\n{label}: {period.get('start_date', '?')} to {period.get('end_date', '?')}")
+            output.append(f"  Trades: {period.get('trades', 0)}")
+            output.append(f"  PnL: ${period.get('pnl', 0):.2f}")
             output.append(f"  Win Rate: {period.get('win_rate', 0):.1f}%")
             output.append(f"  Avg PnL: ${period.get('avg_pnl', 0):.2f}")
-            if period.get('sharpe_ratio') is not None:
-                output.append(f"  Sharpe Ratio: {period['sharpe_ratio']:.4f}")
+            if period.get('sharpe') is not None:
+                output.append(f"  Sharpe Ratio: {period['sharpe']:.4f}")
 
         changes = result.get('changes', {})
         if changes:
