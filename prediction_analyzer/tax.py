@@ -5,7 +5,7 @@ Tax reporting: capital gains/losses with FIFO, LIFO, and average cost basis meth
 
 import logging
 from decimal import Decimal
-from typing import List, Dict, Optional
+from typing import List, Dict
 from datetime import datetime, timedelta
 from .trade_loader import Trade, sanitize_numeric
 
@@ -160,12 +160,12 @@ def calculate_capital_gains(
                     # Lots are sorted chronologically; as each lot's shares
                     # reach zero it is removed, so _average_lot's min-date
                     # naturally advances FIFO for holding period purposes.
-                    total_shares = sum(l["shares"] for l in lots)
+                    total_shares = sum(lt["shares"] for lt in lots)
                     if total_shares > 0:
                         ratio = matched_shares / total_shares
-                        for l in lots:
-                            l["shares"] -= l["shares"] * ratio
-                        lots[:] = [l for l in lots if l["shares"] > 1e-10]
+                        for lt in lots:
+                            lt["shares"] -= lt["shares"] * ratio
+                        lots[:] = [lt for lt in lots if lt["shares"] > 1e-10]
                 else:
                     lot["shares"] -= matched_shares
                     if lot["shares"] <= 1e-10:
@@ -233,7 +233,7 @@ def _average_lot(lots: List[Dict]) -> Dict:
     cost under average basis).  The holding period date uses the earliest
     remaining lot, approximating FIFO per IRS Reg. 1.1012-1(e).
     """
-    total_shares = sum(l["shares"] for l in lots)
+    total_shares = sum(lt["shares"] for lt in lots)
     if total_shares <= 0:
         return {
             "date": datetime(1970, 1, 1),
@@ -242,11 +242,11 @@ def _average_lot(lots: List[Dict]) -> Dict:
             "cost_per_share": Decimal("0"),
         }
 
-    weighted_cost = sum(Decimal(str(l["shares"])) * l["cost_per_share"] for l in lots) / Decimal(
+    weighted_cost = sum(Decimal(str(lt["shares"])) * lt["cost_per_share"] for lt in lots) / Decimal(
         str(total_shares)
     )
     # FIFO holding period: use the earliest lot's date (first lot consumed)
-    earliest_date = min(l["date"] for l in lots)
+    earliest_date = min(lt["date"] for lt in lots)
 
     return {
         "date": earliest_date,
