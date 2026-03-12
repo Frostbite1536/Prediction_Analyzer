@@ -70,6 +70,20 @@ stateDiagram-v2
 | `provider_var` | `StringVar` | Selected provider (auto/limitless/polymarket/kalshi/manifold) |
 | `buy_var` | `BooleanVar` | Buy filter checkbox state |
 | `sell_var` | `BooleanVar` | Sell filter checkbox state |
+| `yes_var` | `BooleanVar` | YES side filter checkbox state |
+| `no_var` | `BooleanVar` | NO side filter checkbox state |
+
+### GUI Tabs (7 total)
+
+| Tab | Purpose | Key Widgets |
+|-----|---------|-------------|
+| Global Summary | Aggregate PnL stats | Labels, currency/provider breakdowns |
+| Market Analysis | Per-market analysis | Market listbox, summary labels, chart buttons |
+| Trade Browser | Browse all trades | Treeview with sortable columns, search entry |
+| Filters | Filter controls | Date entries, type/side checkboxes, PnL entries, period comparison button |
+| Charts | Chart info & dashboard | Chart type descriptions, dashboard button |
+| Portfolio | Position & risk analysis | Open positions list, HHI display, drawdown stats |
+| Tax Report | Capital gains reporting | Year selector, method dropdown, transaction treeview |
 
 ---
 
@@ -256,6 +270,7 @@ stateDiagram-v2
     Unfiltered --> SourceFiltering: Source filter requested
     Unfiltered --> ValidatingDateInputs: Date filter requested
     Unfiltered --> TypeFiltering: Type filter requested
+    Unfiltered --> SideFiltering: Side filter requested
     Unfiltered --> PnLFiltering: PnL filter requested
 
     SourceFiltering --> SourceFiltered: filter_trades_by_source()
@@ -274,8 +289,14 @@ stateDiagram-v2
 
     TypeFiltering --> TypeFiltered: Apply filter_by_trade_type()
 
+    TypeFiltered --> SideFiltering: Side filter requested
     TypeFiltered --> PnLFiltering: PnL filter requested
     TypeFiltered --> Complete: No more filters
+
+    SideFiltering --> SideFiltered: Apply filter_by_side()
+
+    SideFiltered --> PnLFiltering: PnL filter requested
+    SideFiltered --> Complete: No more filters
 
     PnLFiltering --> PnLFiltered: Apply filter_by_pnl()
 
@@ -505,12 +526,16 @@ stateDiagram-v2
 
     PreparingData --> WritingCSV: CSV format
     PreparingData --> WritingExcel: Excel format
+    PreparingData --> WritingJSON: JSON format
 
     WritingCSV --> Success: File written (includes source/currency columns)
     WritingCSV --> ExportError: IO error
 
     WritingExcel --> Success: File written (includes source/currency columns)
     WritingExcel --> ExportError: IO error
+
+    WritingJSON --> Success: File written (includes source/currency columns)
+    WritingJSON --> ExportError: IO error
 
     Success --> ShowingConfirmation: Display path
     ExportError --> ShowingError: Display message
@@ -696,6 +721,10 @@ flowchart TB
 | Click "Load from API" | GUI | ProviderSelected -> APIFetching |
 | Click "Apply Filters" | GUI | DataLoaded -> FiltersApplied |
 | Click "Clear Filters" | GUI | FiltersApplied -> DataLoaded |
+| Click "Compare Periods" | GUI | DataLoaded -> PeriodComparison dialog |
+| Click "Calculate Tax" | GUI | DataLoaded -> TaxReport generated |
+| Click column header | GUI (Trade Browser) | Sort trades by column |
+| Search market | GUI (Trade Browser) | Filter trade list by keyword |
 | Select menu option | CLI | CurrentMenu -> SelectedSubmenu |
 | Call fetch_trades MCP tool | MCP | Ready -> Loading |
 

@@ -18,8 +18,8 @@ A complete modular analysis tool for prediction market traders. Analyze past tra
 - **Multi-platform support** - Load and analyze trades from 4 prediction market platforms
 - Load trade history from JSON, CSV, or Excel (auto-detects provider format)
 - Calculate global and market-specific PnL
-- Filter trades by date, type, PnL thresholds, and source provider
-- Export reports in multiple formats (CSV, Excel, TXT)
+- Filter trades by date, type, side (YES/NO), PnL thresholds, and source provider
+- Export reports in multiple formats (CSV, Excel, JSON)
 - Interactive CLI menu for easy navigation
 
 ### For Novice Traders
@@ -32,6 +32,10 @@ A complete modular analysis tool for prediction market traders. Analyze past tra
 - Advanced interactive charts with Plotly
 - Multi-market dashboards
 - Cross-provider portfolio analysis
+- Portfolio position tracking with unrealized PnL and concentration risk (HHI)
+- Drawdown analysis with recovery tracking
+- Tax reporting with FIFO/LIFO/average cost basis methods and wash sale detection
+- Period-over-period performance comparison
 - Currency-separated PnL aggregation (real-money USD/USDC vs play-money MANA)
 - FIFO PnL computation for providers without native PnL
 - MCP server integration for Claude Code / Claude Desktop
@@ -85,13 +89,16 @@ The easiest way to use Prediction Analyzer is through the graphical interface:
 python run_gui.py
 ```
 
-The GUI provides:
-- Provider selection dropdown (Limitless, Polymarket, Kalshi, Manifold)
-- Point-and-click file loading with auto-format detection
-- Visual trade statistics and summaries
-- Easy market selection and analysis
-- Interactive filters with form controls
-- One-click chart generation and export
+The GUI provides a 7-tab interface:
+- **Global Summary** — Aggregate PnL with currency and provider breakdowns
+- **Market Analysis** — Per-market PnL, charts, and outcome inference
+- **Trade Browser** — Sortable, searchable trade list with market search
+- **Filters** — Date, type, side (YES/NO), and PnL filters
+- **Charts** — Simple, Pro, Enhanced, and Dashboard chart generation
+- **Portfolio** — Open positions, concentration risk (HHI), drawdown analysis
+- **Tax Report** — Capital gains with FIFO/LIFO/average cost basis, wash sale detection
+
+Plus: provider selection dropdown, CSV/Excel/JSON export, keyboard shortcuts (Ctrl+O, Ctrl+S, Ctrl+F, Ctrl+Q), and period comparison dialog
 
 ### Interactive CLI Mode (Terminal-Friendly)
 ```bash
@@ -260,7 +267,13 @@ prediction_analyzer/
 ├── trade_filter.py          # Trade filtering (market, source, dedup)
 ├── filters.py               # Advanced filters (date, type, PnL)
 ├── pnl.py                   # PnL calculations (with per-source breakdown)
+├── metrics.py               # Advanced trading metrics (Sharpe, Sortino, drawdown, streaks)
+├── positions.py             # Open positions, unrealized PnL, concentration risk
+├── drawdown.py              # Drawdown analysis with recovery tracking
+├── tax.py                   # Tax reporting (FIFO/LIFO/average cost basis, wash sales)
+├── comparison.py            # Period-over-period performance comparison
 ├── inference.py             # Market outcome inference
+├── exceptions.py            # Custom exception classes
 ├── providers/               # Multi-market provider abstraction
 │   ├── base.py              # MarketProvider ABC + ProviderRegistry
 │   ├── limitless.py         # Limitless Exchange provider
@@ -275,7 +288,7 @@ prediction_analyzer/
 │   └── global_chart.py      # Multi-market dashboard
 ├── reporting/               # Report generation
 │   ├── report_text.py       # Text reports
-│   └── report_data.py       # Data exports (CSV/Excel)
+│   └── report_data.py       # Data exports (CSV/Excel/JSON)
 ├── utils/                   # Utility functions
 │   ├── auth.py              # Multi-provider API authentication
 │   ├── data.py              # Limitless API data fetching

@@ -15,11 +15,12 @@ from prediction_analyzer.pnl import (
     calculate_market_pnl_summary,
     calculate_market_pnl,
 )
+from prediction_analyzer.trade_loader import sanitize_numeric
 from prediction_analyzer.metrics import calculate_advanced_metrics
 from prediction_analyzer.trade_filter import filter_trades_by_market_slug, get_unique_markets
 from prediction_analyzer.exceptions import NoTradesError
 
-from ..state import session
+from ..state import get_session
 from ..errors import safe_tool
 from ..serializers import to_json_text, sanitize_dict
 from .._apply_filters import apply_filters
@@ -152,6 +153,7 @@ async def handle_tool(name: str, arguments: dict):
 
 @safe_tool
 async def _handle_global_summary(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -162,6 +164,7 @@ async def _handle_global_summary(arguments: dict):
 
 @safe_tool
 async def _handle_market_summary(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -182,6 +185,7 @@ async def _handle_market_summary(arguments: dict):
 
 @safe_tool
 async def _handle_advanced_metrics(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -192,12 +196,15 @@ async def _handle_advanced_metrics(arguments: dict):
         trades = filter_trades_by_market_slug(trades, market_slug)
 
     trades = apply_filters(trades, arguments)
+    if not trades:
+        raise NoTradesError("No trades match the applied filters")
     metrics = calculate_advanced_metrics(trades)
     return [types.TextContent(type="text", text=to_json_text(sanitize_dict(metrics)))]
 
 
 @safe_tool
 async def _handle_market_breakdown(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -211,8 +218,8 @@ async def _handle_market_breakdown(arguments: dict):
                 "market_slug": slug,
                 "market": stats["market_name"],
                 "trade_count": stats["trade_count"],
-                "pnl": stats["total_pnl"],
-                "volume": stats["total_volume"],
+                "pnl": sanitize_numeric(stats["total_pnl"]),
+                "volume": sanitize_numeric(stats["total_volume"]),
             }
         )
 
@@ -221,10 +228,13 @@ async def _handle_market_breakdown(arguments: dict):
 
 @safe_tool
 async def _handle_provider_breakdown(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
     from prediction_analyzer.config import PROVIDER_CONFIGS
+
+    from decimal import Decimal
 
     sources = {}
     for trade in session.trades:
@@ -232,13 +242,13 @@ async def _handle_provider_breakdown(arguments: dict):
         if src not in sources:
             sources[src] = {
                 "total_trades": 0,
-                "total_pnl": 0.0,
-                "total_volume": 0.0,
+                "total_pnl": Decimal("0"),
+                "total_volume": Decimal("0"),
                 "currency": getattr(trade, "currency", "USD"),
             }
         sources[src]["total_trades"] += 1
-        sources[src]["total_pnl"] += trade.pnl
-        sources[src]["total_volume"] += trade.cost
+        sources[src]["total_pnl"] += Decimal(str(trade.pnl))
+        sources[src]["total_volume"] += Decimal(str(trade.cost))
 
     result = []
     for src, stats in sorted(sources.items(), key=lambda x: x[1]["total_pnl"], reverse=True):
@@ -248,8 +258,8 @@ async def _handle_provider_breakdown(arguments: dict):
                 "provider": src,
                 "display_name": cfg.get("display_name", src.title()),
                 "total_trades": stats["total_trades"],
-                "total_pnl": stats["total_pnl"],
-                "total_volume": stats["total_volume"],
+                "total_pnl": sanitize_numeric(float(stats["total_pnl"])),
+                "total_volume": sanitize_numeric(float(stats["total_volume"])),
                 "currency": stats["currency"],
             }
         )

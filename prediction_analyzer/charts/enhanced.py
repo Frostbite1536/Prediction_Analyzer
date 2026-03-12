@@ -4,6 +4,7 @@ Enhanced chart generation with battlefield visualization
 """
 
 import logging
+from decimal import Decimal
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pathlib import Path
@@ -63,39 +64,42 @@ def generate_enhanced_chart(
     total_cost_basis = []
     running_pnl = []
 
-    current_shares = 0  # Net YES shares
-    current_cost = 0
+    current_shares = Decimal("0")  # Net YES shares
+    current_cost = Decimal("0")
 
     for i, t in enumerate(sorted_trades):
+        shares_d = Decimal(str(t.shares))
+        cost_d = Decimal(str(t.cost))
+
         # Update share count and cost basis
         if t.type in ["Buy", "Market Buy", "Limit Buy"]:
             if t.side == "YES":
                 # Buying YES increases YES shares
-                current_shares += t.shares
-                current_cost += t.cost
+                current_shares += shares_d
+                current_cost += cost_d
             else:  # NO
                 # Buying NO decreases YES shares (equivalent to shorting YES)
-                current_shares -= t.shares
-                current_cost += t.cost
+                current_shares -= shares_d
+                current_cost += cost_d
         else:  # Sell
             if t.side == "YES":
                 # Selling YES decreases YES shares
-                current_shares -= t.shares
-                current_cost -= t.cost
+                current_shares -= shares_d
+                current_cost -= cost_d
             else:  # NO
                 # Selling NO increases YES shares
-                current_shares += t.shares
-                current_cost -= t.cost
+                current_shares += shares_d
+                current_cost -= cost_d
 
-        net_shares.append(current_shares)
-        total_cost_basis.append(current_cost)
+        net_shares.append(float(current_shares))
+        total_cost_basis.append(float(current_cost))
 
         # Calculate mark-to-market P&L
         # Current market value of shares minus cost basis
-        current_price = t.price / 100.0  # Convert cents to dollars per share
+        current_price = Decimal(str(t.price)) / Decimal("100")  # Convert cents to dollars per share
         mark_to_market_value = current_shares * current_price
         mtm_pnl = mark_to_market_value - current_cost
-        running_pnl.append(mtm_pnl)
+        running_pnl.append(float(mtm_pnl))
 
     # Classify trades for visualization
     trade_colors = []
@@ -195,9 +199,6 @@ def generate_enhanced_chart(
     # ==========================================
     # Panel 2: The Scoreboard (Running P&L)
     # ==========================================
-
-    # Determine colors for P&L line segments
-    pnl_colors = ["green" if pnl >= 0 else "red" for pnl in running_pnl]
 
     # P&L line with fill
     fig.add_trace(

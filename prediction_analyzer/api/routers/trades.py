@@ -22,8 +22,19 @@ from ..schemas.trade import (
     MarketInfo,
 )
 from ..services.trade_service import trade_service
+from prediction_analyzer.trade_loader import sanitize_numeric
 
 router = APIRouter(prefix="/trades", tags=["trades"])
+
+# Characters that trigger formula evaluation in Excel/Sheets/Calc
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r", "\n")
+
+
+def _sanitize_csv_field(value) -> str:
+    """Prevent CSV formula injection by prefixing dangerous strings with a single quote."""
+    if isinstance(value, str) and value and value[0] in _CSV_FORMULA_PREFIXES:
+        return "'" + value
+    return value
 
 
 @router.get("", response_model=TradeListResponse)
@@ -145,21 +156,22 @@ async def export_trades_csv(
             status_code=status.HTTP_404_NOT_FOUND, detail="No trades found to export"
         )
 
-    # Convert to DataFrame
+    # Convert to DataFrame, sanitizing numeric fields to prevent NaN in output
+    # and string fields to prevent CSV formula injection (=, +, -, @).
     df = pd.DataFrame(
         [
             {
-                "market": t.market,
-                "market_slug": t.market_slug,
+                "market": _sanitize_csv_field(t.market),
+                "market_slug": _sanitize_csv_field(t.market_slug),
                 "timestamp": t.timestamp.isoformat(),
-                "price": t.price,
-                "shares": t.shares,
-                "cost": t.cost,
-                "type": t.type,
+                "price": sanitize_numeric(t.price),
+                "shares": sanitize_numeric(t.shares),
+                "cost": sanitize_numeric(t.cost),
+                "type": _sanitize_csv_field(t.type),
                 "side": t.side,
-                "pnl": t.pnl,
-                "tx_hash": t.tx_hash,
-                "source": getattr(t, "source", "limitless"),
+                "pnl": sanitize_numeric(t.pnl),
+                "tx_hash": _sanitize_csv_field(t.tx_hash),
+                "source": _sanitize_csv_field(getattr(t, "source", "limitless")),
                 "currency": getattr(t, "currency", "USD"),
             }
             for t in trades
@@ -206,18 +218,19 @@ async def export_trades_json(
             status_code=status.HTTP_404_NOT_FOUND, detail="No trades found to export"
         )
 
-    # Convert to list of dicts
+    # Convert to list of dicts, sanitizing numeric fields to prevent
+    # NaN/Infinity tokens which produce invalid JSON.
     trades_data = [
         {
             "market": t.market,
             "market_slug": t.market_slug,
             "timestamp": t.timestamp.isoformat(),
-            "price": t.price,
-            "shares": t.shares,
-            "cost": t.cost,
+            "price": sanitize_numeric(t.price),
+            "shares": sanitize_numeric(t.shares),
+            "cost": sanitize_numeric(t.cost),
             "type": t.type,
             "side": t.side,
-            "pnl": t.pnl,
+            "pnl": sanitize_numeric(t.pnl),
             "tx_hash": t.tx_hash,
             "source": getattr(t, "source", "limitless"),
             "currency": getattr(t, "currency", "USD"),

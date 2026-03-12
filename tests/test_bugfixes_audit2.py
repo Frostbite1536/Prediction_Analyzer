@@ -8,7 +8,6 @@ Bug #3: filter_trades stores empty string/list values in active_filters
 """
 
 import json
-import math
 import os
 import asyncio
 import tempfile
@@ -18,7 +17,6 @@ import pytest
 from datetime import datetime
 from prediction_analyzer.trade_loader import Trade
 from prediction_analyzer.exceptions import InvalidFilterError
-from prediction_mcp.state import session
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -55,6 +53,9 @@ class TestExportPathTraversal:
 
     @pytest.fixture(autouse=True)
     def _setup_session(self):
+        pytest.importorskip("mcp", reason="mcp package not installed")
+        from prediction_mcp.state import session
+
         session.clear()
         session.trades = [_make_trade()]
         session.filtered_trades = list(session.trades)
@@ -132,6 +133,10 @@ class TestExportPathTraversal:
 class TestApplyFiltersMinMaxPnl:
     """apply_filters should raise InvalidFilterError when min_pnl > max_pnl."""
 
+    @pytest.fixture(autouse=True)
+    def _require_mcp(self):
+        pytest.importorskip("mcp", reason="mcp package not installed")
+
     def test_min_pnl_greater_than_max_pnl_raises(self):
         """min_pnl=100 and max_pnl=10 should raise, not silently return empty."""
         from prediction_mcp._apply_filters import apply_filters
@@ -192,6 +197,9 @@ class TestActiveFiltersNoEmpty:
 
     @pytest.fixture(autouse=True)
     def _setup_session(self):
+        pytest.importorskip("mcp", reason="mcp package not installed")
+        from prediction_mcp.state import session
+
         session.clear()
         session.trades = [_make_trade() for _ in range(5)]
         session.filtered_trades = list(session.trades)
@@ -259,6 +267,10 @@ class TestActiveFiltersNoEmpty:
 
 class TestApplyFiltersCombined:
     """Test multiple filters applied simultaneously."""
+
+    @pytest.fixture(autouse=True)
+    def _require_mcp(self):
+        pytest.importorskip("mcp", reason="mcp package not installed")
 
     def test_date_and_side_combined(self):
         """Date filter + side filter should work together."""

@@ -15,8 +15,8 @@ Usage:
 import json
 import logging
 import sqlite3
+import threading
 from datetime import datetime
-from typing import Optional
 
 from prediction_analyzer.trade_loader import Trade
 
@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS trades (
     pnl_is_set INTEGER NOT NULL DEFAULT 0,
     tx_hash TEXT,
     source TEXT NOT NULL DEFAULT 'limitless',
-    currency TEXT NOT NULL DEFAULT 'USD'
+    currency TEXT NOT NULL DEFAULT 'USD',
+    fee REAL NOT NULL DEFAULT 0.0
 );
 CREATE INDEX IF NOT EXISTS idx_trades_market_slug ON trades(market_slug);
 CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
@@ -54,7 +55,8 @@ class SessionStore:
 
     def __init__(self, db_path: str):
         self.db_path = db_path
-        self._conn = sqlite3.connect(db_path)
+        self._lock = threading.Lock()
+        self._conn = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
         # Add source/currency columns if upgrading from old schema
@@ -79,8 +81,20 @@ class SessionStore:
             self._conn.commit()
             logger.info("Migrated persistence DB: added pnl_is_set column")
 
+        try:
+            cur.execute("SELECT fee FROM trades LIMIT 1")
+        except sqlite3.OperationalError:
+            cur.execute("ALTER TABLE trades ADD COLUMN fee REAL NOT NULL DEFAULT 0.0")
+            self._conn.commit()
+            logger.info("Migrated persistence DB: added fee column")
+
     def save(self, session) -> None:
         """Persist session trades and metadata to SQLite."""
+        with self._lock:
+            self._save_unlocked(session)
+
+    def _save_unlocked(self, session) -> None:
+        """Internal save implementation (caller must hold _lock)."""
         cur = self._conn.cursor()
         cur.execute("DELETE FROM trades")
         cur.execute("DELETE FROM session_meta")
@@ -92,8 +106,10 @@ class SessionStore:
                 else str(trade.timestamp)
             )
             cur.execute(
-                "INSERT INTO trades (market, market_slug, timestamp, price, shares, cost, type, side, pnl, pnl_is_set, tx_hash, source, currency) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO trades (market, market_slug, timestamp, price,"
+                " shares, cost, type, side, pnl, pnl_is_set, tx_hash,"
+                " source, currency, fee) VALUES"
+                " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     trade.market,
                     trade.market_slug,
@@ -108,6 +124,7 @@ class SessionStore:
                     trade.tx_hash,
                     getattr(trade, "source", "limitless"),
                     getattr(trade, "currency", "USD"),
+                    getattr(trade, "fee", 0.0),
                 ),
             )
 
@@ -129,6 +146,11 @@ class SessionStore:
 
     def restore(self, session) -> bool:
         """Restore session state from SQLite. Returns True if trades were restored."""
+        with self._lock:
+            return self._restore_unlocked(session)
+
+    def _restore_unlocked(self, session) -> bool:
+        """Internal restore implementation (caller must hold _lock)."""
         cur = self._conn.cursor()
         rows = cur.execute("SELECT * FROM trades ORDER BY id").fetchall()
 
@@ -156,6 +178,7 @@ class SessionStore:
                     tx_hash=row["tx_hash"],
                     source=row["source"] if "source" in row_keys else "limitless",
                     currency=row["currency"] if "currency" in row_keys else "USD",
+                    fee=row["fee"] if "fee" in row_keys else 0.0,
                 )
             )
 

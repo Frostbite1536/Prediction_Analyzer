@@ -86,7 +86,13 @@ class AuthService:
                 return None
             user_id = int(raw_sub)
             return TokenData(user_id=user_id)
-        except (jwt.InvalidTokenError, jwt.DecodeError, jwt.ExpiredSignatureError):
+        except (
+            jwt.InvalidTokenError,
+            jwt.DecodeError,
+            jwt.ExpiredSignatureError,
+            ValueError,
+            TypeError,
+        ):
             return None
 
     def authenticate_user(self, db: Session, email: str, password: str) -> Optional[User]:

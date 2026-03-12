@@ -6,7 +6,7 @@ Trade loading functionality - supports JSON, CSV, XLSX
 import json
 import logging
 import pandas as pd
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import List, Union, Optional, Dict, Any
 from datetime import datetime, timezone
 import math
@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 INF_CAP = 999999.99
 
 
-def sanitize_numeric(value: float) -> float:
+def sanitize_numeric(value) -> float:
     """
     Guard against NaN/Infinity in numeric values for JSON serialization.
 
     Args:
-        value: A float that may be NaN or Infinity
+        value: A numeric value (float or Decimal) that may be NaN or Infinity
 
     Returns:
         A safe float value (0.0 for NaN, capped for Infinity)
@@ -36,6 +36,13 @@ def sanitize_numeric(value: float) -> float:
             return 0.0
         if math.isinf(value):
             return INF_CAP if value > 0 else -INF_CAP
+    # Handle Decimal NaN/Infinity
+    elif hasattr(value, "is_nan"):
+        if value.is_nan():
+            return 0.0
+        if value.is_infinite():
+            return INF_CAP if value > 0 else -INF_CAP
+        return float(value)
     return value
 
 

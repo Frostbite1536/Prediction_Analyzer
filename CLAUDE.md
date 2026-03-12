@@ -42,8 +42,8 @@ python run_api.py
 
 These invariants MUST be preserved. Breaking them causes cascading failures:
 
-1. **Trade dataclass has exactly 13 fields** (in `trade_loader.py`):
-   `market, market_slug, timestamp, price, shares, cost, type, side, pnl, pnl_is_set, tx_hash, source, currency`
+1. **Trade dataclass has exactly 14 fields** (in `trade_loader.py`):
+   `market, market_slug, timestamp, price, shares, cost, type, side, pnl, pnl_is_set, tx_hash, source, currency, fee`
 
 2. **`pnl_is_set` semantics**: `True` means provider explicitly set PnL (including legitimate zero/breakeven). `False` means unset — FIFO calculator may update it. Never overwrite `pnl_is_set=True` trades.
 

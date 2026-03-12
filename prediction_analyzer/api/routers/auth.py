@@ -5,6 +5,7 @@ Authentication endpoints - signup, login
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..dependencies import get_db
@@ -34,10 +35,18 @@ async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST, detail="Username already taken"
         )
 
-    # Create user
-    user = auth_service.create_user(
-        db, email=user_data.email, username=user_data.username, password=user_data.password
-    )
+    # Create user — catch IntegrityError as a fallback for the TOCTOU race
+    # where two concurrent requests both pass the checks above.
+    try:
+        user = auth_service.create_user(
+            db, email=user_data.email, username=user_data.username, password=user_data.password
+        )
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email or username already taken",
+        )
 
     # Create access token
     access_token = auth_service.create_access_token(data={"sub": user.id})

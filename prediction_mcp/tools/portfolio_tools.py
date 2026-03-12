@@ -15,9 +15,9 @@ from prediction_analyzer.drawdown import analyze_drawdowns
 from prediction_analyzer.comparison import compare_periods as _compare_periods
 from prediction_analyzer.exceptions import NoTradesError
 
-from ..state import session
+from ..state import get_session
 from ..errors import safe_tool
-from ..serializers import to_json_text, sanitize_dict
+from ..serializers import to_json_text
 from ..validators import validate_date
 
 logger = logging.getLogger(__name__)
@@ -57,8 +57,9 @@ def get_tool_definitions() -> list[types.Tool]:
         types.Tool(
             name="get_drawdown_analysis",
             description=(
-                "Analyze maximum drawdown periods including duration, recovery, and all drawdown events. "
-                "Optionally limited to a specific market."
+                "Analyze maximum drawdown periods including duration, "
+                "recovery, and all drawdown events. "
+                "Optionally limited to a market."
             ),
             inputSchema={
                 "type": "object",
@@ -117,6 +118,7 @@ async def handle_tool(name: str, arguments: dict):
 
 @safe_tool
 async def _handle_open_positions(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -127,6 +129,7 @@ async def _handle_open_positions(arguments: dict):
 
 @safe_tool
 async def _handle_concentration_risk(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -136,6 +139,7 @@ async def _handle_concentration_risk(arguments: dict):
 
 @safe_tool
 async def _handle_drawdown_analysis(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 
@@ -146,6 +150,7 @@ async def _handle_drawdown_analysis(arguments: dict):
 
 @safe_tool
 async def _handle_compare_periods(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 

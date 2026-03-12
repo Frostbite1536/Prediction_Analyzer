@@ -251,7 +251,7 @@ python run_gui.py
 
 ### Layout Overview
 
-The GUI has four main tabs:
+The GUI has seven tabs, plus a Quick Actions panel at the top:
 
 #### Quick Actions Panel (top)
 - **Provider dropdown** - Select: auto, limitless, polymarket, kalshi, manifold
@@ -260,39 +260,75 @@ The GUI has four main tabs:
 - **Load Trades File** - Browse for a local file (auto-detects format)
 - **Global Summary** - Jump to the summary view
 - **Generate Dashboard** - Create a multi-market overview
-- **Export CSV / Export Excel** - Save your data
+- **Export CSV / Export Excel / Export JSON** - Save your data
 
 #### Tab 1: Global Summary
 Shows aggregate statistics across all your trades:
 - Total trades, total PnL, average PnL per trade
 - Win/loss count and win rate
 - Total invested, total returned, ROI percentage
+- Per-currency breakdown (USD/USDC vs MANA) when multi-currency trades are loaded
 - Per-provider breakdown (when trades from multiple providers are loaded)
 
 #### Tab 2: Market Analysis
 - Lists all markets you've traded (with source provider shown)
 - Select a market to see its individual PnL summary
+- Market outcome inference (resolved YES/NO)
 - Generate Simple, Pro, or Enhanced charts per market
 
-#### Tab 3: Filters
+#### Tab 3: Trade Browser
+- Sortable treeview listing all trades with key columns (date, market, type, side, price, shares, cost, PnL)
+- Click column headers to sort ascending/descending
+- Market search box to filter the trade list by keyword
+- Double-click a trade to see full details
+
+#### Tab 4: Filters
 Apply filters to narrow your analysis:
 - **Date range** - Start and end dates (YYYY-MM-DD format)
 - **Trade type** - Buy only, Sell only, or both
+- **Side** - YES only, NO only, or both
 - **PnL range** - Min/max PnL thresholds
+- **Period Comparison** - Compare performance between two date ranges
 
-Filters update the Global Summary and Market Analysis tabs automatically.
+Filters update the Global Summary, Market Analysis, and Trade Browser tabs automatically.
 
-#### Tab 4: Charts
+#### Tab 5: Charts
 Information about chart types and a button to generate the multi-market dashboard.
+
+#### Tab 6: Portfolio
+Portfolio-level analysis tools:
+- **Open Positions** - Current positions with net shares, side, average entry price, and unrealized PnL (when market prices available)
+- **Concentration Risk** - Portfolio diversification analysis with Herfindahl-Hirschman Index (HHI), per-market exposure breakdown, and top-3 concentration percentage
+- **Drawdown Analysis** - Maximum drawdown amount and percentage, peak/trough values, drawdown duration, recovery tracking, and all drawdown periods
+
+#### Tab 7: Tax Report
+Capital gains/losses reporting:
+- Select tax year and cost basis method (FIFO, LIFO, or Average)
+- Short-term and long-term gains/losses breakdown
+- Net gain/loss and total fees
+- Per-transaction detail table with date acquired, date sold, proceeds, cost basis, gain/loss, and holding period
+- Wash sale detection and flagging per IRS §1091
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+O` | Open/load a trade file |
+| `Ctrl+S` | Export data |
+| `Ctrl+F` | Focus market search |
+| `Ctrl+Q` | Quit the application |
 
 ### GUI Workflow Example
 
 1. Select **polymarket** from the provider dropdown
 2. Paste your wallet address and click **Load from API**
 3. Check the **Global Summary** tab for your overall performance
-4. Go to **Market Analysis** > select a market > click **Pro Chart**
-5. Use **Filters** to focus on winning trades (`Min PnL: 0`)
-6. Export filtered results via **Export CSV**
+4. Browse individual trades in the **Trade Browser** tab
+5. Go to **Market Analysis** > select a market > click **Pro Chart**
+6. Check **Portfolio** tab for open positions and concentration risk
+7. Use **Filters** to focus on winning trades (`Min PnL: 0`) or compare periods
+8. Generate a **Tax Report** for your filing year
+9. Export filtered results via **Export CSV**, **Export Excel**, or **Export JSON**
 
 ---
 
@@ -642,7 +678,7 @@ poly_trades = filter_trades_by_source(trades, "polymarket")
 ### Filtering
 
 ```python
-from prediction_analyzer.filters import filter_by_date, filter_by_pnl, filter_by_trade_type
+from prediction_analyzer.filters import filter_by_date, filter_by_pnl, filter_by_trade_type, filter_by_side
 
 # Date filter
 recent = filter_by_date(trades, start_date="2024-06-01", end_date="2024-12-31")
@@ -652,6 +688,9 @@ winners = filter_by_pnl(trades, min_pnl=0)
 
 # Type filter
 buys_only = filter_by_trade_type(trades, ["Buy"])
+
+# Side filter (YES/NO)
+yes_trades = filter_by_side(trades, ["YES"])
 ```
 
 ### Chart Generation
@@ -674,10 +713,41 @@ generate_global_dashboard(trades_by_market)
 ### Data Export
 
 ```python
-from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel
+from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel, export_to_json
 
 export_to_csv(trades, "output.csv")
 export_to_excel(trades, "output.xlsx")
+export_to_json(trades, "output.json")
+```
+
+### Portfolio Analysis
+
+```python
+from prediction_analyzer.positions import calculate_open_positions, calculate_concentration_risk
+from prediction_analyzer.drawdown import analyze_drawdowns
+from prediction_analyzer.comparison import compare_periods
+from prediction_analyzer.tax import calculate_capital_gains
+
+# Open positions with unrealized PnL
+positions = calculate_open_positions(trades)
+for pos in positions:
+    print(f"{pos['market']}: {pos['net_shares']} {pos['side']} shares")
+
+# Portfolio concentration risk (HHI index, 0-10000 scale)
+risk = calculate_concentration_risk(trades)
+print(f"HHI: {risk['herfindahl_index']:.0f}  Top 3: {risk['top_3_concentration_pct']:.1f}%")
+
+# Drawdown analysis
+dd = analyze_drawdowns(trades)
+print(f"Max drawdown: ${dd['max_drawdown_amount']:.2f} ({dd['max_drawdown_pct']:.1f}%)")
+
+# Compare two periods
+result = compare_periods(trades, "2024-01-01", "2024-06-30", "2024-07-01", "2024-12-31")
+print(f"PnL change: {result['changes']['pnl_change_pct']:.1f}%")
+
+# Tax report (FIFO cost basis, 2024 tax year)
+tax = calculate_capital_gains(trades, tax_year=2024, cost_basis_method="fifo")
+print(f"Net gain/loss: ${tax['net_gain_loss']:.2f}")
 ```
 
 ---

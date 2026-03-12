@@ -160,7 +160,7 @@ class ManifoldProvider(MarketProvider):
         return None
 
     def detect_file_format(self, records: List[dict]) -> bool:
-        """Manifold: has contractId, or probBefore/probAfter, or outcome+shares without ticker/conditionId."""
+        """Detect Manifold format by field signatures."""
         if not records:
             return False
         first = records[0]

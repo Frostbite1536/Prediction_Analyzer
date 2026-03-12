@@ -4,7 +4,6 @@ Time and date utility functions
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
 
 
 def parse_date(date_str: str) -> datetime:

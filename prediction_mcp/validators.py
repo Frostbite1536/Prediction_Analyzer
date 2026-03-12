@@ -125,7 +125,8 @@ def validate_cost_basis_method(method: str) -> str:
     """Validate cost basis method parameter."""
     if method not in VALID_COST_BASIS_METHODS:
         raise InvalidFilterError(
-            f"Invalid cost basis method: '{method}'. Valid values: {sorted(VALID_COST_BASIS_METHODS)}"
+            f"Invalid cost basis method: '{method}'. "
+            f"Valid values: {sorted(VALID_COST_BASIS_METHODS)}"
         )
     return method
 

@@ -7,7 +7,6 @@ import tempfile
 import hashlib
 from pathlib import Path
 from typing import List, Tuple, Optional
-from datetime import datetime
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -43,6 +42,7 @@ class TradeService:
             tx_hash=db_trade.tx_hash,
             source=getattr(db_trade, "source", "limitless"),
             currency=getattr(db_trade, "currency", "USD"),
+            fee=float(getattr(db_trade, "fee", 0.0) or 0.0),
         )
 
     def db_trades_to_dataclass(self, db_trades: List[TradeModel]) -> List[TradeDataclass]:
@@ -127,9 +127,11 @@ class TradeService:
                     type=trade.type,
                     side=trade.side,
                     pnl=trade.pnl,
+                    pnl_is_set=getattr(trade, "pnl_is_set", False),
                     tx_hash=trade.tx_hash,
                     source=getattr(trade, "source", "limitless"),
                     currency=getattr(trade, "currency", "USD"),
+                    fee=getattr(trade, "fee", 0.0),
                 )
                 db.add(db_trade)
 

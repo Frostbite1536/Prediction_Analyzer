@@ -3,14 +3,13 @@
 Chart service - generates chart data for frontend rendering
 """
 
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 
 from sqlalchemy.orm import Session
 
 from ..models.trade import Trade as TradeModel
 from ..schemas.analysis import FilterParams
 from ..schemas.charts import PriceChartData, PnLChartData, ExposureChartData
-from ...trade_loader import Trade as TradeDataclass
 from ...pnl import calculate_pnl
 from .trade_service import trade_service
 from .analysis_service import analysis_service

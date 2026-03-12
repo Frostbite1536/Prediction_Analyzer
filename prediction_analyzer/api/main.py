@@ -3,6 +3,7 @@
 FastAPI application - main entry point
 """
 
+import threading
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -42,6 +43,7 @@ async def lifespan(app: FastAPI):
 # state across multiple workers/servers. For multi-instance deployments,
 # replace with a Redis-backed solution (e.g. fastapi-limiter).
 _rate_store: dict = defaultdict(list)  # key -> list of timestamps
+_rate_lock = threading.Lock()
 _RATE_LIMIT_AUTH = 5  # max requests per window on /auth/*
 _RATE_LIMIT_GENERAL = 60  # max requests per window on all other endpoints
 _RATE_WINDOW = 60  # window size in seconds
@@ -126,23 +128,25 @@ async def rate_limit_middleware(request: Request, call_next):
     limit = _RATE_LIMIT_AUTH if is_auth else _RATE_LIMIT_GENERAL
     key = f"{client_ip}:{'auth' if is_auth else 'general'}"
 
-    # Prune timestamps outside the window
-    _rate_store[key] = [t for t in _rate_store[key] if now - t < _RATE_WINDOW]
+    with _rate_lock:
+        # Prune timestamps outside the window
+        _rate_store[key] = [t for t in _rate_store[key] if now - t < _RATE_WINDOW]
 
-    # Evict stale keys to bound memory usage
-    if len(_rate_store) > _RATE_MAX_KEYS:
-        stale = [k for k, v in _rate_store.items() if not v or (now - v[-1]) >= _RATE_WINDOW]
-        for k in stale:
-            del _rate_store[k]
+        # Evict stale keys to bound memory usage
+        if len(_rate_store) > _RATE_MAX_KEYS:
+            stale = [k for k, v in _rate_store.items() if not v or (now - v[-1]) >= _RATE_WINDOW]
+            for k in stale:
+                del _rate_store[k]
 
-    if len(_rate_store[key]) >= limit:
-        return JSONResponse(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            content={"detail": "Too many requests. Please try again later."},
-            headers={"Retry-After": str(_RATE_WINDOW)},
-        )
+        if len(_rate_store[key]) >= limit:
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": "Too many requests. Please try again later."},
+                headers={"Retry-After": str(_RATE_WINDOW)},
+            )
 
-    _rate_store[key].append(now)
+        _rate_store[key].append(now)
+
     return await call_next(request)
 
 

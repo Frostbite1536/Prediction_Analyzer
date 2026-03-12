@@ -12,7 +12,7 @@ from mcp import types
 
 from prediction_analyzer.exceptions import NoTradesError
 
-from ..state import session
+from ..state import get_session
 from ..errors import safe_tool
 from ..serializers import to_json_text
 from .._apply_filters import apply_filters
@@ -83,6 +83,7 @@ async def handle_tool(name: str, arguments: dict):
 
 @safe_tool
 async def _handle_filter_trades(arguments: dict):
+    session = get_session()
     if not session.has_trades:
         raise NoTradesError("No trades loaded")
 

@@ -3,11 +3,13 @@
 API configuration settings
 """
 
+from typing import Optional
+
 from pydantic_settings import BaseSettings
-from functools import lru_cache
 import logging
 import os
 import secrets
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -36,21 +38,32 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
 
 
-@lru_cache()
+_settings_lock = threading.Lock()
+_settings_instance: Optional[Settings] = None
+
+
 def get_settings() -> Settings:
-    """Get cached settings instance"""
-    settings = Settings()
-    if settings.SECRET_KEY == settings._DEFAULT_SECRET:
-        env = os.environ.get("ENVIRONMENT", os.environ.get("ENV", "development")).lower()
-        if env in ("production", "prod", "staging"):
-            raise RuntimeError(
-                "SECRET_KEY must be set to a secure random string in production. "
-                "Set the SECRET_KEY environment variable before starting the server."
+    """Get cached settings instance (thread-safe)."""
+    global _settings_instance
+    if _settings_instance is not None:
+        return _settings_instance
+    with _settings_lock:
+        # Double-checked locking
+        if _settings_instance is not None:
+            return _settings_instance
+        settings = Settings()
+        if settings.SECRET_KEY == settings._DEFAULT_SECRET:
+            env = os.environ.get("ENVIRONMENT", os.environ.get("ENV", "development")).lower()
+            if env in ("production", "prod", "staging"):
+                raise RuntimeError(
+                    "SECRET_KEY must be set to a secure random string in production. "
+                    "Set the SECRET_KEY environment variable before starting the server."
+                )
+            # Generate a random key for dev so the hardcoded default is never used
+            settings.SECRET_KEY = secrets.token_urlsafe(64)
+            logger.warning(
+                "SECRET_KEY was not set — generated a random ephemeral key for development. "
+                "Set the SECRET_KEY environment variable to a stable value in production."
             )
-        # Generate a random key for dev so the hardcoded default is never used
-        settings.SECRET_KEY = secrets.token_urlsafe(64)
-        logger.warning(
-            "SECRET_KEY was not set — generated a random ephemeral key for development. "
-            "Set the SECRET_KEY environment variable to a stable value in production."
-        )
-    return settings
+        _settings_instance = settings
+        return settings
