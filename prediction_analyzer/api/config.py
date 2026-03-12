@@ -3,6 +3,8 @@
 API configuration settings
 """
 
+from typing import Optional
+
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 import logging
@@ -38,7 +40,7 @@ class Settings(BaseSettings):
 
 
 _settings_lock = threading.Lock()
-_settings_instance: Settings | None = None
+_settings_instance: Optional[Settings] = None
 
 
 def get_settings() -> Settings:

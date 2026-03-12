@@ -87,6 +87,7 @@ async def list_tools() -> list[types.Tool]:
 async def list_resources() -> list[types.Resource]:
     """List available resources based on current session state."""
     from .state import get_session
+
     session = get_session()
 
     resources: list[types.Resource] = []
@@ -128,6 +129,7 @@ async def list_resources() -> list[types.Resource]:
 async def read_resource(uri: str) -> str:
     """Read a resource by URI."""
     from .state import get_session
+
     session = get_session()
     from .serializers import to_json_text, sanitize_dict
     from prediction_analyzer.trade_filter import get_unique_markets, filter_trades_by_market_slug
