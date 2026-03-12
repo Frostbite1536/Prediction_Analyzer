@@ -22,6 +22,7 @@ from ..schemas.trade import (
     MarketInfo,
 )
 from ..services.trade_service import trade_service
+from prediction_analyzer.trade_loader import sanitize_numeric
 
 router = APIRouter(prefix="/trades", tags=["trades"])
 
@@ -145,19 +146,19 @@ async def export_trades_csv(
             status_code=status.HTTP_404_NOT_FOUND, detail="No trades found to export"
         )
 
-    # Convert to DataFrame
+    # Convert to DataFrame, sanitizing numeric fields to prevent NaN in output
     df = pd.DataFrame(
         [
             {
                 "market": t.market,
                 "market_slug": t.market_slug,
                 "timestamp": t.timestamp.isoformat(),
-                "price": t.price,
-                "shares": t.shares,
-                "cost": t.cost,
+                "price": sanitize_numeric(t.price),
+                "shares": sanitize_numeric(t.shares),
+                "cost": sanitize_numeric(t.cost),
                 "type": t.type,
                 "side": t.side,
-                "pnl": t.pnl,
+                "pnl": sanitize_numeric(t.pnl),
                 "tx_hash": t.tx_hash,
                 "source": getattr(t, "source", "limitless"),
                 "currency": getattr(t, "currency", "USD"),
@@ -206,18 +207,19 @@ async def export_trades_json(
             status_code=status.HTTP_404_NOT_FOUND, detail="No trades found to export"
         )
 
-    # Convert to list of dicts
+    # Convert to list of dicts, sanitizing numeric fields to prevent
+    # NaN/Infinity tokens which produce invalid JSON.
     trades_data = [
         {
             "market": t.market,
             "market_slug": t.market_slug,
             "timestamp": t.timestamp.isoformat(),
-            "price": t.price,
-            "shares": t.shares,
-            "cost": t.cost,
+            "price": sanitize_numeric(t.price),
+            "shares": sanitize_numeric(t.shares),
+            "cost": sanitize_numeric(t.cost),
             "type": t.type,
             "side": t.side,
-            "pnl": t.pnl,
+            "pnl": sanitize_numeric(t.pnl),
             "tx_hash": t.tx_hash,
             "source": getattr(t, "source", "limitless"),
             "currency": getattr(t, "currency", "USD"),

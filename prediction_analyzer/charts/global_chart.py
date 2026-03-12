@@ -4,6 +4,7 @@ Global multi-market dashboard
 """
 
 import logging
+from decimal import Decimal
 import plotly.graph_objects as go
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -45,10 +46,10 @@ def generate_global_dashboard(
         pnls = [t.pnl for t in sorted_trades]
 
         cumulative = []
-        cum = 0
+        cum = Decimal("0")
         for pnl in pnls:
-            cum += pnl
-            cumulative.append(cum)
+            cum += Decimal(str(pnl))
+            cumulative.append(float(cum))
 
         # Add to plot
         fig.add_trace(
@@ -73,12 +74,12 @@ def generate_global_dashboard(
         # Calculate true cumulative PnL across all markets
         total_times = []
         total_cumulative = []
-        cum = 0
+        cum = Decimal("0")
 
         for trade in all_trades_sorted:
-            cum += trade.pnl
+            cum += Decimal(str(trade.pnl))
             total_times.append(trade.timestamp)
-            total_cumulative.append(cum)
+            total_cumulative.append(float(cum))
 
         fig.add_trace(
             go.Scatter(
