@@ -9,7 +9,7 @@ from typing import List, Optional
 from .trade_loader import Trade
 
 
-def _normalize_datetime(dt) -> datetime:
+def _normalize_datetime(dt) -> Optional[datetime]:
     """
     Normalize a datetime value to a naive datetime for consistent comparison.
     Handles both timezone-aware and naive datetimes, and numeric timestamps.

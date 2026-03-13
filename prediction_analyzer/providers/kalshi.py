@@ -19,7 +19,7 @@ import requests
 from typing import List, Optional, Dict, Any
 
 from .base import MarketProvider
-from ..trade_loader import Trade, _parse_timestamp
+from ..trade_loader import Trade, _parse_timestamp, sanitize_numeric
 
 logger = logging.getLogger(__name__)
 
@@ -176,13 +176,15 @@ class KalshiProvider(MarketProvider):
 
             for pos in data.get("market_positions", []):
                 ticker = pos.get("ticker", "")
-                pnl_map[ticker] = float(pos.get("realized_pnl_dollars", "0"))
+                pnl_map[ticker] = sanitize_numeric(float(pos.get("realized_pnl_dollars", "0")))
 
             cursor = data.get("cursor", "")
             if not cursor:
                 break
 
         return pnl_map
+
+    _SELL_TYPES = {"sell", "market sell", "limit sell"}
 
     @staticmethod
     def _apply_position_pnl(trades: List[Trade], pnl_map: Dict[str, float]):
@@ -192,11 +194,11 @@ class KalshiProvider(MarketProvider):
 
         sell_shares: Dict[str, float] = defaultdict(float)
         for t in trades:
-            if t.type.lower() == "sell" and t.market_slug in pnl_map:
+            if t.type.lower() in KalshiProvider._SELL_TYPES and t.market_slug in pnl_map:
                 sell_shares[t.market_slug] += t.shares
 
         for t in trades:
-            if t.type.lower() == "sell" and t.market_slug in pnl_map:
+            if t.type.lower() in KalshiProvider._SELL_TYPES and t.market_slug in pnl_map:
                 total = sell_shares[t.market_slug]
                 if total > 0:
                     t.pnl = pnl_map[t.market_slug] * (t.shares / total)
@@ -266,7 +268,7 @@ class KalshiProvider(MarketProvider):
                 )
                 price = 0.0
 
-        count_str = raw.get("count_fp", str(raw.get("count", 0)))
+        count_str = raw.get("count_fp") or str(raw.get("count") or 0)
         try:
             count = float(count_str)
         except (ValueError, TypeError):

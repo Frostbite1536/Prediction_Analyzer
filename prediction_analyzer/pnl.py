@@ -6,7 +6,7 @@ PnL calculation and analysis functions
 from decimal import Decimal
 from typing import List, Dict
 import pandas as pd
-from .trade_loader import Trade
+from .trade_loader import Trade, sanitize_numeric
 from .inference import detect_market_resolution
 
 
@@ -38,16 +38,17 @@ def calculate_pnl(trades: List[Trade]) -> pd.DataFrame:
         cumulative.append(float(running))
     df["cumulative_pnl"] = cumulative
 
-    # Calculate exposure (net shares held)
-    df["exposure"] = 0.0
-    cumulative_shares = 0.0
+    # Calculate exposure (net shares held) using Decimal to avoid float drift
+    exposure_values = []
+    cumulative_shares = Decimal("0")
 
     for idx, row in df.iterrows():
         if row["type"] in ["Buy", "Market Buy", "Limit Buy"]:
-            cumulative_shares += row["shares"]
+            cumulative_shares += Decimal(str(row["shares"]))
         elif row["type"] in ["Sell", "Market Sell", "Limit Sell"]:
-            cumulative_shares -= row["shares"]
-        df.at[idx, "exposure"] = cumulative_shares
+            cumulative_shares -= Decimal(str(row["shares"]))
+        exposure_values.append(float(cumulative_shares))
+    df["exposure"] = exposure_values
 
     return df
 
@@ -170,10 +171,12 @@ def calculate_global_pnl_summary(trades: List[Trade]) -> Dict:
     if len(sources) > 1:
         for source in sources:
             source_trades = [t for t in trades if getattr(t, "source", "limitless") == source]
-            source_pnl = sum(t.pnl for t in source_trades)
+            source_pnl = Decimal("0")
+            for t in source_trades:
+                source_pnl += Decimal(str(t.pnl))
             by_source[source] = {
                 "total_trades": len(source_trades),
-                "total_pnl": source_pnl,
+                "total_pnl": float(source_pnl),
                 "currency": (
                     getattr(source_trades[0], "currency", "USD") if source_trades else "USD"
                 ),
@@ -190,7 +193,10 @@ def calculate_market_pnl(trades: List[Trade]) -> Dict[str, Dict]:
     Returns:
         Dictionary mapping market_slug to PnL statistics
     """
-    market_stats = {}
+    market_stats: Dict[str, Dict] = {}
+    # Use Decimal accumulators to avoid float drift, keyed by slug
+    _volume_acc: Dict[str, Decimal] = {}
+    _pnl_acc: Dict[str, Decimal] = {}
 
     for trade in trades:
         slug = trade.market_slug
@@ -201,10 +207,16 @@ def calculate_market_pnl(trades: List[Trade]) -> Dict[str, Dict]:
                 "total_pnl": 0.0,
                 "trade_count": 0,
             }
+            _volume_acc[slug] = Decimal("0")
+            _pnl_acc[slug] = Decimal("0")
 
-        market_stats[slug]["total_volume"] += trade.cost
-        market_stats[slug]["total_pnl"] += trade.pnl
+        _volume_acc[slug] += Decimal(str(trade.cost))
+        _pnl_acc[slug] += Decimal(str(trade.pnl))
         market_stats[slug]["trade_count"] += 1
+
+    for slug in market_stats:
+        market_stats[slug]["total_volume"] = sanitize_numeric(float(_volume_acc[slug]))
+        market_stats[slug]["total_pnl"] = sanitize_numeric(float(_pnl_acc[slug]))
 
     return market_stats
 

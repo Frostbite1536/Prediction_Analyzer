@@ -25,6 +25,7 @@ from ..state import get_session
 from ..errors import safe_tool
 from ..serializers import to_json_text
 from ..validators import validate_chart_type, validate_market_slug
+from prediction_analyzer.exceptions import ChartError
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,12 @@ async def _handle_generate_chart(arguments: dict):
         raise ValueError("chart_type is required")
 
     validate_chart_type(chart_type)
+    if chart_type not in _CHART_GENERATORS:
+        raise ChartError(
+            f"Chart type '{chart_type}' is not supported for single-market charts. "
+            f"Use 'generate_dashboard' for global charts, or choose from: "
+            f"{sorted(_CHART_GENERATORS.keys())}"
+        )
     validate_market_slug(market_slug, get_unique_markets(session.trades))
 
     trades = filter_trades_by_market_slug(session.trades, market_slug)
