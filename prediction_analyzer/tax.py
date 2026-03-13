@@ -115,9 +115,14 @@ def calculate_capital_gains(
                 # Only record transaction details for sells in the tax year
                 if in_tax_year:
                     matched_d = Decimal(str(matched_shares))
-                    cost_basis = float(matched_d * lot["cost_per_share"])
-                    proceeds = float(matched_d * proceeds_per_share)
-                    gain_loss = proceeds - cost_basis
+                    # Keep in Decimal for precise subtraction, convert to float at the end
+                    cost_basis_d = matched_d * lot["cost_per_share"]
+                    proceeds_d = matched_d * proceeds_per_share
+                    gain_loss_d = proceeds_d - cost_basis_d
+
+                    cost_basis = float(cost_basis_d)
+                    proceeds = float(proceeds_d)
+                    gain_loss = float(gain_loss_d)
 
                     # Determine holding period
                     holding_delta = trade.timestamp - lot["date"]
@@ -138,8 +143,6 @@ def calculate_capital_gains(
                     if sell_fee > 0:
                         tx["fee"] = sanitize_numeric(float(sell_fee))
                     transactions.append(tx)
-
-                    gain_loss_d = Decimal(str(gain_loss))
                     if is_long_term:
                         if gain_loss_d >= 0:
                             long_term_gains += gain_loss_d

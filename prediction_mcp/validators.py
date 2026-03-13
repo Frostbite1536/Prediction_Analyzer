@@ -87,7 +87,11 @@ def validate_export_format(fmt: str) -> str:
 
 
 def validate_positive_int(value: Optional[int], param_name: str) -> Optional[int]:
-    """Validate that an integer parameter is positive."""
+    """Validate that an integer parameter is positive.
+
+    Accepts float-typed integers (e.g. 5.0) since JSON doesn't
+    distinguish between 5 and 5.0, and LLMs commonly send these.
+    """
     if value is None:
         return None
     if isinstance(value, float):
@@ -95,6 +99,9 @@ def validate_positive_int(value: Optional[int], param_name: str) -> Optional[int
             raise InvalidFilterError(
                 f"Invalid {param_name}: {value}. Must be a positive integer, not NaN/Infinity."
             )
+        # Accept integral floats like 5.0 by converting to int
+        if value == int(value):
+            value = int(value)
     if not isinstance(value, int) or value < 1:
         raise InvalidFilterError(f"Invalid {param_name}: {value}. Must be a positive integer.")
     return value
