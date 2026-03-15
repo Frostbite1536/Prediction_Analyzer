@@ -7,10 +7,8 @@ and behavior. Changes to the dataclass can break serialization,
 PnL calculations, and other dependent code.
 """
 
-import pytest
 from dataclasses import fields, is_dataclass
 from datetime import datetime
-from typing import Optional
 
 
 class TestTradeDataclassStructure:

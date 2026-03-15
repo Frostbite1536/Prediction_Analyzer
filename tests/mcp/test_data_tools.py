@@ -3,9 +3,7 @@
 
 import json
 import asyncio
-import os
 
-import pytest
 
 from prediction_mcp.tools import data_tools
 from prediction_mcp.state import session

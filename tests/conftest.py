@@ -7,7 +7,7 @@ existing patterns and contracts are maintained.
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List
 
 from prediction_analyzer.trade_loader import Trade

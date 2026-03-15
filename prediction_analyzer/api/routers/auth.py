@@ -10,13 +10,13 @@ from sqlalchemy.orm import Session
 
 from ..dependencies import get_db
 from ..schemas.user import UserCreate, UserResponse
-from ..schemas.auth import Token
+from ..schemas.auth import Token, SignupResponse
 from ..services.auth_service import auth_service
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-@router.post("/signup", response_model=dict, status_code=status.HTTP_201_CREATED)
+@router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     """
     Register a new user account.

@@ -10,8 +10,7 @@ Filters should always:
 4. Handle edge cases gracefully
 """
 
-import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 class TestFilterByDateContracts:

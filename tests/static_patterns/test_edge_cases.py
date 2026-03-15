@@ -7,8 +7,7 @@ Edge cases often cause crashes or unexpected behavior when not handled.
 """
 
 import pytest
-from datetime import datetime, timezone
-import numpy as np
+from datetime import datetime
 
 
 class TestEmptyInputHandling:
@@ -113,7 +112,7 @@ class TestTimestampEdgeCases:
 
     def test_parse_timestamp_unix_epoch(self):
         """_parse_timestamp should handle Unix epoch timestamps."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         # Standard Unix timestamp (seconds)
         result = _parse_timestamp(1704067200)  # 2024-01-01 00:00:00 UTC
@@ -122,7 +121,7 @@ class TestTimestampEdgeCases:
 
     def test_parse_timestamp_milliseconds(self):
         """_parse_timestamp should handle millisecond timestamps."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         # Millisecond timestamp
         result = _parse_timestamp(1704067200000)
@@ -131,7 +130,7 @@ class TestTimestampEdgeCases:
 
     def test_parse_timestamp_iso_string(self):
         """_parse_timestamp should handle ISO 8601 strings."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         result = _parse_timestamp("2024-06-15T12:00:00Z")
         assert isinstance(result, datetime)
@@ -140,7 +139,7 @@ class TestTimestampEdgeCases:
 
     def test_parse_timestamp_none(self):
         """_parse_timestamp should handle None."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         result = _parse_timestamp(None)
         assert isinstance(result, datetime)
@@ -148,7 +147,7 @@ class TestTimestampEdgeCases:
 
     def test_parse_timestamp_zero(self):
         """_parse_timestamp should handle zero."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         result = _parse_timestamp(0)
         assert isinstance(result, datetime)

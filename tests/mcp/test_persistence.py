@@ -2,10 +2,8 @@
 """Tests for SQLite session persistence."""
 
 import os
-import json
 import tempfile
 
-import pytest
 
 from prediction_mcp.persistence import SessionStore
 from prediction_mcp.state import SessionState

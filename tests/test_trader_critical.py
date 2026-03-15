@@ -7,13 +7,13 @@ Regression tests for issues critical to high-value traders:
 - Tax report diagnostics for unrecognized trade types
 """
 
-import json
 import math
 import pytest
 from datetime import datetime
 from unittest.mock import patch
 
-from prediction_analyzer.trade_loader import Trade, _parse_timestamp
+from prediction_analyzer.trade_loader import Trade
+from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
 
 def _make_trade(**kwargs):

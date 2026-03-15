@@ -71,3 +71,6 @@ data/*.db
 
 # Environment files
 .env
+
+# Desloppify local state
+.desloppify/

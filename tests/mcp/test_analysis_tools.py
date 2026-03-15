@@ -4,10 +4,8 @@
 import json
 import asyncio
 
-import pytest
 
 from prediction_mcp.tools import analysis_tools
-from prediction_mcp.state import session
 
 
 class TestGlobalSummary:

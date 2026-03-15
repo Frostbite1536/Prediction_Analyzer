@@ -6,10 +6,7 @@ These tests verify that public function signatures and return types
 remain stable. This helps catch breaking changes to the API.
 """
 
-import pytest
 import inspect
-from typing import get_type_hints, List, Dict, Optional
-from datetime import datetime
 
 
 class TestTradeLoaderAPIContracts:
@@ -37,7 +34,7 @@ class TestTradeLoaderAPIContracts:
 
     def test_parse_timestamp_exists(self):
         """_parse_timestamp helper should exist."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         assert callable(_parse_timestamp)
 
@@ -54,7 +51,6 @@ class TestPnLAPIContracts:
     def test_calculate_pnl_signature(self):
         """calculate_pnl should accept trades and return DataFrame."""
         from prediction_analyzer.pnl import calculate_pnl
-        import pandas as pd
 
         sig = inspect.signature(calculate_pnl)
         params = list(sig.parameters.keys())

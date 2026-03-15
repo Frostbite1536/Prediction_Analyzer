@@ -6,10 +6,8 @@ import asyncio
 import os
 import tempfile
 
-import pytest
 
 from prediction_mcp.tools import export_tools
-from prediction_mcp.state import session
 
 
 class TestExportTrades:

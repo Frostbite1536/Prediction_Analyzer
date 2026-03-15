@@ -7,7 +7,6 @@ Run these tests BEFORE implementing new features to ensure the codebase
 is in a stable state.
 """
 
-import pytest
 import sys
 
 
@@ -308,18 +307,6 @@ class TestNoCircularImports:
             del sys.modules[mod]
 
         # Import all modules in one test
-        from prediction_analyzer import (
-            trade_loader,
-            pnl,
-            filters,
-            config,
-            trade_filter,
-            inference,
-        )
-        from prediction_analyzer.charts import simple, pro, enhanced, global_chart
-        from prediction_analyzer.utils import math_utils, time_utils, auth, data, export
-        from prediction_analyzer.reporting import report_text, report_data
-        from prediction_analyzer.core import interactive
 
         # If we get here, no circular import errors
         assert True

@@ -12,9 +12,7 @@ Tests each tool with the kinds of inputs an LLM might realistically send:
 
 import json
 import asyncio
-import math
 
-import pytest
 
 from prediction_mcp.tools import (
     data_tools,
@@ -25,8 +23,6 @@ from prediction_mcp.tools import (
     portfolio_tools,
     tax_tools,
 )
-from prediction_mcp.state import session
-from .conftest import make_trades
 
 
 class TestWrongParameterNames:

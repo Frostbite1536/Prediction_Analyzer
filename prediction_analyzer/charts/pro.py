@@ -8,7 +8,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pathlib import Path
 from typing import List, Optional
-from ..trade_loader import Trade, _sanitize_filename
+from ..trade_loader import Trade
+from ..utils.export import sanitize_filename as _sanitize_filename
 from ..exceptions import NoTradesError
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,5 @@
 # prediction_analyzer/api/services/analysis_service.py
-"""
-Analysis service - wraps existing pnl.py and filters.py functions
-"""
+"""Analysis service — wraps existing pnl.py and filters.py functions."""
 
 import json
 from typing import List, Dict, Any, Optional
@@ -23,26 +21,17 @@ from .trade_service import trade_service
 
 
 class AnalysisService:
-    """Service for running analyses on trade data"""
+    """Service for running analyses on trade data."""
 
     def apply_filters(
         self, trades: List[TradeDataclass], filters: FilterParams
     ) -> List[TradeDataclass]:
-        """
-        Apply filter parameters to a list of trades
-
-        Args:
-            trades: List of Trade dataclass objects
-            filters: Filter parameters
-
-        Returns:
-            Filtered list of trades
-        """
+        """Apply filter parameters to a list of trades."""
         if filters.start_date or filters.end_date:
             trades = filter_by_date(trades, filters.start_date, filters.end_date)
 
-        if filters.types:
-            trades = filter_by_trade_type(trades, filters.types)
+        if filters.trade_types:
+            trades = filter_by_trade_type(trades, filters.trade_types)
 
         if filters.sides:
             trades = filter_by_side(trades, filters.sides)
@@ -58,44 +47,19 @@ class AnalysisService:
     def get_global_summary(
         self, db: Session, user_id: int, filters: Optional[FilterParams] = None
     ) -> Dict[str, Any]:
-        """
-        Calculate global PnL summary for a user
-
-        Args:
-            db: Database session
-            user_id: User ID
-            filters: Optional filter parameters
-
-        Returns:
-            Dictionary with global summary statistics
-        """
-        # Get all user trades
+        """Calculate global PnL summary for a user."""
         db_trades = trade_service.get_all_user_trades(db, user_id)
         trades = trade_service.db_trades_to_dataclass(db_trades)
 
-        # Apply filters if provided
         if filters:
             trades = self.apply_filters(trades, filters)
 
-        # Use existing pnl.py function
         return calculate_global_pnl_summary(trades)
 
     def get_market_summary(
         self, db: Session, user_id: int, market_slug: str, filters: Optional[FilterParams] = None
     ) -> Dict[str, Any]:
-        """
-        Calculate PnL summary for a specific market
-
-        Args:
-            db: Database session
-            user_id: User ID
-            market_slug: Market identifier
-            filters: Optional filter parameters
-
-        Returns:
-            Dictionary with market summary statistics
-        """
-        # Get trades for specific market
+        """Calculate PnL summary for a specific market."""
         db_trades = (
             db.query(TradeModel)
             .filter(TradeModel.user_id == user_id, TradeModel.market_slug == market_slug)
@@ -105,11 +69,9 @@ class AnalysisService:
 
         trades = trade_service.db_trades_to_dataclass(db_trades)
 
-        # Apply filters if provided
         if filters:
             trades = self.apply_filters(trades, filters)
 
-        # Use existing pnl.py function
         summary = calculate_market_pnl_summary(trades)
         summary["market_slug"] = market_slug
         return summary
@@ -117,12 +79,7 @@ class AnalysisService:
     def get_market_breakdown(
         self, db: Session, user_id: int, filters: Optional[FilterParams] = None
     ) -> Dict[str, Dict]:
-        """
-        Get PnL breakdown by market
-
-        Returns:
-            Dictionary mapping market_slug to statistics
-        """
+        """Get PnL breakdown by market."""
         db_trades = trade_service.get_all_user_trades(db, user_id)
         trades = trade_service.db_trades_to_dataclass(db_trades)
 
@@ -138,12 +95,7 @@ class AnalysisService:
         market_slug: Optional[str] = None,
         filters: Optional[FilterParams] = None,
     ) -> List[Dict]:
-        """
-        Get time-series PnL data for charting
-
-        Returns:
-            List of dictionaries with timestamp, cumulative_pnl, exposure
-        """
+        """Get time-series PnL data for charting."""
         if market_slug:
             db_trades = (
                 db.query(TradeModel)
@@ -162,9 +114,7 @@ class AnalysisService:
         if not trades:
             return []
 
-        # Use existing calculate_pnl function
         df = calculate_pnl(trades)
-
         return df.to_dict(orient="records")
 
     # Saved Analysis CRUD
@@ -172,7 +122,7 @@ class AnalysisService:
     def save_analysis(
         self, db: Session, user_id: int, analysis_data: SavedAnalysisCreate
     ) -> SavedAnalysis:
-        """Save an analysis result"""
+        """Save an analysis result."""
         saved = SavedAnalysis(
             user_id=user_id,
             name=analysis_data.name,
@@ -189,7 +139,7 @@ class AnalysisService:
         return saved
 
     def get_saved_analyses(self, db: Session, user_id: int) -> List[SavedAnalysis]:
-        """Get all saved analyses for a user"""
+        """Get all saved analyses for a user."""
         return (
             db.query(SavedAnalysis)
             .filter(SavedAnalysis.user_id == user_id)
@@ -200,7 +150,7 @@ class AnalysisService:
     def get_saved_analysis(
         self, db: Session, user_id: int, analysis_id: int
     ) -> Optional[SavedAnalysis]:
-        """Get a specific saved analysis"""
+        """Get a specific saved analysis."""
         return (
             db.query(SavedAnalysis)
             .filter(SavedAnalysis.id == analysis_id, SavedAnalysis.user_id == user_id)
@@ -208,24 +158,14 @@ class AnalysisService:
         )
 
     def delete_saved_analysis(self, db: Session, analysis: SavedAnalysis) -> None:
-        """Delete a saved analysis"""
+        """Delete a saved analysis."""
         db.delete(analysis)
         db.commit()
 
     def get_filtered_trades(
         self, db: Session, user_id: int, filters: Optional[FilterParams] = None
     ) -> List[TradeDataclass]:
-        """
-        Get all trades for a user with optional filters applied.
-
-        Args:
-            db: Database session
-            user_id: User ID
-            filters: Optional filter parameters
-
-        Returns:
-            List of Trade dataclass objects
-        """
+        """Get all trades for a user with optional filters applied."""
         db_trades = trade_service.get_all_user_trades(db, user_id)
         trades = trade_service.db_trades_to_dataclass(db_trades)
 
@@ -235,7 +175,7 @@ class AnalysisService:
         return trades
 
     def parse_saved_analysis(self, analysis: SavedAnalysis) -> Dict[str, Any]:
-        """Parse a saved analysis into response format"""
+        """Parse a saved analysis into response format."""
         return {
             "id": analysis.id,
             "name": analysis.name,

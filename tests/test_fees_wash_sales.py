@@ -10,7 +10,7 @@ import pytest
 from datetime import datetime
 
 from prediction_analyzer.trade_loader import Trade
-from prediction_analyzer.tax import calculate_capital_gains, _detect_wash_sales
+from prediction_analyzer.tax import calculate_capital_gains
 
 
 def _make_trade(**kwargs):
@@ -733,7 +733,7 @@ class TestDataCompleteness:
             ),
         ]
         with caplog.at_level(logging.WARNING, logger="prediction_analyzer.tax"):
-            result = calculate_capital_gains(trades, tax_year=2024)
+            calculate_capital_gains(trades, tax_year=2024)
             assert any("no matching buy lots" in msg for msg in caplog.messages)
 
     def test_total_trades_includes_all_years(self):

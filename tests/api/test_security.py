@@ -1,7 +1,6 @@
 # tests/api/test_security.py
 """Tests for security features: headers, rate limiting, CORS."""
 
-import pytest
 
 from .conftest import create_authenticated_user
 

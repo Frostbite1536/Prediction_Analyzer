@@ -18,13 +18,8 @@ def compute_realized_pnl(trades: List[Trade]) -> List[Trade]:
     """Compute realized PnL from buy/sell pairs per market+side using FIFO matching.
 
     Modifies and returns the same Trade objects with updated pnl fields.
-    Only updates trades whose pnl is currently 0.0.
-
-    Args:
-        trades: List of trades (may be unsorted).
-
-    Returns:
-        Same list with pnl field updated on sell trades.
+    Only updates trades where pnl_is_set is False (provider did not supply PnL).
+    Provider-set PnL — including legitimate zero/breakeven — is never overwritten.
     """
     # Skip if there are no sell trades needing PnL computation.
     # We cannot use `all(t.pnl != 0.0)` because legitimate zero-PnL

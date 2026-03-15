@@ -1,7 +1,6 @@
 # tests/mcp/test_errors.py
 """Tests for MCP error handling."""
 
-import pytest
 import asyncio
 
 from prediction_analyzer.exceptions import (

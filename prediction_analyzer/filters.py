@@ -5,21 +5,12 @@ Advanced filtering functions for trades
 
 import math
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Any, List, Optional, Union
 from .trade_loader import Trade
 
 
-def _normalize_datetime(dt) -> Optional[datetime]:
-    """
-    Normalize a datetime value to a naive datetime for consistent comparison.
-    Handles both timezone-aware and naive datetimes, and numeric timestamps.
-
-    Args:
-        dt: datetime object, pandas Timestamp, or numeric timestamp
-
-    Returns:
-        Naive datetime object
-    """
+def _normalize_datetime(dt: Union[datetime, int, float, Any, None]) -> Optional[datetime]:
+    """Normalize a datetime value to a naive UTC datetime for consistent comparison."""
     if dt is None:
         return None
 

@@ -12,47 +12,26 @@ Examples:
     python run_api.py --host 0.0.0.0     # Allow external connections
 """
 import argparse
+import importlib.util
 import sys
 
 
 def check_dependencies():
     """Check if required dependencies are installed"""
-    missing = []
-
-    try:
-        import fastapi
-    except ImportError:
-        missing.append("fastapi")
-
-    try:
-        import uvicorn
-    except ImportError:
-        missing.append("uvicorn")
-
-    try:
-        import sqlalchemy
-    except ImportError:
-        missing.append("sqlalchemy")
-
-    try:
-        import jwt
-    except ImportError:
-        missing.append("PyJWT")
-
-    try:
-        import passlib
-    except ImportError:
-        missing.append("passlib")
-
-    try:
-        import argon2
-    except ImportError:
-        missing.append("argon2-cffi")
-
-    try:
-        import pydantic_settings
-    except ImportError:
-        missing.append("pydantic-settings")
+    required = {
+        "fastapi": "fastapi",
+        "uvicorn": "uvicorn",
+        "sqlalchemy": "sqlalchemy",
+        "jwt": "PyJWT",
+        "passlib": "passlib",
+        "argon2": "argon2-cffi",
+        "pydantic_settings": "pydantic-settings",
+    }
+    missing = [
+        pip_name
+        for module, pip_name in required.items()
+        if importlib.util.find_spec(module) is None
+    ]
 
     if missing:
         print("Missing required dependencies:")

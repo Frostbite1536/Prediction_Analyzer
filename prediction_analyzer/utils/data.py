@@ -13,16 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_trade_history(api_key: str, page_limit: int = 100) -> List[dict]:
-    """
-    Fetch trade history from the Limitless Exchange API.
-
-    Args:
-        api_key: Limitless API key (lmts_...)
-        page_limit: Number of trades per page
-
-    Returns:
-        List of trade dictionaries
-    """
+    """Fetch trade history from the Limitless Exchange API."""
     all_trades = []
     page = 1
     headers = get_auth_headers(api_key)
@@ -59,20 +50,12 @@ def fetch_trade_history(api_key: str, page_limit: int = 100) -> List[dict]:
 
 
 def fetch_market_details(market_slug: str):
-    """
-    Fetch live market details from API (public endpoint, no auth required).
-
-    Args:
-        market_slug: Market slug identifier
-
-    Returns:
-        Market data dictionary or None on error
-    """
+    """Fetch live market details from API (public endpoint, no auth required)."""
     url = f"{API_BASE_URL}/markets/{market_slug}"
     try:
         resp = requests.get(url, timeout=10)
         if resp.status_code == 200:
             return resp.json()
-    except Exception:
-        pass
+    except requests.RequestException as exc:
+        logger.debug("Failed to fetch market details for %s: %s", market_slug, exc)
     return None

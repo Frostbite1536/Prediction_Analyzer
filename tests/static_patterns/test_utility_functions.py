@@ -9,7 +9,7 @@ here will cascade into other modules.
 
 import pytest
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 class TestMovingAverage:
@@ -271,7 +271,7 @@ class TestParseTimestamp:
 
     def test_unix_seconds(self):
         """Unix timestamp in seconds should parse."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         # 2024-01-01 00:00:00 UTC
         result = _parse_timestamp(1704067200)
@@ -281,7 +281,7 @@ class TestParseTimestamp:
 
     def test_unix_milliseconds(self):
         """Unix timestamp in milliseconds should parse."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         result = _parse_timestamp(1704067200000)
         assert result.year == 2024
@@ -290,7 +290,7 @@ class TestParseTimestamp:
 
     def test_iso_string(self):
         """ISO 8601 string should parse."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         result = _parse_timestamp("2024-06-15T12:00:00Z")
         assert result.year == 2024
@@ -299,7 +299,7 @@ class TestParseTimestamp:
 
     def test_iso_string_with_offset(self):
         """ISO 8601 string with timezone offset should parse."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         result = _parse_timestamp("2024-06-15T12:00:00+00:00")
         assert result.year == 2024
@@ -307,7 +307,7 @@ class TestParseTimestamp:
 
     def test_datetime_passthrough(self):
         """datetime objects should pass through."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         dt = datetime(2024, 6, 15, 12, 0, 0)
         result = _parse_timestamp(dt)
@@ -315,7 +315,7 @@ class TestParseTimestamp:
 
     def test_returns_naive_datetime(self):
         """Result should always be timezone-naive."""
-        from prediction_analyzer.trade_loader import _parse_timestamp
+        from prediction_analyzer.utils.time_utils import parse_timestamp as _parse_timestamp
 
         result = _parse_timestamp("2024-06-15T12:00:00Z")
         assert result.tzinfo is None

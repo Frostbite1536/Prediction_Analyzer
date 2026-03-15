@@ -753,8 +753,8 @@ class PredictionAnalyzerGUI:
                     self.root.after(
                         0, lambda: self._on_provider_fetch_complete(trades, provider_name)
                     )
-            except Exception as e:
-                self.root.after(0, lambda: self._on_api_fetch_error(str(e)))
+            except Exception as exc:
+                self.root.after(0, lambda err=str(exc): self._on_api_fetch_error(err))
 
         thread = threading.Thread(target=_fetch_worker, daemon=True)
         thread.start()
@@ -1810,7 +1810,7 @@ class PredictionAnalyzerGUI:
 def main():
     """Main entry point for GUI application"""
     root = tk.Tk()
-    app = PredictionAnalyzerGUI(root)
+    PredictionAnalyzerGUI(root)
     root.mainloop()
 
 
