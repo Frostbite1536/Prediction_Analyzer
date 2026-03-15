@@ -74,3 +74,4 @@ data/*.db
 
 # Desloppify local state
 .desloppify/
+scorecard.png
