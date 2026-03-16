@@ -200,6 +200,8 @@ class KalshiProvider(MarketProvider):
 
         for t in trades:
             if t.type.lower() in KalshiProvider._SELL_TYPES and t.market_slug in pnl_map:
+                if t.pnl_is_set:
+                    continue  # Never overwrite provider-set PnL (invariant #2)
                 total = sell_shares[t.market_slug]
                 if total > 0:
                     t.pnl = pnl_map[t.market_slug] * (t.shares / total)
