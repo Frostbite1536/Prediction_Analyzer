@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from pathlib import Path
 from typing import List, Optional
-from ..trade_loader import Trade, _sanitize_filename
+from ..trade_loader import Trade
+from ..utils.export import sanitize_filename as _sanitize_filename
 from ..config import get_trade_style
 from ..exceptions import NoTradesError
 

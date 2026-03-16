@@ -4,11 +4,13 @@ Professional/advanced chart generation with Plotly
 """
 
 import logging
+from decimal import Decimal
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pathlib import Path
 from typing import List, Optional
-from ..trade_loader import Trade, _sanitize_filename
+from ..trade_loader import Trade
+from ..utils.export import sanitize_filename as _sanitize_filename
 from ..exceptions import NoTradesError
 
 logger = logging.getLogger(__name__)
@@ -45,12 +47,12 @@ def generate_pro_chart(
     types = [t.type for t in sorted_trades]
     sides = [t.side for t in sorted_trades]
 
-    # Calculate cumulative PnL
+    # Calculate cumulative PnL using Decimal to avoid float drift
     cumulative_pnl = []
-    total = 0
+    total = Decimal("0")
     for pnl in pnls:
-        total += pnl
-        cumulative_pnl.append(total)
+        total += Decimal(str(pnl))
+        cumulative_pnl.append(float(total))
 
     # Calculate exposure
     net_exposure = []

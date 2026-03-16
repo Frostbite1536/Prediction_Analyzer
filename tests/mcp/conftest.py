@@ -4,9 +4,7 @@ Shared fixtures for MCP tool tests.
 """
 
 import os
-import json
 import pytest
-import asyncio
 from datetime import datetime
 
 from prediction_analyzer.trade_loader import Trade

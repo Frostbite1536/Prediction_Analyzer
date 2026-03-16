@@ -10,14 +10,13 @@ Bug #5: sanitize_numeric did not handle Decimal NaN/Inf
 Bug #6: analysis_tools provider breakdown used float accumulation
 """
 
-import math
 from datetime import datetime
 from decimal import Decimal
 
 import pytest
 
 from prediction_analyzer.trade_loader import Trade, sanitize_numeric
-from prediction_analyzer.positions import calculate_open_positions, calculate_concentration_risk
+from prediction_analyzer.positions import calculate_open_positions
 from prediction_analyzer.tax import calculate_capital_gains
 
 

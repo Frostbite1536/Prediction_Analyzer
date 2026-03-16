@@ -7,7 +7,6 @@ maintains integrity. Data loss or corruption during I/O can cause
 subtle bugs that are hard to track down.
 """
 
-import pytest
 import json
 import tempfile
 import os

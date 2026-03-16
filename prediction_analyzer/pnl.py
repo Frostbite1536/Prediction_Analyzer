@@ -97,7 +97,7 @@ def _summarize_trades(trades: List[Trade]) -> Dict:
         "total_pnl": total_pnl,
         "win_rate": win_rate,
         "avg_pnl_per_trade": total_pnl / total_trades if total_trades > 0 else 0,
-        "avg_pnl": total_pnl / total_trades if total_trades > 0 else 0,
+        "avg_pnl": total_pnl / total_trades if total_trades > 0 else 0,  # alias for avg_pnl_per_trade
         "winning_trades": winning_trades,
         "losing_trades": losing_trades,
         "breakeven_trades": breakeven_trades,

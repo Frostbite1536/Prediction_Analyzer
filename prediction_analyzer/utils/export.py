@@ -1,25 +1,31 @@
 # prediction_analyzer/utils/export.py
-"""
-Export utility functions
-"""
+"""Export utility functions."""
 
 import logging
-import matplotlib.pyplot as plt
+import re
 from typing import Any
+
+import matplotlib.pyplot as plt
 
 from ..exceptions import ExportError
 
 logger = logging.getLogger(__name__)
 
 
-def export_chart(fig: Any, path: str):
-    """
-    Export a matplotlib or plotly figure to file
+def sanitize_filename(name: str, max_length: int = 50) -> str:
+    """Sanitize a string for use in filenames (cross-platform safe)."""
+    sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name)
+    sanitized = re.sub(r"_+", "_", sanitized)
+    sanitized = sanitized.strip("_ ")
+    if len(sanitized) > max_length:
+        sanitized = sanitized[:max_length].rstrip("_")
+    if not sanitized:
+        sanitized = "unnamed"
+    return sanitized
 
-    Args:
-        fig: matplotlib Figure or plotly graph object
-        path: Output file path
-    """
+
+def export_chart(fig: Any, path: str):
+    """Export a matplotlib or plotly figure to file."""
     try:
         # Check if it's a matplotlib figure
         if isinstance(fig, plt.Figure):

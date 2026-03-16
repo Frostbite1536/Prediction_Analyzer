@@ -753,8 +753,13 @@ class PredictionAnalyzerGUI:
                     self.root.after(
                         0, lambda: self._on_provider_fetch_complete(trades, provider_name)
                     )
-            except Exception as e:
-                self.root.after(0, lambda: self._on_api_fetch_error(str(e)))
+            except Exception as exc:
+                try:
+                    self.root.after(0, lambda err=str(exc): self._on_api_fetch_error(err))
+                except Exception:
+                    # root may be destroyed (user closed GUI during fetch);
+                    # ensure the lock flag is cleared so it doesn't stick
+                    self._fetch_in_progress = False
 
         thread = threading.Thread(target=_fetch_worker, daemon=True)
         thread.start()
@@ -780,8 +785,8 @@ class PredictionAnalyzerGUI:
             import tempfile
 
             with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
-                json.dump(raw_trades, tmp)
                 tmp_path = tmp.name
+                json.dump(raw_trades, tmp)
 
             try:
                 self.all_trades = load_trades(tmp_path)
@@ -1810,7 +1815,7 @@ class PredictionAnalyzerGUI:
 def main():
     """Main entry point for GUI application"""
     root = tk.Tk()
-    app = PredictionAnalyzerGUI(root)
+    PredictionAnalyzerGUI(root)
     root.mainloop()
 
 

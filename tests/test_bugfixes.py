@@ -8,10 +8,8 @@ fix works correctly without regressions.
 
 import json
 import math
-import pytest
 import numpy as np
-from datetime import datetime, timedelta
-from unittest.mock import patch
+from datetime import datetime
 
 from prediction_analyzer.trade_loader import Trade
 

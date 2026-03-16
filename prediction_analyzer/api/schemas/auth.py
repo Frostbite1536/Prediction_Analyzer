@@ -1,20 +1,29 @@
 # prediction_analyzer/api/schemas/auth.py
-"""
-Authentication-related Pydantic schemas
-"""
+"""Authentication-related Pydantic schemas."""
 
 from pydantic import BaseModel
 from typing import Optional
 
+from .user import UserResponse
+
 
 class Token(BaseModel):
-    """JWT token response"""
+    """JWT token response."""
 
     access_token: str
     token_type: str = "bearer"
 
 
 class TokenData(BaseModel):
-    """Data extracted from JWT token"""
+    """Data extracted from JWT token."""
 
     user_id: Optional[int] = None
+
+
+class SignupResponse(BaseModel):
+    """Response returned after successful user registration."""
+
+    user: UserResponse
+    access_token: str
+    token_type: str = "bearer"
+    message: str

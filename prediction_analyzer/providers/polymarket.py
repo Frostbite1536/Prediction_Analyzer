@@ -16,7 +16,8 @@ import requests
 from typing import List, Optional, Dict, Any
 
 from .base import MarketProvider
-from ..trade_loader import Trade, _parse_timestamp
+from ..trade_loader import Trade
+from ..utils.time_utils import parse_timestamp as _parse_timestamp
 
 logger = logging.getLogger(__name__)
 

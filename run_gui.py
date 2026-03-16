@@ -3,6 +3,7 @@
 Launcher script for Prediction Analyzer GUI
 Checks dependencies and launches the GUI application
 """
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -19,22 +20,16 @@ def check_dependencies():
     ]
 
     missing_packages = []
-    for package in required_packages:
-        # Special handling for tkinter
-        if package == 'tkinter':
+    for pkg in required_packages:
+        if pkg == 'tkinter':
+            # tkinter is a C extension that may not have a proper module spec
+            # (find_spec returns None) even when it's installed, so use __import__
             try:
-                __import__(package)
+                __import__('tkinter')
             except ImportError:
-                # tkinter might be named differently
-                try:
-                    import tkinter
-                except ImportError:
-                    missing_packages.append(package)
-        else:
-            try:
-                __import__(package)
-            except ImportError:
-                missing_packages.append(package)
+                missing_packages.append(pkg)
+        elif importlib.util.find_spec(pkg) is None:
+            missing_packages.append(pkg)
 
     if missing_packages:
         print("ERROR: Missing required dependencies!")

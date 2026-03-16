@@ -6,7 +6,6 @@ These tests verify that configuration values are valid and consistent.
 Invalid configuration can cause runtime errors or incorrect behavior.
 """
 
-import pytest
 import re
 
 

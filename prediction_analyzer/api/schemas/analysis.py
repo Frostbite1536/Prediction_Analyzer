@@ -3,18 +3,20 @@
 Analysis-related Pydantic schemas
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 
 class FilterParams(BaseModel):
-    """Parameters for filtering trades"""
+    """Parameters for filtering trades."""
 
     start_date: Optional[str] = None  # YYYY-MM-DD format
     end_date: Optional[str] = None
-    types: Optional[List[str]] = None  # ["Buy", "Sell"]
+    trade_types: Optional[List[str]] = Field(None, alias="types")  # ["Buy", "Sell"]
     sides: Optional[List[str]] = None  # ["YES", "NO"]
+
+    model_config = {"populate_by_name": True}
     min_pnl: Optional[float] = None
     max_pnl: Optional[float] = None
     market_slug: Optional[str] = None

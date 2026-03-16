@@ -16,7 +16,7 @@ from prediction_analyzer.trade_filter import get_unique_markets, filter_trades_b
 from prediction_analyzer.exceptions import TradeLoadError, NoTradesError, InvalidFilterError
 
 from ..state import get_session
-from ..errors import error_result, safe_tool
+from ..errors import safe_tool
 from ..serializers import to_json_text, serialize_trades
 from ..validators import (
     validate_sort_field,
@@ -156,7 +156,7 @@ async def _handle_load_trades(arguments: dict):
     session = get_session()
     file_path = arguments.get("file_path")
     if not file_path:
-        return error_result(ValueError("file_path is required")).content
+        raise ValueError("file_path is required")
 
     # Resolve symlinks and normalize the path, then reject paths containing
     # ".." components (before resolution) to prevent path traversal attacks.
@@ -196,7 +196,7 @@ async def _handle_fetch_trades(arguments: dict):
     page_limit = arguments.get("page_limit", 100)
 
     if not api_key:
-        return error_result(ValueError("api_key is required")).content
+        raise ValueError("api_key is required")
 
     from prediction_analyzer.providers import ProviderRegistry
 

@@ -3,7 +3,6 @@
 
 import asyncio
 
-import pytest
 from mcp import types
 
 from prediction_mcp.server import _TOOL_MODULES, list_tools, call_tool

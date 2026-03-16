@@ -1,11 +1,9 @@
 # tests/mcp/test_serializers.py
 """Tests for MCP serializers."""
 
-import math
 import json
 from datetime import datetime
 
-import pytest
 
 from prediction_analyzer.trade_loader import Trade
 from prediction_mcp.serializers import (

@@ -6,9 +6,7 @@ These tests verify that PnL calculation functions maintain their
 behavior contracts. PnL calculations must be accurate and consistent.
 """
 
-import pytest
 import pandas as pd
-from datetime import datetime
 
 
 class TestCalculatePnLContracts:

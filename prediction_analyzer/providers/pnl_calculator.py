@@ -18,13 +18,8 @@ def compute_realized_pnl(trades: List[Trade]) -> List[Trade]:
     """Compute realized PnL from buy/sell pairs per market+side using FIFO matching.
 
     Modifies and returns the same Trade objects with updated pnl fields.
-    Only updates trades whose pnl is currently 0.0.
-
-    Args:
-        trades: List of trades (may be unsorted).
-
-    Returns:
-        Same list with pnl field updated on sell trades.
+    Only updates trades where pnl_is_set is False (provider did not supply PnL).
+    Provider-set PnL — including legitimate zero/breakeven — is never overwritten.
     """
     # Skip if there are no sell trades needing PnL computation.
     # We cannot use `all(t.pnl != 0.0)` because legitimate zero-PnL
@@ -43,7 +38,13 @@ def compute_realized_pnl(trades: List[Trade]) -> List[Trade]:
         is_sell = trade.type.lower() in ("sell", "market sell", "limit sell")
 
         if is_buy:
-            buy_queues[key].append([Decimal(str(trade.price)), Decimal(str(trade.shares))])
+            # Use cost/shares (actual cost basis including fees) rather than
+            # the market reference price, so FIFO PnL reflects real cash flows.
+            shares_d = Decimal(str(trade.shares))
+            cost_per_share = (
+                Decimal(str(trade.cost)) / shares_d if shares_d else Decimal(str(trade.price))
+            )
+            buy_queues[key].append([cost_per_share, shares_d])
         elif is_sell:
             # Always consume the buy queue to keep FIFO state correct,
             # even when trade already has a PnL value from the provider.
@@ -72,7 +73,14 @@ def compute_realized_pnl(trades: List[Trade]) -> List[Trade]:
             # Only set PnL if trade doesn't already have one from the provider
             if not trade.pnl_is_set:
                 matched_shares = Decimal(str(trade.shares)) - remaining
-                sell_revenue = matched_shares * Decimal(str(trade.price))
+                # Use cost/shares (actual proceeds per share) for sell revenue
+                sell_shares_d = Decimal(str(trade.shares))
+                proceeds_per_share = (
+                    Decimal(str(trade.cost)) / sell_shares_d
+                    if sell_shares_d
+                    else Decimal(str(trade.price))
+                )
+                sell_revenue = matched_shares * proceeds_per_share
                 trade.pnl = float(sell_revenue - total_buy_cost)
                 trade.pnl_is_set = True
 

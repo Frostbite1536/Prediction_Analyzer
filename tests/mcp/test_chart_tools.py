@@ -3,11 +3,8 @@
 
 import asyncio
 
-import pytest
 
 from prediction_mcp.tools import chart_tools
-from prediction_mcp.state import session
-from .conftest import make_trades
 
 
 class TestGenerateChart:

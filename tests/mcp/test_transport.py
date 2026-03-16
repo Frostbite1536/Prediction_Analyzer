@@ -2,18 +2,14 @@
 """Tests for MCP transport safety — no stdout pollution."""
 
 import io
-import sys
-import json
 import asyncio
 import contextlib
 
-import pytest
 
 from prediction_mcp.tools import (
     data_tools,
     analysis_tools,
     filter_tools,
-    export_tools,
     portfolio_tools,
     tax_tools,
 )

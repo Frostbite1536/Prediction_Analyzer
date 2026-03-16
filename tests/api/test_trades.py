@@ -3,9 +3,8 @@
 
 import io
 import json
-import pytest
 
-from .conftest import create_authenticated_user, auth_header, signup_user
+from .conftest import create_authenticated_user
 
 # Minimal valid trade file (Limitless format)
 _SAMPLE_TRADES_JSON = json.dumps(

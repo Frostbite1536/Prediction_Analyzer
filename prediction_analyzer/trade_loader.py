@@ -5,14 +5,18 @@ Trade loading functionality - supports JSON, CSV, XLSX
 
 import json
 import logging
-import pandas as pd
-from dataclasses import dataclass
-from typing import List, Union, Optional, Dict, Any
-from datetime import datetime, timezone
 import math
 import re
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from decimal import Decimal
+from typing import List, Union, Optional, Dict, Any
+
+import pandas as pd
 
 from .exceptions import TradeLoadError
+from .utils.time_utils import parse_timestamp as _parse_timestamp  # noqa: F401
+from .utils.export import sanitize_filename as _sanitize_filename  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -21,29 +25,20 @@ logger = logging.getLogger(__name__)
 INF_CAP = 999999.99
 
 
-def sanitize_numeric(value) -> float:
-    """
-    Guard against NaN/Infinity in numeric values for JSON serialization.
-
-    Args:
-        value: A numeric value (float or Decimal) that may be NaN or Infinity
-
-    Returns:
-        A safe float value (0.0 for NaN, capped for Infinity)
-    """
+def sanitize_numeric(value: Union[float, Decimal, int]) -> float:
+    """Guard against NaN/Infinity in numeric values for JSON serialization."""
     if isinstance(value, float):
         if math.isnan(value):
             return 0.0
         if math.isinf(value):
             return INF_CAP if value > 0 else -INF_CAP
-    # Handle Decimal NaN/Infinity
     elif hasattr(value, "is_nan"):
         if value.is_nan():
             return 0.0
         if value.is_infinite():
             return INF_CAP if value > 0 else -INF_CAP
         return float(value)
-    return value
+    return float(value)
 
 
 @dataclass
@@ -87,107 +82,6 @@ class Trade:
             "currency": self.currency,
             "fee": sanitize_numeric(self.fee),
         }
-
-
-def _parse_timestamp(value) -> datetime:
-    """
-    Parse timestamp from various formats (Unix epoch, RFC 3339 string, etc.)
-
-    Args:
-        value: Timestamp value (int, float, or string)
-
-    Returns:
-        datetime object (timezone-naive in UTC)
-    """
-    if value is None or (isinstance(value, (int, float)) and value == 0):
-        return datetime(1970, 1, 1)
-
-    # If it's already a datetime, convert to naive UTC
-    if isinstance(value, datetime):
-        if value.tzinfo is not None:
-            return value.astimezone(timezone.utc).replace(tzinfo=None)
-        return value
-
-    # If it's a pandas Timestamp
-    if hasattr(value, "to_pydatetime"):
-        dt = value.to_pydatetime()
-        if dt.tzinfo is not None:
-            return dt.astimezone(timezone.utc).replace(tzinfo=None)
-        return dt
-
-    # Try to parse as string first (RFC 3339, ISO 8601)
-    if isinstance(value, str):
-        try:
-            # Handle RFC 3339/ISO 8601 format (e.g., "2024-01-15T10:30:00Z")
-            # Replace 'Z' with '+00:00' for fromisoformat compatibility
-            clean_value = value.replace("Z", "+00:00")
-            dt = datetime.fromisoformat(clean_value)
-            # Convert to naive UTC
-            if dt.tzinfo is not None:
-                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-            return dt
-        except ValueError:
-            pass
-
-        # Try parsing as numeric string
-        try:
-            numeric_value = float(value)
-            # If it's a large number, assume milliseconds
-            if numeric_value > 1e12:
-                return datetime.fromtimestamp(numeric_value / 1000, tz=timezone.utc).replace(
-                    tzinfo=None
-                )
-            return datetime.fromtimestamp(numeric_value, tz=timezone.utc).replace(tzinfo=None)
-        except ValueError:
-            pass
-
-    # Handle numeric timestamps
-    if isinstance(value, (int, float)):
-        # If it's a very large number, assume milliseconds
-        if value > 1e12:
-            return datetime.fromtimestamp(value / 1000, tz=timezone.utc).replace(tzinfo=None)
-        return datetime.fromtimestamp(value, tz=timezone.utc).replace(tzinfo=None)
-
-    # Fallback: try pandas parsing
-    try:
-        result = pd.to_datetime(value, utc=True)
-        if hasattr(result, "to_pydatetime"):
-            dt = result.to_pydatetime()
-            if dt.tzinfo is not None:
-                return dt.astimezone(timezone.utc).replace(tzinfo=None)
-            return dt
-        return result
-    except Exception:
-        logger.warning("Could not parse timestamp value %r; defaulting to epoch", value)
-        return datetime(1970, 1, 1)
-
-
-def _sanitize_filename(name: str, max_length: int = 50) -> str:
-    """
-    Sanitize a string for use in filenames.
-
-    Args:
-        name: The original name
-        max_length: Maximum length for the sanitized name
-
-    Returns:
-        Sanitized filename-safe string
-    """
-    # Remove or replace characters that are invalid in filenames
-    # Invalid on Windows: < > : " / \ | ? *
-    # Also remove control characters and other problematic chars
-    sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name)
-    # Replace multiple underscores with single
-    sanitized = re.sub(r"_+", "_", sanitized)
-    # Remove leading/trailing underscores and spaces
-    sanitized = sanitized.strip("_ ")
-    # Truncate to max length
-    if len(sanitized) > max_length:
-        sanitized = sanitized[:max_length].rstrip("_")
-    # Ensure we have something
-    if not sanitized:
-        sanitized = "unnamed"
-    return sanitized
 
 
 def load_trades(file_path: str) -> List[Trade]:

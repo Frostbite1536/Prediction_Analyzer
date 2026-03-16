@@ -1,7 +1,6 @@
 # tests/api/test_auth.py
 """Tests for authentication endpoints: signup, login, token validation."""
 
-import pytest
 
 from .conftest import signup_user, auth_header, create_authenticated_user
 
