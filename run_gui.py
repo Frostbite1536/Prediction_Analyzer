@@ -19,10 +19,17 @@ def check_dependencies():
         'tkinter'
     ]
 
-    missing_packages = [
-        pkg for pkg in required_packages
-        if importlib.util.find_spec(pkg) is None
-    ]
+    missing_packages = []
+    for pkg in required_packages:
+        if pkg == 'tkinter':
+            # tkinter is a C extension that may not have a proper module spec
+            # (find_spec returns None) even when it's installed, so use __import__
+            try:
+                __import__('tkinter')
+            except ImportError:
+                missing_packages.append(pkg)
+        elif importlib.util.find_spec(pkg) is None:
+            missing_packages.append(pkg)
 
     if missing_packages:
         print("ERROR: Missing required dependencies!")
