@@ -1,61 +1,51 @@
 # prediction_analyzer/utils/data.py
 """
 Data fetching utilities for Limitless Exchange API.
+
+.. deprecated::
+    This module delegates to :class:`LimitlessProvider` from the providers
+    package.  Import directly from ``prediction_analyzer.providers`` instead.
 """
 
 import logging
-import requests
-from typing import List
-from ..config import API_BASE_URL
-from .auth import get_auth_headers
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
 
 def fetch_trade_history(api_key: str, page_limit: int = 100) -> List[dict]:
-    """Fetch trade history from the Limitless Exchange API."""
-    all_trades = []
-    page = 1
-    headers = get_auth_headers(api_key)
+    """Fetch trade history from the Limitless Exchange API.
 
-    logger.info("Downloading trade history...")
+    Returns raw dicts (not Trade objects) for backward compatibility with
+    callers that expect JSON-serialisable data.
+    """
+    from ..providers import ProviderRegistry
 
-    while True:
-        params = {"page": page, "limit": page_limit}
+    provider = ProviderRegistry.get("limitless")
+    trades = provider.fetch_trades(api_key, page_limit=page_limit)
 
-        try:
-            resp = requests.get(
-                f"{API_BASE_URL}/portfolio/history", params=params, headers=headers, timeout=15
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        except requests.RequestException as exc:
-            logger.error("Error fetching page %d: %s", page, exc)
-            break
-
-        trades = data.get("data", [])
-        if not trades:
-            break
-
-        all_trades.extend(trades)
-        logger.info("Downloaded page %d (%d trades so far)", page, len(all_trades))
-
-        total_count = data.get("totalCount", 0)
-        if len(all_trades) >= total_count:
-            break
-        page += 1
-
-    logger.info("Downloaded %d total trades", len(all_trades))
-    return all_trades
+    # Convert Trade dataclass objects back to dicts for legacy callers
+    return [
+        {
+            "market": {"title": t.market, "slug": t.market_slug},
+            "timestamp": t.timestamp.isoformat(),
+            "price": t.price,
+            "shares": t.shares,
+            "cost": t.cost,
+            "type": t.type,
+            "side": t.side,
+            "pnl": t.pnl,
+            "tx_hash": t.tx_hash,
+            "source": t.source,
+            "currency": t.currency,
+        }
+        for t in trades
+    ]
 
 
-def fetch_market_details(market_slug: str):
+def fetch_market_details(market_slug: str) -> Optional[dict]:
     """Fetch live market details from API (public endpoint, no auth required)."""
-    url = f"{API_BASE_URL}/markets/{market_slug}"
-    try:
-        resp = requests.get(url, timeout=10)
-        if resp.status_code == 200:
-            return resp.json()
-    except requests.RequestException as exc:
-        logger.debug("Failed to fetch market details for %s: %s", market_slug, exc)
-    return None
+    from ..providers import ProviderRegistry
+
+    provider = ProviderRegistry.get("limitless")
+    return provider.fetch_market_details(market_slug)

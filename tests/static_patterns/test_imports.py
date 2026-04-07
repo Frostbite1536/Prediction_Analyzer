@@ -301,10 +301,11 @@ class TestNoCircularImports:
 
     def test_all_modules_import_together(self):
         """All modules should be importable in sequence without circular import errors."""
-        # Clear any cached imports
+        # Clear any cached imports to detect circular dependencies.
+        # Save and restore afterwards so later tests don't see different
+        # class identities (e.g. exception classes used with pytest.raises).
         modules_to_clear = [key for key in sys.modules if key.startswith("prediction_analyzer")]
-        for mod in modules_to_clear:
-            del sys.modules[mod]
+        saved = {key: sys.modules.pop(key) for key in modules_to_clear}
 
         # Import all modules in one test to detect circular imports
         from prediction_analyzer import (  # noqa: F401
@@ -328,6 +329,9 @@ class TestNoCircularImports:
 
         # If we get here, no circular import errors
         assert True
+
+        # Restore original modules so other tests keep the same class identities
+        sys.modules.update(saved)
 
 
 class TestDependencyImports:

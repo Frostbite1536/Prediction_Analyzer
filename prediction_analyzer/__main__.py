@@ -7,9 +7,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from .trade_loader import load_trades, save_trades
+from .trade_loader import load_trades
 from .utils.auth import get_api_key, detect_provider_from_key
-from .utils.data import fetch_trade_history
 from .core.interactive import interactive_menu
 from .reporting.report_text import print_global_summary, generate_text_report
 from .metrics import calculate_advanced_metrics, format_metrics_report
@@ -138,23 +137,16 @@ Examples:
 
         print(f"Fetching trades from {provider_name}...")
 
-        if provider_name == "limitless":
-            # Legacy path for backward compat
-            raw_trades = fetch_trade_history(api_key)
-            save_trades(raw_trades, DEFAULT_TRADE_FILE)
-            trades = load_trades(DEFAULT_TRADE_FILE)
-        else:
-            # Use provider system
-            from .providers import ProviderRegistry
+        from .providers import ProviderRegistry
 
-            provider = ProviderRegistry.get(provider_name)
-            trades = provider.fetch_trades(api_key)
+        provider = ProviderRegistry.get(provider_name)
+        trades = provider.fetch_trades(api_key)
 
-            # Apply PnL computation
-            if provider_name in ("kalshi", "manifold", "polymarket"):
-                from .providers.pnl_calculator import compute_realized_pnl
+        # Apply PnL computation for providers that need it
+        if provider_name in ("kalshi", "manifold", "polymarket"):
+            from .providers.pnl_calculator import compute_realized_pnl
 
-                trades = compute_realized_pnl(trades)
+            trades = compute_realized_pnl(trades)
 
     elif args.file:
         # Load from file
