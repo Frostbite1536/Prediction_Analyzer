@@ -37,7 +37,13 @@ class TestHealthCheck:
     def test_root_endpoint(self, client):
         resp = client.get("/")
         assert resp.status_code == 200
-        data = resp.json()
-        assert "name" in data
-        assert "version" in data
-        assert data["docs"] == "/docs"
+        # Root now serves the SPA (index.html) when the static dir exists,
+        # or falls back to JSON API info when it doesn't.
+        content_type = resp.headers.get("content-type", "")
+        if "text/html" in content_type:
+            assert "Prediction Analyzer" in resp.text
+        else:
+            data = resp.json()
+            assert "name" in data
+            assert "version" in data
+            assert data["docs"] == "/docs"

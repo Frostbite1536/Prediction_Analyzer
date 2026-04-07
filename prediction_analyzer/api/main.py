@@ -7,10 +7,12 @@ import threading
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
@@ -160,19 +162,49 @@ app.include_router(analysis_router, prefix=API_PREFIX)
 app.include_router(charts_router, prefix=API_PREFIX)
 
 
-@app.get("/")
-async def root():
-    """Root endpoint - API information"""
-    return {
-        "name": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "docs": "/docs",
-        "redoc": "/redoc",
-        "api_prefix": API_PREFIX,
-    }
-
-
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+
+# ---------------------------------------------------------------------------
+# Static file serving for the web frontend
+# ---------------------------------------------------------------------------
+_STATIC_DIR = Path(__file__).parent / "static"
+
+if _STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+    @app.get("/")
+    async def serve_index():
+        """Serve the main SPA page."""
+        return FileResponse(str(_STATIC_DIR / "index.html"))
+
+    @app.get("/{path:path}")
+    async def spa_fallback(path: str):
+        """
+        SPA catch-all: serve the requested file if it exists under /static,
+        otherwise serve index.html so client-side routing can handle it.
+        """
+        # Don't intercept API or docs paths
+        if path.startswith(("api/", "docs", "redoc", "openapi.json", "health")):
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+        file_path = _STATIC_DIR / path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+
+        return FileResponse(str(_STATIC_DIR / "index.html"))
+else:
+
+    @app.get("/")
+    async def root():
+        """Root endpoint - API information (no frontend deployed)."""
+        return {
+            "name": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            "docs": "/docs",
+            "redoc": "/redoc",
+            "api_prefix": API_PREFIX,
+        }
