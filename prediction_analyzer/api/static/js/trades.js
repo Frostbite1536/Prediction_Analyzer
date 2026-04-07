@@ -179,13 +179,13 @@ const Trades = (() => {
                             <tr>
                                 <td class="nowrap">${new Date(t.timestamp).toLocaleString()}</td>
                                 <td class="truncate" title="${escapeHtml(t.market)}">${escapeHtml(truncate(t.market, 35))}</td>
-                                <td><span class="badge badge-${t.type.toLowerCase()}">${t.type}</span></td>
-                                <td><span class="badge badge-${t.side.toLowerCase()}">${t.side}</span></td>
+                                <td><span class="badge badge-${escapeHtml(t.type).toLowerCase()}">${escapeHtml(t.type)}</span></td>
+                                <td><span class="badge badge-${escapeHtml(t.side).toLowerCase()}">${escapeHtml(t.side)}</span></td>
                                 <td>${t.price.toFixed(4)}</td>
                                 <td>${t.shares.toFixed(2)}</td>
                                 <td>${formatCurrency(t.cost)}</td>
                                 <td class="${t.pnl >= 0 ? 'positive' : 'negative'}">${formatCurrency(t.pnl)}</td>
-                                <td><span class="badge badge-source">${t.source}</span></td>
+                                <td><span class="badge badge-source">${escapeHtml(t.source)}</span></td>
                                 <td>
                                     <button class="btn-icon delete-trade" data-id="${t.id}" title="Delete trade">&times;</button>
                                 </td>

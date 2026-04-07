@@ -3,6 +3,7 @@
  */
 const Markets = (() => {
     let marketChart = null;
+    let modalChart = null;
 
     async function render(container) {
         container.innerHTML = `
@@ -200,10 +201,11 @@ const Markets = (() => {
                 </div>
             `;
 
-            // Render chart
+            // Render chart (destroy previous to prevent memory leak)
             if (pnlData && pnlData.times.length) {
+                if (modalChart) modalChart.destroy();
                 const ctx = document.getElementById('chart-market-pnl');
-                new Chart(ctx, {
+                modalChart = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: pnlData.times.map(t => new Date(t).toLocaleDateString()),
@@ -235,11 +237,13 @@ const Markets = (() => {
     }
 
     function closeModal() {
+        if (modalChart) { modalChart.destroy(); modalChart = null; }
         document.getElementById('market-modal').classList.add('hidden');
     }
 
     function destroy() {
         if (marketChart) { marketChart.destroy(); marketChart = null; }
+        if (modalChart) { modalChart.destroy(); modalChart = null; }
     }
 
     return { render, destroy };

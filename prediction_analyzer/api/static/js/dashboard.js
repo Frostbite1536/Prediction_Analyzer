@@ -295,8 +295,8 @@ const Dashboard = (() => {
                         <tr>
                             <td>${new Date(t.timestamp).toLocaleDateString()}</td>
                             <td class="truncate">${escapeHtml(truncate(t.market, 40))}</td>
-                            <td><span class="badge badge-${t.type.toLowerCase()}">${t.type}</span></td>
-                            <td><span class="badge badge-${t.side.toLowerCase()}">${t.side}</span></td>
+                            <td><span class="badge badge-${escapeHtml(t.type).toLowerCase()}">${escapeHtml(t.type)}</span></td>
+                            <td><span class="badge badge-${escapeHtml(t.side).toLowerCase()}">${escapeHtml(t.side)}</span></td>
                             <td>${t.price.toFixed(2)}</td>
                             <td>${t.shares.toFixed(2)}</td>
                             <td class="${t.pnl >= 0 ? 'positive' : 'negative'}">${formatCurrency(t.pnl)}</td>
