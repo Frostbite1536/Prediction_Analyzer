@@ -6,6 +6,7 @@ Data loading and market listing tools.
 
 Tools: load_trades, fetch_trades, list_markets, get_trade_details
 """
+import asyncio
 import logging
 import os
 
@@ -209,8 +210,10 @@ async def _handle_fetch_trades(arguments: dict):
     else:
         provider = ProviderRegistry.get(provider_name)
 
-    # Use provider to fetch trades directly (no temp file needed)
-    trades = provider.fetch_trades(api_key, page_limit=page_limit)
+    # Use provider to fetch trades (run in thread to avoid blocking event loop)
+    trades = await asyncio.to_thread(
+        provider.fetch_trades, api_key, page_limit=page_limit
+    )
 
     if not trades:
         raise TradeLoadError(f"No trades returned from {provider.display_name} API")
