@@ -36,7 +36,7 @@ def _run_async(coro):
     except RuntimeError:
         loop = None
 
-    if loop and loop.is_running():
+    if loop:
         # Already inside an async context (e.g. FastAPI) — create a new thread
         import concurrent.futures
 
@@ -132,10 +132,13 @@ class LimitlessProvider(MarketProvider):
                     break
                 page += 1
         except Exception as exc:
-            logger.error("Limitless SDK error on page %d: %s", page, exc)
-            # Return whatever we collected so far rather than losing everything
             if not all_trades:
+                logger.error("Limitless SDK error on page %d: %s", page, exc)
                 raise
+            logger.warning(
+                "Limitless SDK error on page %d: %s — returning %d trades collected so far",
+                page, exc, len(all_trades),
+            )
         finally:
             await client.http.close()
 
@@ -150,11 +153,12 @@ class LimitlessProvider(MarketProvider):
             market_title = market_data.get("title") or "Unknown"
             market_slug = market_data.get("slug") or "unknown"
         else:
-            market_title = raw.get("market") if isinstance(raw.get("market"), str) else "Unknown"
+            market_title = raw.get("market") if isinstance(raw.get("market"), str) else None
             market_slug = raw.get("market_slug") or raw.get("marketSlug") or "unknown"
 
+        # When title is missing (e.g. SDK history entries), use slug as title
         if not market_title:
-            market_title = "Unknown"
+            market_title = market_slug if market_slug != "unknown" else "Unknown"
         if not market_slug:
             market_slug = "unknown"
 
