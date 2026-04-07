@@ -7,10 +7,12 @@ import threading
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
@@ -90,6 +92,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline'; "
+            "connect-src 'self'; "
+            "img-src 'self' data:; "
+            "font-src 'self'; "
+            "object-src 'none'; "
+            "base-uri 'self'"
+        )
         # HSTS — only enable when actually serving over TLS
         if request.url.scheme == "https":
             response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
@@ -121,6 +133,11 @@ app.add_middleware(
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     """Enforce per-IP rate limits (stricter on auth endpoints)."""
+    # Skip rate limiting for static assets — a single SPA page load
+    # fetches many CSS/JS files and would exhaust the general budget.
+    if request.url.path.startswith("/static"):
+        return await call_next(request)
+
     client_ip = request.client.host if request.client else "unknown"
     now = time.monotonic()
 
@@ -160,19 +177,51 @@ app.include_router(analysis_router, prefix=API_PREFIX)
 app.include_router(charts_router, prefix=API_PREFIX)
 
 
-@app.get("/")
-async def root():
-    """Root endpoint - API information"""
-    return {
-        "name": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "docs": "/docs",
-        "redoc": "/redoc",
-        "api_prefix": API_PREFIX,
-    }
-
-
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+
+# ---------------------------------------------------------------------------
+# Static file serving for the web frontend
+# ---------------------------------------------------------------------------
+_STATIC_DIR = Path(__file__).parent / "static"
+
+if _STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+    @app.get("/")
+    async def serve_index():
+        """Serve the main SPA page."""
+        return FileResponse(str(_STATIC_DIR / "index.html"))
+
+    @app.get("/{path:path}")
+    async def spa_fallback(path: str):
+        """
+        SPA catch-all: serve the requested file if it exists under /static,
+        otherwise serve index.html so client-side routing can handle it.
+        """
+        # Don't intercept API or docs paths
+        if path.startswith(("api/", "docs", "redoc", "openapi.json", "health")):
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+        # Prevent path traversal: resolve and verify containment
+        file_path = (_STATIC_DIR / path).resolve()
+        static_root = _STATIC_DIR.resolve()
+        if str(file_path).startswith(str(static_root)) and file_path.is_file():
+            return FileResponse(str(file_path))
+
+        return FileResponse(str(_STATIC_DIR / "index.html"))
+else:
+
+    @app.get("/")
+    async def root():
+        """Root endpoint - API information (no frontend deployed)."""
+        return {
+            "name": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            "docs": "/docs",
+            "redoc": "/redoc",
+            "api_prefix": API_PREFIX,
+        }

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Analyzer</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="screen">
+        <div class="auth-container">
+            <div class="auth-brand">
+                <h1>Prediction Analyzer</h1>
+                <p>Track, analyze, and optimize your prediction market trades</p>
+            </div>
+            <div class="auth-card">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-tab="login">Log In</button>
+                    <button class="auth-tab" data-tab="signup">Sign Up</button>
+                </div>
+                <form id="login-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="login-email">Email</label>
+                        <input type="email" id="login-email" required placeholder="you@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required placeholder="Your password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Log In</button>
+                    <div id="login-error" class="form-error"></div>
+                </form>
+                <form id="signup-form" class="auth-form hidden">
+                    <div class="form-group">
+                        <label for="signup-username">Username</label>
+                        <input type="text" id="signup-username" required minlength="3" maxlength="50" placeholder="Choose a username">
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-email">Email</label>
+                        <input type="email" id="signup-email" required placeholder="you@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-password">Password</label>
+                        <input type="password" id="signup-password" required minlength="8" placeholder="Min 8 characters">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+                    <div id="signup-error" class="form-error"></div>
+                </form>
+            </div>
+            <div class="auth-features">
+                <div class="feature">
+                    <span class="feature-icon">&#9776;</span>
+                    <div>
+                        <strong>Multi-Platform</strong>
+                        <p>Polymarket, Kalshi, Limitless, Manifold</p>
+                    </div>
+                </div>
+                <div class="feature">
+                    <span class="feature-icon">&#9733;</span>
+                    <div>
+                        <strong>Deep Analytics</strong>
+                        <p>PnL, Sharpe, drawdown, win streaks</p>
+                    </div>
+                </div>
+                <div class="feature">
+                    <span class="feature-icon">&#8593;</span>
+                    <div>
+                        <strong>Import & Export</strong>
+                        <p>Upload JSON, CSV, XLSX files</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app-screen" class="screen hidden">
+        <!-- Sidebar -->
+        <nav id="sidebar">
+            <div class="sidebar-brand">
+                <h2>Prediction<br>Analyzer</h2>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#dashboard" class="nav-link active" data-page="dashboard">Dashboard</a></li>
+                <li><a href="#trades" class="nav-link" data-page="trades">Trades</a></li>
+                <li><a href="#markets" class="nav-link" data-page="markets">Markets</a></li>
+                <li><a href="#upload" class="nav-link" data-page="upload">Upload</a></li>
+                <li><a href="#settings" class="nav-link" data-page="settings">Settings</a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <div id="sidebar-user" class="sidebar-user"></div>
+                <button id="logout-btn" class="btn btn-outline btn-small">Log Out</button>
+            </div>
+        </nav>
+
+        <!-- Mobile Header -->
+        <header id="mobile-header">
+            <button id="menu-toggle" class="menu-toggle">&#9776;</button>
+            <h2>Prediction Analyzer</h2>
+            <div id="mobile-user"></div>
+        </header>
+
+        <!-- Main Content -->
+        <main id="main-content">
+            <div id="page-dashboard" class="page"></div>
+            <div id="page-trades" class="page hidden"></div>
+            <div id="page-markets" class="page hidden"></div>
+            <div id="page-upload" class="page hidden"></div>
+            <div id="page-settings" class="page hidden"></div>
+        </main>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container"></div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/trades.js"></script>
+    <script src="/static/js/markets.js"></script>
+    <script src="/static/js/upload.js"></script>
+    <script src="/static/js/settings.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
