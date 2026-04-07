@@ -29,6 +29,7 @@ dependencies = [
     "openpyxl>=3.1.0",
     "requests>=2.28.0",
     "cryptography>=41.0.0",
+    "limitless-sdk>=1.0.4",
 ]
 
 [project.optional-dependencies]
