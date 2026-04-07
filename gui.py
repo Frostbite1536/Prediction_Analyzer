@@ -35,7 +35,6 @@ from prediction_analyzer.charts.enhanced import generate_enhanced_chart
 from prediction_analyzer.charts.global_chart import generate_global_dashboard
 from prediction_analyzer.reporting.report_data import export_to_csv, export_to_excel, export_to_json
 from prediction_analyzer.utils.auth import get_api_key
-from prediction_analyzer.utils.data import fetch_trade_history
 from prediction_analyzer.metrics import calculate_advanced_metrics
 from prediction_analyzer.positions import calculate_open_positions, calculate_concentration_risk
 from prediction_analyzer.drawdown import analyze_drawdowns
@@ -737,22 +736,17 @@ class PredictionAnalyzerGUI:
         def _fetch_worker():
             """Background thread for API fetch"""
             try:
-                if provider_name == "limitless":
-                    # Legacy path
-                    raw_trades = fetch_trade_history(api_key)
-                    self.root.after(0, lambda: self._on_api_fetch_complete(raw_trades))
-                else:
-                    # Provider system
-                    from prediction_analyzer.providers import ProviderRegistry
+                from prediction_analyzer.providers import ProviderRegistry
+
+                provider = ProviderRegistry.get(provider_name)
+                trades = provider.fetch_trades(api_key)
+                if provider_name in ("kalshi", "manifold", "polymarket"):
                     from prediction_analyzer.providers.pnl_calculator import compute_realized_pnl
 
-                    provider = ProviderRegistry.get(provider_name)
-                    trades = provider.fetch_trades(api_key)
-                    if provider_name in ("kalshi", "manifold", "polymarket"):
-                        trades = compute_realized_pnl(trades)
-                    self.root.after(
-                        0, lambda: self._on_provider_fetch_complete(trades, provider_name)
-                    )
+                    trades = compute_realized_pnl(trades)
+                self.root.after(
+                    0, lambda: self._on_provider_fetch_complete(trades, provider_name)
+                )
             except Exception as exc:
                 try:
                     self.root.after(0, lambda err=str(exc): self._on_api_fetch_error(err))

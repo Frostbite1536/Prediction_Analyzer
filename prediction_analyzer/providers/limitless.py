@@ -1,11 +1,14 @@
 # prediction_analyzer/providers/limitless.py
 """
-Limitless Exchange provider — uses the official limitless-sdk.
+Limitless Exchange provider — uses the official limitless-sdk when available,
+falls back to direct HTTP requests otherwise.
 """
 
 import asyncio
 import logging
 from typing import List, Optional, Dict, Any
+
+import requests
 
 from .base import MarketProvider
 from ..trade_loader import Trade
@@ -13,8 +16,17 @@ from ..utils.time_utils import parse_timestamp as _parse_timestamp
 
 logger = logging.getLogger(__name__)
 
+BASE_URL = "https://api.limitless.exchange"
+
 # USDC uses 6 decimal places; on-chain amounts are in micro-units.
 USDC_DECIMALS = 1_000_000
+
+try:
+    from limitless_sdk import Client as _SDKClient  # noqa: F401
+
+    _HAS_SDK = True
+except ImportError:
+    _HAS_SDK = False
 
 
 def _run_async(coro):
@@ -41,8 +53,54 @@ class LimitlessProvider(MarketProvider):
     currency = "USDC"
 
     def fetch_trades(self, api_key: str, page_limit: int = 100) -> List[Trade]:
-        """Fetch trade history from Limitless Exchange using the official SDK."""
-        return _run_async(self._fetch_trades_async(api_key, page_limit))
+        """Fetch trade history from Limitless Exchange.
+
+        Uses the official limitless-sdk when installed, otherwise falls
+        back to direct HTTP requests.
+        """
+        if _HAS_SDK:
+            return _run_async(self._fetch_trades_async(api_key, page_limit))
+        return self._fetch_trades_requests(api_key, page_limit)
+
+    def _fetch_trades_requests(self, api_key: str, page_limit: int = 100) -> List[Trade]:
+        """Fallback: fetch trades via direct HTTP requests."""
+        all_trades: List[Trade] = []
+        page = 1
+        headers = {"X-API-Key": api_key}
+
+        logger.info("Downloading Limitless trade history (requests fallback)...")
+
+        while True:
+            params = {"page": page, "limit": page_limit}
+            try:
+                resp = requests.get(
+                    f"{BASE_URL}/portfolio/history",
+                    params=params,
+                    headers=headers,
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            except requests.RequestException as exc:
+                logger.error("Limitless API error page %d: %s", page, exc)
+                break
+
+            raw_trades = data.get("data", [])
+            if not raw_trades:
+                break
+
+            for raw in raw_trades:
+                all_trades.append(self.normalize_trade(raw))
+
+            logger.info("Downloaded page %d (%d trades so far)", page, len(all_trades))
+
+            total_count = data.get("totalCount", 0)
+            if len(all_trades) >= total_count:
+                break
+            page += 1
+
+        logger.info("Downloaded %d total Limitless trades", len(all_trades))
+        return all_trades
 
     async def _fetch_trades_async(self, api_key: str, page_limit: int = 100) -> List[Trade]:
         """Async implementation of trade fetching via limitless-sdk."""
@@ -190,12 +248,21 @@ class LimitlessProvider(MarketProvider):
         )
 
     def fetch_market_details(self, market_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch market details by slug using the SDK."""
+        """Fetch market details by slug (public, no auth)."""
         try:
-            return _run_async(self._fetch_market_async(market_id))
+            if _HAS_SDK:
+                return _run_async(self._fetch_market_async(market_id))
+            return self._fetch_market_requests(market_id)
         except Exception as exc:
             logger.warning("Failed to fetch Limitless market %s: %s", market_id, exc)
             return None
+
+    def _fetch_market_requests(self, slug: str) -> Optional[Dict[str, Any]]:
+        """Fallback: fetch market details via direct HTTP."""
+        resp = requests.get(f"{BASE_URL}/markets/{slug}", timeout=10)
+        if resp.status_code == 200:
+            return resp.json()
+        return None
 
     async def _fetch_market_async(self, slug: str) -> Dict[str, Any]:
         """Async market fetch via SDK."""
