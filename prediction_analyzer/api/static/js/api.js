@@ -3,6 +3,7 @@
  */
 const API = (() => {
     const BASE = '/api/v1';
+    let _handlingExpiry = false; // guard against concurrent 401 handlers
 
     function getToken() {
         return localStorage.getItem('pa_token');
@@ -46,18 +47,26 @@ const API = (() => {
 
         if (resp.status === 401) {
             clearToken();
-            window.location.hash = '';
-            window.dispatchEvent(new Event('auth-expired'));
+            if (!_handlingExpiry) {
+                _handlingExpiry = true;
+                window.location.hash = '';
+                window.dispatchEvent(new Event('auth-expired'));
+                setTimeout(() => { _handlingExpiry = false; }, 1000);
+            }
             throw new Error('Session expired. Please log in again.');
         }
 
-        const data = await resp.json();
-
+        // Parse response - handle non-JSON error bodies (e.g. 500 plain text)
         if (!resp.ok) {
-            throw new Error(data.detail || `Request failed (${resp.status})`);
+            let detail = `Request failed (${resp.status})`;
+            try {
+                const data = await resp.json();
+                detail = data.detail || detail;
+            } catch (_) { /* response wasn't JSON */ }
+            throw new Error(detail);
         }
 
-        return data;
+        return await resp.json();
     }
 
     // Auth
@@ -72,9 +81,16 @@ const API = (() => {
             body: formData,
         });
 
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.detail || 'Login failed');
+        if (!resp.ok) {
+            let detail = 'Login failed';
+            try {
+                const err = await resp.json();
+                detail = err.detail || detail;
+            } catch (_) { /* response wasn't JSON */ }
+            throw new Error(detail);
+        }
 
+        const data = await resp.json();
         setToken(data.access_token);
         return data;
     }
